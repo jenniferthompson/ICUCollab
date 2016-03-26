@@ -1,0 +1,310 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.5in]{geometry}
+\usepackage{hyperref}
+
+\title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
+\author{Jennifer Thompson, MPH}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+The following tables and figures present descriptions of compliance with the ABCDEF bundle at ICU
+Collaborative sites before and after implementation.
+
+<<setup, message=FALSE, echo=FALSE>>=
+opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
+options(replace.assign = TRUE, width = 90)
+
+## Load libraries
+library(dplyr)
+library(tidyr)
+library(devtools)
+
+## Wrapper function for latex-ing summaryM objects
+my.print.summaryM <- function(...){
+  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
+                 npct = 'both', what = '%', ...)
+}
+
+## Function to round number to and print same number of digits
+rndformat <- function(x, ndigits = 2){
+  format(round(x, digits = ndigits), nsmall = ndigits)
+}
+
+## Function to format p-values
+formatp <- function(p){
+  ifelse(p < 0.0001, '<0.0001',
+  ifelse(p < 0.001, '<0.001',
+         rndformat(p, 3)))
+}
+
+@
+
+<<datamgmt>>=
+## -- Read in data, create factors/labels using REDCap scripts -------------------------------------
+demog <- read.csv('RawData/demog.csv', stringsAsFactors = FALSE)
+source('demog_redcap.R')
+names(demog) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(demog)))
+
+compliance <- read.csv('RawData/compliance.csv', stringsAsFactors = FALSE)
+source('compliance_redcap.R')
+names(compliance) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(compliance)))
+
+## -- Remove any test patients ---------------------------------------------------------------------
+## Get list of IDs which don't meet required format to send Vishakha
+reformat.ids <-
+  demog$id[grep('^[A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9]$', toupper(demog$id), invert = TRUE)]
+
+## Remove any patient with "test" in the ID
+demog <- demog[grep('test', tolower(demog$id), invert = TRUE),]
+compliance <- compliance[grep('test', tolower(compliance$id), invert = TRUE),]
+
+## -- Preliminary variables ------------------------------------------------------------------------
+## Total number of pain assessments, any type
+compliance$pain.verbal.valid <-
+  ifelse(rowSums(!is.na(compliance[,paste0('pain.', c('verbal', 'valid'))])) == 0, NA,
+         rowSums(compliance[,paste0('pain.', c('verbal', 'valid'))], na.rm = TRUE))
+
+## Create variable for whether patient received continuous and/or intermittent sedation
+compliance$on.sedation <- rowSums(compliance[,paste0('sedative.', 1:2)]) > 0
+
+## Indicator for whether no sedation information marked
+compliance$no.sedation.checked <- rowSums(compliance[,paste0('sedative.', 0:3)]) == 0
+
+## Indicator for whether none + some other sedation amount marked
+compliance$none.some.sedation <-
+  compliance$sedative.0 & rowSums(compliance[,paste0('sedative.', 0:3)]) > 1
+
+## Total number of sedation assessments, any type
+compliance$sed.assess.either <-
+  ifelse(rowSums(!is.na(compliance[,paste0('sed.assess.', c('valid', 'other'))])) == 0, NA,
+         rowSums(compliance[,paste0('sed.assess.', c('valid', 'other'))], na.rm = TRUE))
+
+## Total number of delirium assessments, any type
+compliance$delirium.assess.either <-
+  ifelse(rowSums(!is.na(compliance[,paste0('delirium.assess.', c('valid', 'other'))])) == 0, NA,
+         rowSums(compliance[,paste0('delirium.assess.', c('valid', 'other'))], na.rm = TRUE))
+
+## Indicator for whether no family participation information marked
+compliance$no.family.checked <- rowSums(compliance[,paste0('familyinvite.', 1:5)]) == 0
+
+## Do answers to family question make sense?
+compliance$family.disagree <- with(compliance, {
+  (familyinvite.5 == 1 & rowSums(compliance[,paste0('familyinvite.', 1:5)]) > 1) |
+  (familyinvite.1 == 1 & (familyinvite.2 == 1 | familyinvite.3 == 1 | familyinvite.4 == 1)) |
+  (familyinvite.4 == 1 & (familyinvite.2 == 1 | familyinvite.3 == 1)) })
+
+# ## -- Data checks ----------------------------------------------------------------------------------
+# ## A Section ##
+# ## Just looking for missing data on ICU days
+# sink('a_missingdata.txt')
+# cat('ICU Days Missing Number of Behavioral (PAD) Pain Assessments:\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(pain.valid), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Self-Reported Pain Assessments:\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(pain.verbal), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Other Pain Assessments:\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(pain.other), select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## B Section ##
+# sink('b_dataissues.txt')
+# cat('ICU Days with No Sedation Information Indicated\n\n')
+# subset(compliance, icu.24.f == 'Yes' & no.sedation.checked, select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days with Both No Sedation AND Some Sedation Indicated\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & none.some.sedation,
+#        select = c(id, redcap.event.name.f, sedative.1:sedative.0))
+#
+# cat('\n\nICU Days Missing Whether Patient Received Mechanical Ventilation\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(venttoday.f), select = c(id, redcap.event.name.f))
+#
+# ## Missing SAT performance on sedation days
+# cat('\n\nReceived Sedation, but No Answer for Whether SAT Performed\n\n')
+# subset(compliance, on.sedation & is.na(satperformed.f), select = c(id, redcap.event.name.f))
+#
+# ## Missing SBT performance on MV days
+# cat('\n\nICU Day and Received MV, but No Answer for Whether SBT Performed\n\n')
+# subset(compliance, icu.24.f == 'Yes' & venttoday.f == 'Yes' & is.na(sbtperformed.f),
+#        select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## C Section ##
+# sink('c_missingdata.txt')
+#
+# cat('ICU Days Missing Whether Documented Sedation Target\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(sed.target.f), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of PAD-Recommended Sedation Assessments\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(sed.assess.valid), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Other Sedation Assessments\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(sed.assess.other), select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## D Section ##
+# sink('d_missingdata.txt')
+#
+# cat('ICU Days Missing Number of PAD-Recommended Delirium Assessments\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & is.na(delirium.assess.valid),
+#        select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Other Delirium Assessments\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & is.na(delirium.assess.other),
+#        select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## E Section ##
+# sink('e_missingdata.txt')
+# cat('ICU Days Missing Exercise/Early Mobility Performance\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & is.na(mobilityperformed.f),
+#        select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## F Section ##
+# sink('f_dataissues.txt')
+# cat('ICU Days with No Family Invitation Indicated\n\n')
+# subset(compliance, icu.24.f == 'Yes' & no.family.checked, select = c(id, redcap.event.name.f))
+#
+# cat('ICU Days with Contradictory Family Invitation Information\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & family.disagree,
+#        select = c(id, redcap.event.name.f, familyinvite.1:familyinvite.5))
+# sink()
+
+## -- Create indicators for compliance on each component -------------------------------------------
+## -- Only present for ICU days, except for SAT/SBT components -------------------------------------
+
+## Level labels for all compliance variables
+compliance.levels <- c('Compliant', 'Noncompliant', 'Missing data')
+
+compliance <- compliance %>%
+  mutate(## A: Assess, prevent, and manage pain
+         ##  Include all ICU days; compliance: >=6 self-reported or behavioral assessments
+         a.comp.verbal = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                ifelse(is.na(pain.verbal), 2,
+                                ifelse(pain.verbal >= 6, 0, 1))),
+                                levels = 0:2, labels = compliance.levels),
+         a.comp.valid = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(pain.valid), 2,
+                               ifelse(pain.valid >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         a.comp.other = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(pain.other), 2,
+                               ifelse(pain.other >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         a.comp.pain = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                              ifelse(is.na(a.comp.verbal) & is.na(a.comp.valid), 2,
+                              ifelse(pain.verbal.valid >= 6, 0, 1))),
+                              levels = 0:2, labels = compliance.levels),
+         ## B: Both SAT and SBT
+         ##  SAT: Include days on continuous or intermittent sedation;
+         ##       compliance = SAT performed or safety screen failure
+         ## SBT: Include days on MV; compliance = SBT performed or safety screen failure
+         b.comp.sat = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No' | !on.sedation, NA,
+                             ifelse(is.na(satperformed.f), 2,
+                             ifelse(satperformed.f == 'No. Other reason/ Not documented', 1, 0))),
+                             levels = 0:2, labels = compliance.levels),
+         b.comp.sbt = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No' |
+                                      is.na(venttoday.f) | venttoday.f == 'No', NA,
+                             ifelse(is.na(sbtperformed.f), 2,
+                             ifelse(sbtperformed.f == 'No. Other reason/ Not documented', 1, 0))),
+                             levels = 0:2, labels = compliance.levels),
+         ## C: Choice of sedation
+         c.comp.target = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                ifelse(is.na(sed.target.f), 2,
+                                ifelse(sed.target.f == 'Yes', 0, 1))),
+                                levels = 0:2, labels = compliance.levels),
+         c.comp.valid = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(sed.assess.valid), 2,
+                               ifelse(sed.assess.valid >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         c.comp.other = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(sed.assess.other), 2,
+                               ifelse(sed.assess.other >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         c.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(sed.assess.either), 2,
+                                 ifelse(sed.assess.either >= 6, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## D: Delirium: Assess, Prevent and Manage
+         d.comp.valid = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(delirium.assess.valid), 2,
+                               ifelse(delirium.assess.valid >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         d.comp.other = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(delirium.assess.other), 2,
+                               ifelse(delirium.assess.other >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         d.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(delirium.assess.either), 2,
+                                 ifelse(delirium.assess.either >= 6, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## E: Early mobility and exercise
+         e.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(mobilityperformed.f), 2,
+                                 ifelse(mobilityperformed.f == 'Not performed /not documented',
+                                        1, 0))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## F: Famly engagement and empowerment
+         f.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(no.family.checked, 2,
+                                 ifelse(familyinvite.2 == 1 | familyinvite.3 == 1, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels))
+
+label(compliance$a.comp.verbal) <- 'A: >=6 documented self-reported pain assessments'
+label(compliance$a.comp.valid) <- 'A: >=6 documented behavioral pain assessments'
+label(compliance$a.comp.other) <- 'A: >=6 documented other pain assessments'
+label(compliance$a.comp.pain) <- 'A, overall: >=6 pain assessments, behavioral + self-report'
+label(compliance$b.comp.sat) <- 'B: SAT: patient on sedation and had SAT or attempt'
+label(compliance$b.comp.sbt) <- 'B: SBT: patient on MV and had SBT or attempt'
+label(compliance$c.comp.target) <- 'C: documented sedation target'
+label(compliance$c.comp.valid) <- 'C: >=6 PAD-recommended arousal assessments'
+label(compliance$c.comp.other) <- 'C: >=6 other arousal assessments'
+label(compliance$c.comp.overall) <- 'C, overall: >=6 total arousal assessments'
+label(compliance$d.comp.valid) <- 'D: >=6 PAD-recommended delirium assessments'
+label(compliance$d.comp.other) <- 'D: >=6 other delirium assessments'
+label(compliance$d.comp.overall) <- 'D, overall: >=6 total delirium assessments'
+label(compliance$e.comp.overall) <- 'E, overall: mobility performed or attempt'
+label(compliance$f.comp.overall) <- 'F, overall: family participated in rounds and/or conference'
+@
+
+\clearpage
+\section{Code Used for Analysis}
+<<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
+@
+
+\clearpage
+\section{Technical Details}
+All analyses were produced using \Sexpr{session_info()$platform$version}, along with the following
+attached add-on packages.
+
+<<printpkgs, results='asis'>>=
+latex(session_info()$packages[session_info()$packages[,2] == '*', -2], file = '',
+      where = '!h',
+      rowname = NULL,
+      caption = 'List of R Packages Loaded for This Analysis',
+      col.just = c('l', 'r', 'r', 'l'),
+      colheads = capitalize(names(session_info()$packages)[c(1, 3:ncol(session_info()$packages))]))
+
+@
+
+\end{document}
