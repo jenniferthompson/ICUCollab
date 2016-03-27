@@ -5,7 +5,7 @@
 
 \usepackage{setspace, relsize}
 \usepackage{longtable}
-\usepackage[margin = 0.5in]{geometry}
+\usepackage[margin = 0.45in]{geometry}
 \usepackage{hyperref}
 
 \title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
@@ -24,6 +24,7 @@ opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=F
 options(replace.assign = TRUE, width = 90)
 
 ## Load libraries
+library(Hmisc)
 library(dplyr)
 library(tidyr)
 library(devtools)
@@ -67,6 +68,83 @@ reformat.ids <-
 demog <- demog[grep('test', tolower(demog$id), invert = TRUE),]
 compliance <- compliance[grep('test', tolower(compliance$id), invert = TRUE),]
 
+## -- Data management for demographic form ---------------------------------------------------------
+## Create indicator for retrospective (mos 1-6) vs. prospective (mos 7-) data collection
+demog$data.time <- with(demog, {
+  factor(ifelse(month <= 6, 1, 2), levels = 1:2, labels = c('Baseline', 'Prospective')) })
+
+## Create single race variable
+demog$race.f <- with(demog, {
+  factor(ifelse(rowSums(demog[,grep('^race\\.[1-6]$', names(demog))]) == 0, 8,
+         ifelse(rowSums(demog[,grep('^race\\.[1-6]$', names(demog))]) > 1, 7,
+         ifelse(race.1 == 1, 1,
+         ifelse(race.2 == 1, 2,
+         ifelse(race.3 == 1, 3,
+         ifelse(race.4 == 1, 4,
+         ifelse(race.5 == 1, 5, NA))))))),
+         levels = 1:8,
+         labels = c('American Indian/AK Native',
+                    'Black/African American',
+                    'White',
+                    'Asian',
+                    'Native HI/Pacific Islander',
+                    'Other/nonspecified',
+                    'Multiple races indicated',
+                    'Missing data')) })
+
+## Shorten levels as needed
+levels(demog$dc.status.f) <- c('Died in ICU, collaborative stay',
+                               'Died in ICU, not collaborative stay',
+                               'Died during hospitalization, not ICU',
+                               'Discharged alive')
+
+## Total time on invasive, noninvasive MV
+demog$days.invas.vent <- with(demog, {
+  ifelse(is.na(invas.vent.episode) | invas.vent.episode == 0, NA,
+         rowSums(demog[,paste0('invas.vent.length.', 1:6)], na.rm = TRUE)) })
+
+demog$days.noninvas.vent <- with(demog, {
+  ifelse(is.na(noninvas.vent.episode) | noninvas.vent.episode == 0, NA,
+         rowSums(demog[,paste0('invas.vent.length.', 1:6)], na.rm = TRUE)) })
+
+label(demog$data.time) <- 'Time of data collection'
+label(demog$data.plan.f) <- 'Data plan'
+label(demog$month.f) <- 'Month in Collaborative ICU'
+label(demog$age.f) <- 'Age range'
+label(demog$sex.f) <- 'Sex'
+label(demog$race.f) <- 'Race'
+label(demog$hispanic.f) <- 'Hispanic'
+label(demog$english.f) <- 'English-speaking'
+label(demog$invas.vent.episode) <- 'Episodes of invasive MV'
+label(demog$days.invas.vent) <- 'Total days on invasive MV'
+label(demog$noninvas.vent.episode) <- 'Episodes of noninvasive MV'
+label(demog$days.noninvas.vent) <- 'Total days on noninvasive MV'
+label(demog$icu.los) <- 'ICU length of stay'
+label(demog$hosp.losv) <- 'Hospital length of stay'
+label(demog$dc.status.f) <- 'Discharge/mortality status'
+
+# ## -- Data checks ----------------------------------------------------------------------------------
+# sink('demog_dataissues.txt')
+#
+# cat('Patients missing time of data collection\n\n')
+# subset(demog, is.na(month))$id
+#
+# cat('\n\nPatients with >=1 episode of invasive MV, but total length of MV = 0\n\n')
+# subset(demog,
+#        invas.vent.episode > 0 & days.invas.vent == 0)[,c('id',
+#                                                          'invas.vent.episode',
+#                                                          paste0('invas.vent.length.', 1:6))]
+#
+# cat('\n\nPatients with >=1 episode of noninvasive MV, but total length of noninvasive MV = 0\n\n')
+# subset(demog,
+#        noninvas.vent.episode > 0 & days.noninvas.vent == 0)[,c('id',
+#                                                                'noninvas.vent.episode',
+#                                                                paste0('noninvas.vent.length.',
+#                                                                       1:6))]
+#
+# sink()
+
+## -- Data management for compliance form ----------------------------------------------------------
 ## -- Preliminary variables ------------------------------------------------------------------------
 ## Total number of pain assessments, any type
 compliance$pain.verbal.valid <-
@@ -211,10 +289,10 @@ compliance <- compliance %>%
                                ifelse(is.na(pain.other), 2,
                                ifelse(pain.other >= 6, 0, 1))),
                                levels = 0:2, labels = compliance.levels),
-         a.comp.pain = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
-                              ifelse(is.na(a.comp.verbal) & is.na(a.comp.valid), 2,
-                              ifelse(pain.verbal.valid >= 6, 0, 1))),
-                              levels = 0:2, labels = compliance.levels),
+         a.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(pain.verbal.valid), 2,
+                                 ifelse(pain.verbal.valid >= 6, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels),
          ## B: Both SAT and SBT
          ##  SAT: Include days on continuous or intermittent sedation;
          ##       compliance = SAT performed or safety screen failure
@@ -268,23 +346,127 @@ compliance <- compliance %>%
          f.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
                                  ifelse(no.family.checked, 2,
                                  ifelse(familyinvite.2 == 1 | familyinvite.3 == 1, 0, 1))),
-                                 levels = 0:2, labels = compliance.levels))
+                                 levels = 0:2, labels = compliance.levels)) %>%
+  ## Merge on time of data collection
+  left_join(dplyr::select(demog, id, data.time), by = 'id')
+
+levels(compliance$meds.1.f) <- levels(compliance$meds.2.f) <- levels(compliance$meds.3.f) <-
+  levels(compliance$meds.4.f) <- levels(compliance$meds.5.f) <- levels(compliance$meds.6.f) <-
+  levels(compliance$meds.7.f) <- c('No', 'Yes')
 
 label(compliance$a.comp.verbal) <- 'A: >=6 documented self-reported pain assessments'
 label(compliance$a.comp.valid) <- 'A: >=6 documented behavioral pain assessments'
 label(compliance$a.comp.other) <- 'A: >=6 documented other pain assessments'
-label(compliance$a.comp.pain) <- 'A, overall: >=6 pain assessments, behavioral + self-report'
+label(compliance$a.comp.overall) <- 'A, overall: >=6 pain assessments, behavioral + self-report'
 label(compliance$b.comp.sat) <- 'B: SAT: patient on sedation and had SAT or attempt'
 label(compliance$b.comp.sbt) <- 'B: SBT: patient on MV and had SBT or attempt'
 label(compliance$c.comp.target) <- 'C: documented sedation target'
 label(compliance$c.comp.valid) <- 'C: >=6 PAD-recommended arousal assessments'
 label(compliance$c.comp.other) <- 'C: >=6 other arousal assessments'
 label(compliance$c.comp.overall) <- 'C, overall: >=6 total arousal assessments'
+label(compliance$meds.1.f) <- 'Received opioid'
+label(compliance$meds.2.f) <- 'Received benzodiazepine'
+label(compliance$meds.3.f) <- 'Received propofol'
+label(compliance$meds.4.f) <- 'Received dexmedetomidine'
+label(compliance$meds.5.f) <- 'Received ketamine'
+label(compliance$meds.6.f) <- 'Received typical antipsychotic'
+label(compliance$meds.7.f) <- 'Received atypical antipsychotic'
 label(compliance$d.comp.valid) <- 'D: >=6 PAD-recommended delirium assessments'
 label(compliance$d.comp.other) <- 'D: >=6 other delirium assessments'
 label(compliance$d.comp.overall) <- 'D, overall: >=6 total delirium assessments'
 label(compliance$e.comp.overall) <- 'E, overall: mobility performed or attempt'
 label(compliance$f.comp.overall) <- 'F, overall: family participated in rounds and/or conference'
+
+
+## -- Summary variables for daily data -------------------------------------------------------------
+## Function for calculating mean of a given variable, setting to NA if no non-missing values
+calc.mean.na <- function(var){ ifelse(sum(!is.na(var)) == 0, NA, sum(var, na.rm = TRUE)) }
+
+comp.summary.icu <- compliance %>%
+  filter(icu.24.f == 'Yes') %>%
+  group_by(id) %>%
+  summarise(mean.pain.verbal = calc.mean.na(pain.verbal),
+            mean.pain.valid = calc.mean.na(pain.valid),
+            mean.pain.other = calc.mean.na(pain.other),
+            mean.pain.verbal.valid = calc.mean.na(pain.verbal.valid),
+            mean.sed.assess.valid = calc.mean.na(sed.assess.valid),
+            mean.sed.assess.other = calc.mean.na(sed.assess.other),
+            mean.sed.assess.either = calc.mean.na(sed.assess.either),
+            mean.del.assess.valid = calc.mean.na(delirium.assess.valid),
+            mean.del.assess.other = calc.mean.na(delirium.assess.other),
+            mean.del.assess.either = calc.mean.na(delirium.assess.either)) %>%
+  ungroup()
+
+demog <- demog %>%
+  left_join(comp.summary.icu, by = 'id')
+
+label(demog$mean.pain.verbal) <- 'Mean self-report pain asmts'
+label(demog$mean.pain.valid) <- 'Mean behavioral pain asmts'
+label(demog$mean.pain.other) <- 'Mean other pain asmts'
+label(demog$mean.pain.verbal.valid) <- 'Mean behavioral + self-report'
+label(demog$mean.sed.assess.valid) <- 'Mean PAD-rec. arousal asmts'
+label(demog$mean.sed.assess.other) <- 'Mean other arousal asmts'
+label(demog$mean.sed.assess.either) <- 'Mean total arousal asmts'
+label(demog$mean.del.assess.valid) <- 'Mean PAD-rec. delirium asmts'
+label(demog$mean.del.assess.other) <- 'Mean other delirium asmts'
+label(demog$mean.del.assess.either) <- 'Mean total delirium asmts'
+
+@
+
+\section{Description of Entire Cohort}
+<<desccohort>>=
+desc.all <- summaryM(data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
+                       invas.vent.episode + days.invas.vent + noninvas.vent.episode +
+                       days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time,
+                     data = demog, overall = TRUE, continuous = 15)
+
+desc.comp.all <- summaryM(mean.pain.verbal + mean.pain.valid + mean.pain.other +
+                            mean.pain.verbal.valid + mean.sed.assess.valid +
+                            mean.sed.assess.other + mean.sed.assess.either +
+                            mean.del.assess.valid + mean.del.assess.other +
+                            mean.del.assess.either ~ data.time,
+                          data = demog, overall = TRUE)
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all, caption = 'Description of Entire Cohort',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.all,
+                  caption = 'Summary of Compliance-Related Variables, Entire Cohort, ICU Days Only',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 3))
+@
+
+\clearpage
+\section{Compliance by Time, Entire Cohort}
+<<complianceall>>=
+comp.all.ac <- summaryM(a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall +
+                          b.comp.sat + b.comp.sbt + c.comp.target + c.comp.valid +
+                          c.comp.other + c.comp.overall + meds.1.f + meds.2.f + meds.3.f +
+                          meds.4.f + meds.5.f + meds.6.f + meds.7.f ~ data.time,
+                        data = subset(compliance, icu.24.f == 'Yes'))
+
+comp.all.df <- summaryM(d.comp.valid + d.comp.other + d.comp.overall +
+                          e.comp.overall + f.comp.overall ~ data.time,
+                        data = subset(compliance, icu.24.f == 'Yes'))
+
+@
+
+<<printcompall, results = 'asis'>>=
+my.print.summaryM(comp.all.ac, caption = 'Description of Compliance, All ICU Days',
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 8, 30))
+
+my.print.summaryM(comp.all.df, caption = 'Description of Compliance, All ICU Days',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 4, 4))
+
 @
 
 \clearpage
