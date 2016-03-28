@@ -605,6 +605,163 @@ my.print.summaryM(comp.all.df,
 
 @
 
+\clearpage
+<<figuresa>>=
+pain.x.breaks <- seq(0,
+                     with(subset(compliance, icu.24.f == 'Yes'), {
+                       max(c(pain.valid, pain.verbal), na.rm = TRUE) }),
+                     5)
+
+a.comp.plot <- ggplot.prop(var = 'a.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'A, Overall: >=6 Behavioral + Self-Report Assessments')
+
+a.asmts.valid <- ggplot.prop(var = 'pain.valid',
+                             x.breaks = pain.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Behavioral Pain Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+a.asmts.verbal <- ggplot.prop(var = 'pain.verbal',
+                              x.breaks = pain.x.breaks,
+                              use.xlab = 'Number of Assessments Today',
+                              use.legend = FALSE,
+                              title.string = 'Self-Reported Pain Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+@
+
+<<printfiguresa, results = 'asis', fig.cap = 'A: Assess and Manage Pain', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(a.comp.plot, a.asmts.valid, a.asmts.verbal, layout = matrix(c(1, 1, 2, 3), ncol = 2))
+@
+
+<<figuresb>>=
+b.sat.plot <- ggplot.prop(var = 'b.comp.sat',
+                          dataset = subset(compliance, icu.24.f == 'Yes' & on.sedation),
+                          use.ylab = 'Percent of ICU Days on Sedation',
+                          axis.text.size = 8,
+                          title.string = 'B: SAT Performed or Attempted')
+
+b.sbt.plot <- ggplot.prop(var = 'b.comp.sbt',
+                          dataset = subset(compliance, icu.24.f == 'Yes' & venttoday.f == 'Yes'),
+                          use.ylab = 'Percent of ICU Days on MV',
+                          axis.text.size = 8,
+                          title.string = 'B: SBT Performed or Attempted')
+@
+
+<<printfiguresb, results = 'asis', fig.cap = 'B: Both SAT and SBT', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(b.sat.plot, b.sbt.plot, layout = matrix(c(1, 2), ncol = 2))
+@
+
+<<figuresc>>=
+arouse.x.breaks <- seq(0,
+                       with(subset(compliance, icu.24.f == 'Yes'), {
+                         max(c(sed.assess.valid, sed.assess.other), na.rm = TRUE) }),
+                       5)
+
+c.target.plot <- ggplot.prop(var = 'c.comp.target',
+                             axis.text.size = 6,
+                             legend.key.cm = 0.3,
+                             title.string = '\nC: Sedation Target Documented')
+
+c.comp.plot <- ggplot.prop(var = 'c.comp.overall',
+                           axis.text.size = 6,
+                           legend.key.cm = 0.3,
+                           title.string = 'C, Overall: >=6 PAD + Other\nArousal Assessments')
+
+c.asmts.valid <- ggplot.prop(var = 'sed.assess.valid',
+                             x.breaks = arouse.x.breaks,
+                             axis.text.size = 6,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'PAD-Recommended\nArousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60')
+
+c.asmts.other <- ggplot.prop(var = 'sed.assess.other',
+                             x.breaks = arouse.x.breaks,
+                             axis.text.size = 6,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Other Arousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60')
+
+@
+
+<<printfiguresc, results = 'asis', fig.cap = 'C: Choice of Sedation \\& Analgesia', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(c.target.plot, c.comp.plot, c.asmts.valid, c.asmts.other,
+          layout = matrix(c(1, 1, 2, 2, 3, 4), ncol = 3, byrow = FALSE))
+@
+
+<<figuresd>>=
+del.x.max <- with(subset(compliance, icu.24.f == 'Yes'), {
+  max(c(delirium.assess.valid, delirium.assess.other), na.rm = TRUE) })
+del.x.limits <- c(-0.5, del.x.max)
+del.x.breaks <- seq(0, del.x.max, 5)
+
+d.comp.plot <- ggplot.prop(var = 'd.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'D, Overall: >=6 Total Delirium Assessments')
+
+d.asmts.valid <- ggplot.prop(var = 'delirium.assess.valid',
+                             x.limits = del.x.limits,
+                             x.breaks = del.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'PAD-Recommended Delirium Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 6.5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+d.asmts.other <- ggplot.prop(var = 'delirium.assess.other',
+                             x.limits = del.x.limits,
+                             x.breaks = del.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Other Delirium Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 6.5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+@
+
+<<printfiguresd, results = 'asis', fig.cap = 'D: Delirium: Assess, Prevent and Manage', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(d.comp.plot, d.asmts.valid, d.asmts.other, layout = matrix(c(1, 1, 2, 3), ncol = 2))
+@
+
+<<figuresef>>=
+e.comp.plot <- ggplot.prop(var = 'e.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'E: Exercise/Mobility Performed or Attempted')
+
+f.comp.plot <- ggplot.prop(var = 'f.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'F: Family Participation in Rounds/Conference')
+@
+
+<<printfiguresef, results = 'asis', fig.cap = 'E and F: Exercise/Mobility and Family Participation', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(e.comp.plot, f.comp.plot, layout = matrix(c(1, 2), ncol = 2))
+@
 
 \clearpage
 \section{Code Used for Analysis}
