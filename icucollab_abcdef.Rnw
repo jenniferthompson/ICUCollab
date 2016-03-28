@@ -15,6 +15,8 @@
 \begin{document}
 \maketitle
 \tableofcontents
+\listoftables
+\listoffigures
 
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at ICU
 Collaborative sites before and after implementation.
@@ -84,11 +86,19 @@ ggplot.prop <-
            facet.var = NULL,                                ## variable to facet by
            use.na = c('no', 'ifany', 'always'),             ## include missing values in facets
            dataset = subset(compliance, icu.24.f == 'Yes'), ## data set to use
+           use.ylab = 'Percent of ICU Days',                ## Y axis label
            use.xlab = NULL,                                 ## X axis label
+           x.limits = NULL,                                 ## X axis limits
+           x.breaks = NULL,                                 ## breaks to use for X axis
            x.angle = 0, x.hjust = 0.5,                      ## X axis text formatting
+           axis.text.size = 7,                              ## axis text size
+           axis.title.size = 8,                             ## axis title size
            time.colors = c('#9ecae1', '#08306b'),           ## colors for bars
            use.legend = TRUE,                               ## include legend?
-           title.string = var,                              ## plot title; defaults to X variable name
+           legend.text.size = 7,                            ## legend text size
+           legend.key.cm = 0.4,                             ## legend key size in cm
+           title.string = var,                              ## plot title; defaults to X var name
+           title.size = 9,                                  ## font size for main title
            title.hjust = 0){                                ## justification for plot title
 
   use.na <- match.arg(use.na)
@@ -97,13 +107,18 @@ ggplot.prop <-
   if(!is.null(facet.var)){
     crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", facet.var, ", ",
                                               var, ", data.time, useNA = '", use.na, "')))")))
+    names(crosstab.data) <- gsub(facet.var, 'facetvar', names(crosstab.data))
   } else{
     crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", var,
                                               ", data.time, useNA = '", use.na, "')))")))
     crosstab.data$facetvar <- 'All'
   }
-  names(crosstab.data) <- gsub(facet.var, 'facetvar',
-                               gsub(var, 'proplevel', tolower(names(crosstab.data))))
+  names(crosstab.data) <- gsub(var, 'proplevel', tolower(names(crosstab.data)))
+
+  ## If original X variable is numeric, force tabulated form to be numeric
+  if('integer' %in% class(dataset[,var]) | 'numeric' %in% class(dataset[,var])){
+    crosstab.data$proplevel <- as.numeric(as.character(crosstab.data$proplevel))
+  }
 
   ## Get totals for each time point
   time.totals <- crosstab.data %>%
@@ -119,8 +134,7 @@ ggplot.prop <-
   ## Create plot
   prop.plot <- ggplot(data = crosstab.data, aes(x = proplevel, y = prop, fill = data.time)) +
     geom_bar(stat = 'identity', position = 'dodge') +
-    scale_x_discrete(name = use.xlab) +
-    scale_y_continuous(name = 'Percent of ICU Days',
+    scale_y_continuous(name = use.ylab,
                        limits = c(0, 1),
                        breaks = seq(0, 1, 0.25),
                        labels = paste0(seq(0, 100, 25), '%')) +
@@ -128,10 +142,13 @@ ggplot.prop <-
     ggtitle(title.string) +
     theme(legend.position = 'bottom',
           legend.direction = 'horizontal',
-          legend.key.size = unit(0.5, 'cm'),
+          legend.key.size = unit(legend.key.cm, 'cm'),
+          legend.text = element_text(size = legend.text.size),
           strip.text = element_text(face = 'bold'),
-          plot.title = element_text(hjust = title.hjust, face = 'bold'),
-          axis.text.x = element_text(angle = x.angle, hjust = x.hjust))
+          plot.title = element_text(hjust = title.hjust, face = 'bold', size = title.size),
+          axis.text.x = element_text(angle = x.angle, hjust = x.hjust, size = axis.text.size),
+          axis.text.y = element_text(size = axis.text.size),
+          axis.title = element_text(size = axis.title.size))
 
   ## Facet plot, if needed
   if(!is.null(facet.var)){
@@ -141,6 +158,18 @@ ggplot.prop <-
   ## Remove legend if requested
   if(!use.legend){
     prop.plot <- prop.plot + guides(fill = 'none')
+  }
+
+  ## X axis breaks and title
+  if(!is.null(x.breaks)){
+    if(!is.null(x.limits)){
+      prop.plot <- prop.plot +
+        scale_x_continuous(name = use.xlab, limits = x.limits, breaks = x.breaks)
+    } else{
+      prop.plot <- prop.plot + scale_x_continuous(name = use.xlab, breaks = x.breaks)
+    }
+  } else{
+    prop.plot <- prop.plot + xlab(use.xlab)
   }
 
   return(prop.plot)
@@ -529,11 +558,14 @@ desc.comp.all <- summaryM(mean.pain.verbal + mean.pain.valid + mean.pain.other +
 @
 
 <<printdesccohort, results = 'asis'>>=
-my.print.summaryM(desc.all, caption = 'Description of Entire Cohort',
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
                   exclude1 = FALSE,
                   size = 'small')
 my.print.summaryM(desc.comp.all,
                   caption = 'Summary of Compliance-Related Variables, Entire Cohort, ICU Days Only',
+                  caption.lot = 'Summary of Compliance-Related Variables, Entire Cohort, ICU Days Only',
                   size = 'small',
                   rgroup = c('A', 'C', 'D'),
                   n.rgroup = c(4, 3, 3))
@@ -555,18 +587,24 @@ comp.all.df <- summaryM(d.comp.valid + d.comp.other + d.comp.overall +
 @
 
 <<printcompall, results = 'asis'>>=
-my.print.summaryM(comp.all.ac, caption = 'Description of Compliance, All ICU Days',
+my.print.summaryM(comp.all.ac,
+                  caption = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days',
                   rgroup = c('A: Assess, Prevent and Manage Pain',
                              'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
-                  n.rgroup = c(16, 8, 30))
+                  n.rgroup = c(16, 8, 30),
+                  size = 'small')
 
-my.print.summaryM(comp.all.df, caption = 'Description of Compliance, All ICU Days',
+my.print.summaryM(comp.all.df,
+                  caption = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days',
                   rgroup = c('D: Delirium: Assess, Prevent and Manage',
                              'E: Early Mobility and Exercise',
                              'F: Family Engagement and Empowerment'),
                   n.rgroup = c(12, 4, 4))
 
 @
+
 
 \clearpage
 \section{Code Used for Analysis}
