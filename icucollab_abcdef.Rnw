@@ -507,13 +507,13 @@ label(compliance$c.comp.target) <- 'C: documented sedation target'
 label(compliance$c.comp.valid) <- 'C: >=6 PAD-recommended arousal assessments'
 label(compliance$c.comp.other) <- 'C: >=6 other arousal assessments'
 label(compliance$c.comp.overall) <- 'C, overall: >=6 total arousal assessments'
-label(compliance$meds.1.f) <- 'Received opioid'
-label(compliance$meds.2.f) <- 'Received benzodiazepine'
-label(compliance$meds.3.f) <- 'Received propofol'
-label(compliance$meds.4.f) <- 'Received dexmedetomidine'
-label(compliance$meds.5.f) <- 'Received ketamine'
-label(compliance$meds.6.f) <- 'Received typical antipsychotic'
-label(compliance$meds.7.f) <- 'Received atypical antipsychotic'
+label(compliance$meds.1) <- 'Received opioid'
+label(compliance$meds.2) <- 'Received benzodiazepine'
+label(compliance$meds.3) <- 'Received propofol'
+label(compliance$meds.4) <- 'Received dexmedetomidine'
+label(compliance$meds.5) <- 'Received ketamine'
+label(compliance$meds.6) <- 'Received typical antipsychotic'
+label(compliance$meds.7) <- 'Received atypical antipsychotic'
 label(compliance$d.comp.valid) <- 'D: >=2 PAD-recommended delirium assessments'
 label(compliance$d.comp.other) <- 'D: >=2 other delirium assessments'
 label(compliance$d.comp.overall) <- 'D, overall: >=2 total delirium assessments'
@@ -556,7 +556,9 @@ label(demog$mean.del.assess.either) <- 'Mean total delirium asmts'
 
 @
 
-\section{Description of Entire Cohort}
+\clearpage
+\section{Entire Cohort}
+\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
 <<desccohort>>=
 desc.all <- summaryM(region + data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
                        invas.vent.episode + days.invas.vent + noninvas.vent.episode +
@@ -587,12 +589,12 @@ my.print.summaryM(desc.comp.all,
 @
 
 \clearpage
-\section{Compliance by Time, Entire Cohort}
+\subsection{Compliance by Time}
 <<complianceall>>=
 comp.all.ac <- summaryM(a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall +
                           b.comp.sat + b.comp.sbt + c.comp.target + c.comp.valid +
-                          c.comp.other + c.comp.overall + meds.1.f + meds.2.f + meds.3.f +
-                          meds.4.f + meds.5.f + meds.6.f + meds.7.f ~ data.time,
+                          c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 +
+                          meds.4 + meds.5 + meds.6 + meds.7 ~ data.time,
                         data = subset(compliance, icu.24.f == 'Yes'))
 
 comp.all.df <- summaryM(d.comp.valid + d.comp.other + d.comp.overall +
@@ -604,15 +606,14 @@ comp.all.df <- summaryM(d.comp.valid + d.comp.other + d.comp.overall +
 <<printcompall, results = 'asis'>>=
 my.print.summaryM(comp.all.ac,
                   caption = 'Description of Compliance, All ICU Days',
-                  caption.lot = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days, A-C',
                   rgroup = c('A: Assess, Prevent and Manage Pain',
                              'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
-                  n.rgroup = c(16, 8, 30),
-                  size = 'small')
+                  n.rgroup = c(16, 8, 23))
 
 my.print.summaryM(comp.all.df,
                   caption = 'Description of Compliance, All ICU Days',
-                  caption.lot = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days, D-F',
                   rgroup = c('D: Delirium: Assess, Prevent and Manage',
                              'E: Early Mobility and Exercise',
                              'F: Family Engagement and Empowerment'),
@@ -629,13 +630,15 @@ pain.x.breaks <- seq(0,
 
 a.comp.plot <- ggplot.prop(var = 'a.comp.overall',
                            axis.text.size = 8,
-                           title.string = 'A, Overall: >=6 Behavioral + Self-Report Assessments')
+                           title.string = 'A, Overall: >=6 Behavioral+Self-Report Assessments',
+                           title.size = 8)
 
 a.asmts.valid <- ggplot.prop(var = 'pain.valid',
                              x.breaks = pain.x.breaks,
                              use.xlab = 'Number of Assessments Today',
                              use.legend = FALSE,
-                             title.string = 'Behavioral Pain Assessments') +
+                             title.string = 'Behavioral Pain Assessments',
+                             title.size = 8) +
   geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
   annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
            angle = 90, size = 2, colour = 'grey60') +
@@ -646,7 +649,8 @@ a.asmts.verbal <- ggplot.prop(var = 'pain.verbal',
                               x.breaks = pain.x.breaks,
                               use.xlab = 'Number of Assessments Today',
                               use.legend = FALSE,
-                              title.string = 'Self-Reported Pain Assessments') +
+                              title.string = 'Self-Reported Pain Assessments',
+                              title.size = 8) +
   geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
   annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
            angle = 90, size = 2, colour = 'grey60') +
@@ -655,7 +659,7 @@ a.asmts.verbal <- ggplot.prop(var = 'pain.verbal',
 
 @
 
-<<printfiguresa, results = 'asis', fig.cap = 'A: Assess and Manage Pain', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+<<printfiguresa, results = 'asis', fig.cap = 'A - Assess and Manage Pain, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(a.comp.plot, a.asmts.valid, a.asmts.verbal, layout = matrix(c(1, 1, 2, 3), ncol = 2))
 @
 
@@ -673,7 +677,7 @@ b.sbt.plot <- ggplot.prop(var = 'b.comp.sbt',
                           title.string = 'B: SBT Performed or Attempted')
 @
 
-<<printfiguresb, results = 'asis', fig.cap = 'B: Both SAT and SBT', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+<<printfiguresb, results = 'asis', fig.cap = 'B - Both SAT and SBT, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(b.sat.plot, b.sbt.plot, layout = matrix(c(1, 2), ncol = 2))
 @
 
@@ -719,7 +723,7 @@ c.asmts.other <- ggplot.prop(var = 'sed.assess.other',
 
 @
 
-<<printfiguresc, results = 'asis', fig.cap = 'C: Choice of Sedation \\& Analgesia', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+<<printfiguresc, results = 'asis', fig.cap = 'C - Choice of Sedation \\& Analgesia, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(c.target.plot, c.comp.plot, c.asmts.valid, c.asmts.other,
           layout = matrix(c(1, 1, 2, 2, 3, 4), ncol = 3, byrow = FALSE))
 @
@@ -760,7 +764,7 @@ d.asmts.other <- ggplot.prop(var = 'delirium.assess.other',
 
 @
 
-<<printfiguresd, results = 'asis', fig.cap = 'D: Delirium: Assess, Prevent and Manage', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+<<printfiguresd, results = 'asis', fig.cap = 'D - Delirium - Assess, Prevent and Manage, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(d.comp.plot, d.asmts.valid, d.asmts.other, layout = matrix(c(1, 1, 2, 3), ncol = 2))
 @
 
@@ -774,8 +778,166 @@ f.comp.plot <- ggplot.prop(var = 'f.comp.overall',
                            title.string = 'F: Family Participation in Rounds/Conference')
 @
 
-<<printfiguresef, results = 'asis', fig.cap = 'E and F: Exercise/Mobility and Family Participation', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+<<printfiguresef, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(e.comp.plot, f.comp.plot, layout = matrix(c(1, 2), ncol = 2))
+@
+
+\clearpage
+\section{Descriptives by Region}
+\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
+<<desccohortregion>>=
+desc.formula <- as.formula("data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f + invas.vent.episode + days.invas.vent + noninvas.vent.episode + days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time")
+
+desc.ec <- summaryM(desc.formula, data = subset(demog, region == 'East Coast'), overall = TRUE)
+desc.mw <- summaryM(desc.formula, data = subset(demog, region == 'Midwest'), overall = TRUE)
+desc.wc <- summaryM(desc.formula, data = subset(demog, region == 'West Coast'), overall = TRUE)
+
+desc.comp.formula <- as.formula("mean.pain.verbal + mean.pain.valid + mean.pain.other + mean.pain.verbal.valid + mean.sed.assess.valid + mean.sed.assess.other + mean.sed.assess.either + mean.del.assess.valid + mean.del.assess.other + mean.del.assess.either ~ data.time")
+
+desc.comp.ec <- summaryM(desc.comp.formula,
+                         data = subset(demog, region == 'East Coast'),
+                         overall = TRUE)
+desc.comp.mw <- summaryM(desc.comp.formula,
+                         data = subset(demog, region == 'Midwest'),
+                         overall = TRUE)
+desc.comp.wc <- summaryM(desc.comp.formula,
+                         data = subset(demog, region == 'West Coast'),
+                         overall = TRUE)
+
+@
+
+\subsubsection{East Coast}
+<<printdesccohortec, results = 'asis'>>=
+my.print.summaryM(desc.ec,
+                  caption = 'Description of Cohort, East Coast',
+                  caption.lot = 'Description of Cohort, East Coast',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.ec,
+                  caption = 'Summary of Compliance-Related Variables, ICU Days Only, East Coast',
+                  caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only, East Coast',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 8))
+
+@
+
+\clearpage
+\subsubsection{Midwest}
+<<printdesccohortmw, results = 'asis'>>=
+my.print.summaryM(desc.mw,
+                  caption = 'Description of Cohort, Midwest',
+                  caption.lot = 'Description of Cohort, Midwest',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.mw,
+                  caption = 'Summary of Compliance-Related Variables, ICU Days Only, Midwest',
+                  caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only, Midwest',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 3))
+
+@
+
+\clearpage
+\subsubsection{West Coast}
+<<printdesccohortwc, results = 'asis'>>=
+my.print.summaryM(desc.wc,
+                  caption = 'Description of Cohort, West Coast',
+                  caption.lot = 'Description of Cohort, West Coast',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.wc,
+                  caption = 'Summary of Compliance-Related Variables, ICU Days Only, West Coast',
+                  caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only, West Coast',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 7))
+
+@
+
+\clearpage
+\subsection{Compliance by Time}
+<<complianceregion>>=
+comp.ac.formula <- as.formula("a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall + b.comp.sat + b.comp.sbt + c.comp.target + c.comp.valid + c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 + meds.4 + meds.5 + meds.6 + meds.7 ~ data.time")
+
+comp.ac.ec <- summaryM(comp.ac.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'East Coast'))
+comp.ac.mw <- summaryM(comp.ac.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'Midwest'))
+comp.ac.wc <- summaryM(comp.ac.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'West Coast'))
+
+comp.df.formula <- as.formula("d.comp.valid + d.comp.other + d.comp.overall + e.comp.overall + f.comp.overall ~ data.time")
+
+comp.df.ec <- summaryM(comp.df.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'East Coast'))
+comp.df.mw <- summaryM(comp.df.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'Midwest'))
+comp.df.wc <- summaryM(comp.df.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'West Coast'))
+
+@
+
+\subsubsection{East Coast}
+<<printcompec, results = 'asis'>>=
+my.print.summaryM(comp.ac.ec,
+                  caption = 'Description of Compliance, A-C, East Coast',
+                  caption.lot = 'Description of Compliance, A-C, East Coast',
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 8, 23))
+
+my.print.summaryM(comp.df.ec,
+                  caption = 'Description of Compliance, D-F, East Coast',
+                  caption.lot = 'Description of Compliance, D-F, East Coast',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 4, 4))
+
+@
+
+\clearpage
+\subsubsection{Midwest}
+<<printcompmw, results = 'asis'>>=
+my.print.summaryM(comp.ac.mw,
+                  caption = 'Description of Compliance, A-C, Midwest',
+                  caption.lot = 'Description of Compliance, A-C, Midwest',
+                  exclude1 = TRUE,
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 8, 23))
+
+my.print.summaryM(comp.df.mw,
+                  caption = 'Description of Compliance, D-F, Midwest',
+                  caption.lot = 'Description of Compliance, D-F, Midwest',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 4, 4))
+
+@
+
+\clearpage
+\subsubsection{West Coast}
+<<printcompwc, results = 'asis'>>=
+my.print.summaryM(comp.ac.wc,
+                  caption = 'Description of Compliance, A-C, West Coast',
+                  caption.lot = 'Description of Compliance, A-C, West Coast',
+                  exclude1 = TRUE,
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 8, 23))
+
+my.print.summaryM(comp.df.wc,
+                  caption = 'Description of Compliance, D-F, West Coast',
+                  caption.lot = 'Description of Compliance, D-F, West Coast',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 4, 4))
+
 @
 
 %' \clearpage
