@@ -19,7 +19,8 @@
 \listoffigures
 
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at ICU
-Collaborative sites before and after implementation.
+Collaborative sites before and after implementation. Code for all data management and analysis can
+be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef.Rnw}{here}.
 
 <<setup, message=FALSE, echo=FALSE>>=
 opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
@@ -179,13 +180,22 @@ ggplot.prop <-
 
 <<datamgmt>>=
 ## -- Read in data, create factors/labels using REDCap scripts -------------------------------------
+## Demographics form
 demog <- read.csv('RawData/demog.csv', stringsAsFactors = FALSE)
 source('demog_redcap.R')
 names(demog) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(demog)))
 
+## Compliance form
 compliance <- read.csv('RawData/compliance.csv', stringsAsFactors = FALSE)
 source('compliance_redcap.R')
 names(compliance) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(compliance)))
+
+## Spreadsheet from Vishakha showing which hospitals belong in which region
+hosp.region <- read.csv('RawData/hospital_regions.csv', stringsAsFactors = FALSE) %>%
+  filter(region != '') %>%
+  separate(hospital, ', ', into = c('hosp.num', 'hosp.f')) %>%
+  mutate(region = factor(region))
+levels(hosp.region$region) <- c('East Coast', 'Midwest', 'West Coast')
 
 ## -- Remove any test patients ---------------------------------------------------------------------
 ## Get list of IDs which don't meet required format to send Vishakha
@@ -200,6 +210,10 @@ compliance <- compliance[grep('test', tolower(compliance$id), invert = TRUE),]
 ## Create indicator for retrospective (mos 1-6) vs. prospective (mos 7-) data collection
 demog$data.time <- with(demog, {
   factor(ifelse(month <= 6, 1, 2), levels = 1:2, labels = c('Baseline', 'Prospective')) })
+
+## Merge on hospital region
+demog <- merge(demog, subset(hosp.region, select = c(region, hosp.num)),
+               by.x = c('hosp'), by.y = c('hosp.num'), all.x = TRUE, all.y = FALSE)
 
 ## Create single race variable
 demog$race.f <- with(demog, {
@@ -237,6 +251,7 @@ demog$days.noninvas.vent <- with(demog, {
 
 label(demog$data.time) <- 'Time of data collection'
 label(demog$data.plan.f) <- 'Data plan'
+label(demog$region) <- 'Hospital region'
 label(demog$month.f) <- 'Month in Collaborative ICU'
 label(demog$age.f) <- 'Age range'
 label(demog$sex.f) <- 'Sex'
@@ -454,15 +469,15 @@ compliance <- compliance %>%
          ## D: Delirium: Assess, Prevent and Manage
          d.comp.valid = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
                                ifelse(is.na(delirium.assess.valid), 2,
-                               ifelse(delirium.assess.valid >= 6, 0, 1))),
+                               ifelse(delirium.assess.valid >= 2, 0, 1))),
                                levels = 0:2, labels = compliance.levels),
          d.comp.other = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
                                ifelse(is.na(delirium.assess.other), 2,
-                               ifelse(delirium.assess.other >= 6, 0, 1))),
+                               ifelse(delirium.assess.other >= 2, 0, 1))),
                                levels = 0:2, labels = compliance.levels),
          d.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
                                  ifelse(is.na(delirium.assess.either), 2,
-                                 ifelse(delirium.assess.either >= 6, 0, 1))),
+                                 ifelse(delirium.assess.either >= 2, 0, 1))),
                                  levels = 0:2, labels = compliance.levels),
          ## E: Early mobility and exercise
          e.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
@@ -475,8 +490,8 @@ compliance <- compliance %>%
                                  ifelse(no.family.checked, 2,
                                  ifelse(familyinvite.2 == 1 | familyinvite.3 == 1, 0, 1))),
                                  levels = 0:2, labels = compliance.levels)) %>%
-  ## Merge on time of data collection
-  left_join(dplyr::select(demog, id, data.time), by = 'id')
+  ## Merge on time of data collection and hospital region
+  left_join(dplyr::select(demog, id, data.time, region), by = 'id')
 
 levels(compliance$meds.1.f) <- levels(compliance$meds.2.f) <- levels(compliance$meds.3.f) <-
   levels(compliance$meds.4.f) <- levels(compliance$meds.5.f) <- levels(compliance$meds.6.f) <-
@@ -499,9 +514,9 @@ label(compliance$meds.4.f) <- 'Received dexmedetomidine'
 label(compliance$meds.5.f) <- 'Received ketamine'
 label(compliance$meds.6.f) <- 'Received typical antipsychotic'
 label(compliance$meds.7.f) <- 'Received atypical antipsychotic'
-label(compliance$d.comp.valid) <- 'D: >=6 PAD-recommended delirium assessments'
-label(compliance$d.comp.other) <- 'D: >=6 other delirium assessments'
-label(compliance$d.comp.overall) <- 'D, overall: >=6 total delirium assessments'
+label(compliance$d.comp.valid) <- 'D: >=2 PAD-recommended delirium assessments'
+label(compliance$d.comp.other) <- 'D: >=2 other delirium assessments'
+label(compliance$d.comp.overall) <- 'D, overall: >=2 total delirium assessments'
 label(compliance$e.comp.overall) <- 'E, overall: mobility performed or attempt'
 label(compliance$f.comp.overall) <- 'F, overall: family participated in rounds and/or conference'
 
@@ -543,10 +558,10 @@ label(demog$mean.del.assess.either) <- 'Mean total delirium asmts'
 
 \section{Description of Entire Cohort}
 <<desccohort>>=
-desc.all <- summaryM(data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
+desc.all <- summaryM(region + data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
                        invas.vent.episode + days.invas.vent + noninvas.vent.episode +
                        days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time,
-                     data = demog, overall = TRUE, continuous = 15)
+                     data = demog, overall = TRUE)
 
 desc.comp.all <- summaryM(mean.pain.verbal + mean.pain.valid + mean.pain.other +
                             mean.pain.verbal.valid + mean.sed.assess.valid +
@@ -717,7 +732,7 @@ del.x.breaks <- seq(0, del.x.max, 5)
 
 d.comp.plot <- ggplot.prop(var = 'd.comp.overall',
                            axis.text.size = 8,
-                           title.string = 'D, Overall: >=6 Total Delirium Assessments')
+                           title.string = 'D, Overall: >=2 Total Delirium Assessments')
 
 d.asmts.valid <- ggplot.prop(var = 'delirium.assess.valid',
                              x.limits = del.x.limits,
@@ -763,10 +778,10 @@ f.comp.plot <- ggplot.prop(var = 'f.comp.overall',
 multiplot(e.comp.plot, f.comp.plot, layout = matrix(c(1, 2), ncol = 2))
 @
 
-\clearpage
-\section{Code Used for Analysis}
-<<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
-@
+%' \clearpage
+%' \section{Code Used for Analysis}
+%' <<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
+%' @
 
 \clearpage
 \section{Technical Details}
