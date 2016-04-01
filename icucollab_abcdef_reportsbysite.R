@@ -427,7 +427,7 @@ label(demog$mean.del.assess.either) <- 'Mean total delirium asmts'
 for(site in sort(unique(hosp.region$hosp.f))){
   demog.site <- subset(demog, hosp.f == site & !is.na(data.time))
   n.each.time <- table(demog.site$data.time)
-  if(n.each.time[1] > 5 & n.each.time[2] > 5){
+  if(n.each.time[1] > 0 & n.each.time[2] > 0){
     compliance.site <- subset(compliance, hosp.f == site)
     knit2pdf('icucollab_abcdef_bysite.Rnw',
              output = paste0('icucollab_abcdef_', gsub('[ -]+', '_', site), '.tex'))
