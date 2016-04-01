@@ -25,8 +25,8 @@ options(replace.assign = TRUE, width = 90)
 @
 
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at this
-ICU Collaborative site before and after implementation. Code for all data management and analysis
-can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef.Rnw}{here}.
+ICU Collaborative site before and after implementation. Code for all data management and report
+generation can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_reportsbysite.R}{here} and \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_bysite.Rnw}{here}.
 
 \clearpage
 \section{Demographic, Baseline, and Hospital Stay Characteristics}
