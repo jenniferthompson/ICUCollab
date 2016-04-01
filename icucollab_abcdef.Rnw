@@ -5,7 +5,7 @@
 
 \usepackage{setspace, relsize}
 \usepackage{longtable}
-\usepackage[margin = 0.45in]{geometry}
+\usepackage[margin = 0.425in]{geometry}
 \usepackage{hyperref}
 
 \title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
@@ -441,7 +441,8 @@ compliance <- compliance %>%
          ## B: Both SAT and SBT
          ##  SAT: Include days on continuous or intermittent sedation;
          ##       compliance = SAT performed or safety screen failure
-         ## SBT: Include days on MV; compliance = SBT performed or safety screen failure
+         ##  SBT: Include days on MV; compliance = SBT performed or safety screen failure
+         ## Overall: for days with both sedation and MV, were both SAT and SBT attempted?
          b.comp.sat = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No' | !on.sedation, NA,
                              ifelse(is.na(satperformed.f), 2,
                              ifelse(satperformed.f == 'No. Other reason/ Not documented', 1, 0))),
@@ -451,6 +452,13 @@ compliance <- compliance %>%
                              ifelse(is.na(sbtperformed.f), 2,
                              ifelse(sbtperformed.f == 'No. Other reason/ Not documented', 1, 0))),
                              levels = 0:2, labels = compliance.levels),
+         b.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No' | !on.sedation |
+                                          is.na(venttoday.f) | venttoday.f == 'No', NA,
+                                 ifelse(is.na(satperformed.f) | is.na(sbtperformed.f), 2,
+                                 ifelse(satperformed.f == 'No. Other reason/ Not documented' |
+                                          sbtperformed.f == 'No. Other reason/ Not documented',
+                                        1, 0))),
+                                 levels = 0:2, labels = compliance.levels),
          ## C: Choice of sedation
          c.comp.target = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
                                 ifelse(is.na(sed.target.f), 2,
@@ -505,6 +513,7 @@ label(compliance$a.comp.other) <- 'A: >=6 documented other pain assessments'
 label(compliance$a.comp.overall) <- 'A, overall: >=6 pain assessments, behavioral + self-report'
 label(compliance$b.comp.sat) <- 'B: SAT: patient on sedation and had SAT or attempt'
 label(compliance$b.comp.sbt) <- 'B: SBT: patient on MV and had SBT or attempt'
+label(compliance$b.comp.overall) <- 'B, overall: patient on sedation+MV, had SAT+SBT or attempt'
 label(compliance$c.comp.target) <- 'C: documented sedation target'
 label(compliance$c.comp.valid) <- 'C: >=6 PAD-recommended arousal assessments'
 label(compliance$c.comp.other) <- 'C: >=6 other arousal assessments'
@@ -520,6 +529,7 @@ label(compliance$d.comp.valid) <- 'D: >=2 PAD-recommended delirium assessments'
 label(compliance$d.comp.other) <- 'D: >=2 other delirium assessments'
 label(compliance$d.comp.overall) <- 'D, overall: >=2 total delirium assessments'
 label(compliance$e.comp.overall) <- 'E, overall: mobility performed or attempt'
+label(compliance$mobilityhighest.f) <- 'E: Highest level of exercise/mobilization today'
 label(compliance$f.comp.overall) <- 'F, overall: family participated in rounds and/or conference'
 
 
@@ -594,13 +604,13 @@ my.print.summaryM(desc.comp.all,
 \subsection{Compliance by Time}
 <<complianceall>>=
 comp.all.ac <- summaryM(a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall +
-                          b.comp.sat + b.comp.sbt + c.comp.target + c.comp.valid +
+                          b.comp.sat + b.comp.sbt + b.comp.overall + c.comp.target + c.comp.valid +
                           c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 +
                           meds.4 + meds.5 + meds.6 + meds.7 ~ data.time,
                         data = subset(compliance, icu.24.f == 'Yes'))
 
 comp.all.df <- summaryM(d.comp.valid + d.comp.other + d.comp.overall +
-                          e.comp.overall + f.comp.overall ~ data.time,
+                          e.comp.overall + mobilityhighest.f + f.comp.overall ~ data.time,
                         data = subset(compliance, icu.24.f == 'Yes'))
 
 @
@@ -611,7 +621,8 @@ my.print.summaryM(comp.all.ac,
                   caption.lot = 'Description of Compliance, All ICU Days, A-C',
                   rgroup = c('A: Assess, Prevent and Manage Pain',
                              'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
-                  n.rgroup = c(16, 8, 23))
+                  n.rgroup = c(16, 12, 23),
+                  size = 'small')
 
 my.print.summaryM(comp.all.df,
                   caption = 'Description of Compliance, All ICU Days',
@@ -619,7 +630,8 @@ my.print.summaryM(comp.all.df,
                   rgroup = c('D: Delirium: Assess, Prevent and Manage',
                              'E: Early Mobility and Exercise',
                              'F: Family Engagement and Empowerment'),
-                  n.rgroup = c(12, 4, 4))
+                  n.rgroup = c(12, 13, 4),
+                  size = 'small')
 
 @
 
@@ -669,18 +681,31 @@ multiplot(a.comp.plot, a.asmts.valid, a.asmts.verbal, layout = matrix(c(1, 1, 2,
 b.sat.plot <- ggplot.prop(var = 'b.comp.sat',
                           dataset = subset(compliance, icu.24.f == 'Yes' & on.sedation),
                           use.ylab = 'Percent of ICU Days on Sedation',
-                          axis.text.size = 8,
-                          title.string = 'B: SAT Performed or Attempted')
+                          axis.text.size = 6,
+                          legend.text.size = 6,
+                          legend.key.cm = 0.25,
+                          title.string = '\nB: SAT Performed or Attempted')
 
 b.sbt.plot <- ggplot.prop(var = 'b.comp.sbt',
                           dataset = subset(compliance, icu.24.f == 'Yes' & venttoday.f == 'Yes'),
                           use.ylab = 'Percent of ICU Days on MV',
-                          axis.text.size = 8,
-                          title.string = 'B: SBT Performed or Attempted')
+                          axis.text.size = 6,
+                          legend.text.size = 6,
+                          legend.key.cm = 0.25,
+                          title.string = '\nB: SBT Performed or Attempted')
+
+b.comp.plot <- ggplot.prop(var = 'b.comp.sbt',
+                           dataset = subset(compliance,
+                                            icu.24.f == 'Yes' & on.sedation & venttoday.f == 'Yes'),
+                           use.ylab = 'Percent of ICU Days on Sedation+MV',
+                           axis.text.size = 6,
+                           legend.text.size = 6,
+                           legend.key.cm = 0.25,
+                           title.string = 'B, Overall: SAT+SBT\nPerformed or Attempted')
 @
 
-<<printfiguresb, results = 'asis', fig.cap = 'B - Both SAT and SBT, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(b.sat.plot, b.sbt.plot, layout = matrix(c(1, 2), ncol = 2))
+<<printfiguresb, results = 'asis', fig.cap = 'B - Both SAT and SBT, Entire Cohort', fig.width = 7.5, fig.height = 3, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(b.sat.plot, b.sbt.plot, b.comp.plot, layout = matrix(c(1:3), ncol = 3))
 @
 
 <<figuresc>>=
@@ -775,13 +800,20 @@ e.comp.plot <- ggplot.prop(var = 'e.comp.overall',
                            axis.text.size = 8,
                            title.string = 'E: Exercise/Mobility Performed or Attempted')
 
+e.mobility.plot <- ggplot.prop(var = 'mobilityhighest.f',
+                               axis.text.size = 7,
+                               x.angle = 45, x.hjust = 1,
+                               use.legend = FALSE,
+                               title.string = 'E: Highest Level of Exercise/Mobility Today')
+
 f.comp.plot <- ggplot.prop(var = 'f.comp.overall',
                            axis.text.size = 8,
                            title.string = 'F: Family Participation in Rounds/Conference')
 @
 
-<<printfiguresef, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(e.comp.plot, f.comp.plot, layout = matrix(c(1, 2), ncol = 2))
+<<printfiguresef, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, Entire Cohort', fig.width = 7.5, fig.height = 10, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(e.comp.plot, e.mobility.plot, f.comp.plot,
+          layout = matrix(c(1, 1, 1, 2, 2, 2, 2, 3, 3, 3), ncol = 1))
 @
 
 \clearpage
@@ -861,7 +893,7 @@ my.print.summaryM(desc.comp.wc,
 \clearpage
 \subsection{Compliance by Time}
 <<complianceregion>>=
-comp.ac.formula <- as.formula("a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall + b.comp.sat + b.comp.sbt + c.comp.target + c.comp.valid + c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 + meds.4 + meds.5 + meds.6 + meds.7 ~ data.time")
+comp.ac.formula <- as.formula("a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall + b.comp.sat + b.comp.sbt + b.comp.overall + c.comp.target + c.comp.valid + c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 + meds.4 + meds.5 + meds.6 + meds.7 ~ data.time")
 
 comp.ac.ec <- summaryM(comp.ac.formula,
                        data = subset(compliance, icu.24.f == 'Yes' & region == 'East Coast'))
@@ -870,7 +902,7 @@ comp.ac.mw <- summaryM(comp.ac.formula,
 comp.ac.wc <- summaryM(comp.ac.formula,
                        data = subset(compliance, icu.24.f == 'Yes' & region == 'West Coast'))
 
-comp.df.formula <- as.formula("d.comp.valid + d.comp.other + d.comp.overall + e.comp.overall + f.comp.overall ~ data.time")
+comp.df.formula <- as.formula("d.comp.valid + d.comp.other + d.comp.overall + e.comp.overall + mobilityhighest.f + f.comp.overall ~ data.time")
 
 comp.df.ec <- summaryM(comp.df.formula,
                        data = subset(compliance, icu.24.f == 'Yes' & region == 'East Coast'))
@@ -886,17 +918,19 @@ comp.df.wc <- summaryM(comp.df.formula,
 my.print.summaryM(comp.ac.ec,
                   caption = 'Description of Compliance, A-C, East Coast',
                   caption.lot = 'Description of Compliance, A-C, East Coast',
+                  size = 'small',
                   rgroup = c('A: Assess, Prevent and Manage Pain',
                              'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
-                  n.rgroup = c(16, 8, 23))
+                  n.rgroup = c(16, 12, 23))
 
 my.print.summaryM(comp.df.ec,
                   caption = 'Description of Compliance, D-F, East Coast',
                   caption.lot = 'Description of Compliance, D-F, East Coast',
+                  size = 'small',
                   rgroup = c('D: Delirium: Assess, Prevent and Manage',
                              'E: Early Mobility and Exercise',
                              'F: Family Engagement and Empowerment'),
-                  n.rgroup = c(12, 4, 4))
+                  n.rgroup = c(12, 13, 4))
 
 @
 
@@ -907,17 +941,19 @@ my.print.summaryM(comp.ac.mw,
                   caption = 'Description of Compliance, A-C, Midwest',
                   caption.lot = 'Description of Compliance, A-C, Midwest',
                   exclude1 = TRUE,
+                  size = 'small',
                   rgroup = c('A: Assess, Prevent and Manage Pain',
                              'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
-                  n.rgroup = c(16, 8, 23))
+                  n.rgroup = c(16, 12, 23))
 
 my.print.summaryM(comp.df.mw,
                   caption = 'Description of Compliance, D-F, Midwest',
                   caption.lot = 'Description of Compliance, D-F, Midwest',
+                  size = 'small',
                   rgroup = c('D: Delirium: Assess, Prevent and Manage',
                              'E: Early Mobility and Exercise',
                              'F: Family Engagement and Empowerment'),
-                  n.rgroup = c(12, 4, 4))
+                  n.rgroup = c(12, 13, 4))
 
 @
 
@@ -928,17 +964,19 @@ my.print.summaryM(comp.ac.wc,
                   caption = 'Description of Compliance, A-C, West Coast',
                   caption.lot = 'Description of Compliance, A-C, West Coast',
                   exclude1 = TRUE,
+                  size = 'small',
                   rgroup = c('A: Assess, Prevent and Manage Pain',
                              'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
-                  n.rgroup = c(16, 8, 23))
+                  n.rgroup = c(16, 12, 23))
 
 my.print.summaryM(comp.df.wc,
                   caption = 'Description of Compliance, D-F, West Coast',
                   caption.lot = 'Description of Compliance, D-F, West Coast',
+                  size = 'small',
                   rgroup = c('D: Delirium: Assess, Prevent and Manage',
                              'E: Early Mobility and Exercise',
                              'F: Family Engagement and Empowerment'),
-                  n.rgroup = c(12, 4, 4))
+                  n.rgroup = c(12, 13, 4))
 
 @
 
@@ -961,8 +999,7 @@ a.asmts.valid.region <- ggplot.prop(var = 'pain.valid',
                                     use.xlab = 'Number of Assessments Today',
                                     use.legend = FALSE,
                                     title.string = 'Behavioral Pain Assessments',
-                                    title.size = 8,
-                                    strip.text.size = 7) +
+                                    strip.text.size = 8) +
   geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', size = 0.5, alpha = 0.5)
 
 a.asmts.verbal.region <- ggplot.prop(var = 'pain.verbal',
@@ -974,15 +1011,14 @@ a.asmts.verbal.region <- ggplot.prop(var = 'pain.verbal',
                                      axis.text.size = 6,
                                      axis.title.size = 7,
                                      title.string = 'Self-Reported Pain Assessments',
-                                     title.size = 8,
-                                     strip.text.size = 7) +
+                                     strip.text.size = 8) +
   geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', size = 0.5, alpha = 0.5)
 
 @
 
-<<printfiguresaregion, results = 'asis', fig.cap = 'A - Assess and Manage Pain, by Region', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+<<printfiguresaregion, results = 'asis', fig.cap = 'A - Assess and Manage Pain, by Region', fig.width = 7.5, fig.height = 8, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(a.comp.plot.region, a.asmts.valid.region, a.asmts.verbal.region,
-          layout = matrix(c(1, 1, 1, 1, 1, 1, 2, 3, 2, 3), ncol = 2, byrow = TRUE))
+          layout = matrix(c(1, 1, 2, 3), ncol = 1))
 @
 
 <<figuresbregion>>=
@@ -1008,10 +1044,23 @@ b.sbt.plot.region <-
               strip.text.size = 8,
               legend.key.cm = 0.3,
               title.string = 'B: SBT Performed or Attempted')
+
+b.comp.plot.region <-
+  ggplot.prop(var = 'b.comp.overall',
+              facet.var = 'region',
+              facet.col = 3,
+              dataset = subset(compliance, icu.24.f == 'Yes' & on.sedation & venttoday.f == 'Yes'),
+              use.ylab = 'Percent of ICU Days\non Sedation+MV',
+              axis.text.size = 6,
+              axis.title.size = 7,
+              strip.text.size = 8,
+              legend.key.cm = 0.25,
+              title.string = 'B, Overall: SAT+SBT Performed or Attempted')
 @
 
-<<printfiguresbregion, results = 'asis', fig.cap = 'B - Both SAT and SBT, by Region', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(b.sat.plot.region, b.sbt.plot.region, layout = matrix(c(1, 2), ncol = 1))
+<<printfiguresbregion, results = 'asis', fig.cap = 'B - Both SAT and SBT, by Region', fig.width = 7.5, fig.height = 8, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(b.sat.plot.region, b.sbt.plot.region, b.comp.plot.region,
+          layout = matrix(c(1:3), ncol = 1))
 @
 
 <<figurescregion>>=
@@ -1110,6 +1159,14 @@ e.comp.plot.region <- ggplot.prop(var = 'e.comp.overall',
                                   axis.text.size = 8,
                                   title.string = 'E: Exercise/Mobility Performed or Attempted')
 
+e.mobility.plot.region <- ggplot.prop(var = 'mobilityhighest.f',
+                                      facet.var = 'region',
+                                      facet.col = 3,
+                                      axis.text.size = 6,
+                                      x.angle = 45, x.hjust = 1,
+                                      use.legend = FALSE,
+                                      title.string = 'E: Highest Level of Exercise/Mobility Today')
+
 f.comp.plot.region <- ggplot.prop(var = 'f.comp.overall',
                                   facet.var = 'region',
                                   facet.col = 3,
@@ -1117,8 +1174,9 @@ f.comp.plot.region <- ggplot.prop(var = 'f.comp.overall',
                                   title.string = 'F: Family Participation in Rounds/Conference')
 @
 
-<<printfiguresefregion, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, by Region', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(e.comp.plot.region, f.comp.plot.region, layout = matrix(c(1, 2), ncol = 1))
+<<printfiguresefregion, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, by Region', fig.width = 7.5, fig.height = 10, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(e.comp.plot.region, e.mobility.plot.region, f.comp.plot.region,
+          layout = matrix(c(1, 1, 1, 2, 2, 2, 2, 3, 3, 3), ncol = 1))
 @
 
 %' \clearpage
