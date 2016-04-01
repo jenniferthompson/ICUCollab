@@ -501,7 +501,7 @@ compliance <- compliance %>%
                                  ifelse(familyinvite.2 == 1 | familyinvite.3 == 1, 0, 1))),
                                  levels = 0:2, labels = compliance.levels)) %>%
   ## Merge on time of data collection and hospital region
-  left_join(dplyr::select(demog, id, data.time, region), by = 'id')
+  left_join(dplyr::select(demog, id, data.time, hosp.f, region), by = 'id')
 
 levels(compliance$meds.1.f) <- levels(compliance$meds.2.f) <- levels(compliance$meds.3.f) <-
   levels(compliance$meds.4.f) <- levels(compliance$meds.5.f) <- levels(compliance$meds.6.f) <-
