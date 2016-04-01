@@ -31,10 +31,17 @@ generation can be found \href{https://github.com/jenniferthompson/ICUCollab/blob
 \clearpage
 \section{Demographic, Baseline, and Hospital Stay Characteristics}
 <<desccohort>>=
-desc.all <- summaryM(data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
-                       invas.vent.episode + days.invas.vent + noninvas.vent.episode +
-                       days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time,
-                     data = demog.site, overall = TRUE)
+if(sum(!is.na(demog.site$days.noninvas.vent)) == 0){
+  desc.all <- summaryM(data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
+                         invas.vent.episode + days.invas.vent + noninvas.vent.episode +
+                         icu.los + hosp.losv + dc.status.f ~ data.time,
+                       data = demog.site, overall = TRUE)
+} else{
+  desc.all <- summaryM(data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
+                         invas.vent.episode + days.invas.vent + noninvas.vent.episode +
+                         days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time,
+                       data = demog.site, overall = TRUE)
+}
 
 if(sum(!is.na(demog.site$mean.sed.assess.other)) == 0){
   desc.comp.all <- summaryM(mean.pain.verbal + mean.pain.valid + mean.pain.other +
