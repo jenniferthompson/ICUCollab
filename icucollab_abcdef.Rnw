@@ -772,9 +772,9 @@ d.asmts.valid <- ggplot.prop(var = 'delirium.assess.valid',
                              use.legend = FALSE,
                              title.string = 'PAD-Recommended Delirium Assessments') +
   geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
-  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+  annotate(geom = 'text', label = 'Noncompliant', x = 1, y = 1, hjust = 1, vjust = 0,
            angle = 90, size = 2, colour = 'grey60') +
-  annotate(geom = 'text', label = 'Compliant', x = 6.5, y = 1, hjust = 1, vjust = 0,
+  annotate(geom = 'text', label = 'Compliant', x = 2.5, y = 1, hjust = 1, vjust = 0,
            angle = 90, size = 2, colour = 'grey60')
 
 d.asmts.other <- ggplot.prop(var = 'delirium.assess.other',
@@ -784,9 +784,9 @@ d.asmts.other <- ggplot.prop(var = 'delirium.assess.other',
                              use.legend = FALSE,
                              title.string = 'Other Delirium Assessments') +
   geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
-  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+  annotate(geom = 'text', label = 'Noncompliant', x = 1, y = 1, hjust = 1, vjust = 0,
            angle = 90, size = 2, colour = 'grey60') +
-  annotate(geom = 'text', label = 'Compliant', x = 6.5, y = 1, hjust = 1, vjust = 0,
+  annotate(geom = 'text', label = 'Compliant', x = 2.5, y = 1, hjust = 1, vjust = 0,
            angle = 90, size = 2, colour = 'grey60')
 
 @
