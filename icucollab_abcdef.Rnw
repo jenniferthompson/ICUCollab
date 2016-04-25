@@ -9,7 +9,7 @@
 \usepackage{hyperref}
 
 \title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
-\author{Jennifer Thompson, MPH}
+\author{Society of Critical Care Medicine}
 \date{\today}
 
 \begin{document}
@@ -886,7 +886,7 @@ my.print.summaryM(desc.comp.wc,
                   caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only, West Coast',
                   size = 'small',
                   rgroup = c('A', 'C', 'D'),
-                  n.rgroup = c(4, 3, 7))
+                  n.rgroup = c(4, 3, 9))
 
 @
 
