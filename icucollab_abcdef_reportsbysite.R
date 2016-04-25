@@ -55,26 +55,26 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 ## -- Function to calculate & plot proportions of patient-days by time and, if needed, -------------
 ## -- faceting variable ----------------------------------------------------------------------------
 ggplot.prop <-
-  function(var,                                             ## X variable to plot
-           facet.var = NULL,                                ## variable to facet by
-           facet.col = 1,                                   ## number of columns for faceting
-           use.na = c('no', 'ifany', 'always'),             ## include missing values in facets
-           dataset = subset(compliance, icu.24.f == 'Yes'), ## data set to use
-           use.ylab = 'Percent of ICU Days',                ## Y axis label
-           use.xlab = NULL,                                 ## X axis label
-           x.limits = NULL,                                 ## X axis limits
-           x.breaks = NULL,                                 ## breaks to use for X axis
-           x.angle = 0, x.hjust = 0.5,                      ## X axis text formatting
-           axis.text.size = 7,                              ## axis text size
-           axis.title.size = 8,                             ## axis title size
-           time.colors = c('#9ecae1', '#08306b'),           ## colors for bars
-           use.legend = TRUE,                               ## include legend?
-           legend.text.size = 7,                            ## legend text size
-           legend.key.cm = 0.4,                             ## legend key size in cm
-           strip.text.size = 8,                             ## strip text size
-           title.string = var,                              ## plot title; defaults to X var name
-           title.size = 9,                                  ## font size for main title
-           title.hjust = 0){                                ## justification for plot title
+  function(var,                                                  ## X variable to plot
+           facet.var = NULL,                                     ## variable to facet by
+           facet.col = 1,                                        ## number of columns for faceting
+           use.na = c('no', 'ifany', 'always'),                  ## include missing values in facets
+           dataset = subset(compliance.site, icu.24.f == 'Yes'), ## data set to use
+           use.ylab = 'Percent of ICU Days',                     ## Y axis label
+           use.xlab = NULL,                                      ## X axis label
+           x.limits = NULL,                                      ## X axis limits
+           x.breaks = NULL,                                      ## breaks to use for X axis
+           x.angle = 0, x.hjust = 0.5,                           ## X axis text formatting
+           axis.text.size = 7,                                   ## axis text size
+           axis.title.size = 8,                                  ## axis title size
+           time.colors = c('#9ecae1', '#08306b'),                ## colors for bars
+           use.legend = TRUE,                                    ## include legend?
+           legend.text.size = 7,                                 ## legend text size
+           legend.key.cm = 0.4,                                  ## legend key size in cm
+           strip.text.size = 8,                                  ## strip text size
+           title.string = var,                                   ## plot title; default: X var name
+           title.size = 9,                                       ## font size for main title
+           title.hjust = 0){                                     ## justification for plot title
 
     use.na <- match.arg(use.na)
 
@@ -82,57 +82,80 @@ ggplot.prop <-
     if(!is.null(facet.var)){
       crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", facet.var, ", ",
                                                 var, ", data.time, useNA = '", use.na, "')))")))
-      names(crosstab.data) <- gsub(facet.var, 'facetvar', names(crosstab.data))
+      if(nrow(crosstab.data) > 0){
+        names(crosstab.data) <- gsub(facet.var, 'facetvar', names(crosstab.data))
+      }
     } else{
       crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", var,
                                                 ", data.time, useNA = '", use.na, "')))")))
-      crosstab.data$facetvar <- 'All'
+      if(nrow(crosstab.data) > 0){
+        crosstab.data$facetvar <- 'All'
+      }
     }
-    names(crosstab.data) <- gsub(var, 'proplevel', tolower(names(crosstab.data)))
+    if(nrow(crosstab.data) == 0){
+      prop.plot <- ggplot(data = crosstab.data) +
+        scale_y_continuous(name = use.ylab,
+                           limits = c(0, 1),
+                           breaks = seq(0, 1, 0.25),
+                           labels = paste0(seq(0, 100, 25), '%')) +
+        scale_fill_manual(name = NULL, values = time.colors) +
+        ggtitle(title.string) +
+        theme(legend.position = 'bottom',
+              legend.direction = 'horizontal',
+              legend.key.size = unit(legend.key.cm, 'cm'),
+              legend.text = element_text(size = legend.text.size),
+              strip.text = element_text(face = 'bold', size = strip.text.size),
+              plot.title = element_text(hjust = title.hjust, face = 'bold', size = title.size),
+              axis.text.x = element_text(angle = x.angle, hjust = x.hjust, size = axis.text.size),
+              axis.text.y = element_text(size = axis.text.size),
+              axis.title = element_text(size = axis.title.size))
+    } else{
+      names(crosstab.data) <- gsub(var, 'proplevel', tolower(names(crosstab.data)))
 
-    ## If original X variable is numeric, force tabulated form to be numeric
-    if('integer' %in% class(dataset[,var]) | 'numeric' %in% class(dataset[,var])){
-      crosstab.data$proplevel <- as.numeric(as.character(crosstab.data$proplevel))
-    }
+      ## If original X variable is numeric, force tabulated form to be numeric
+      if('integer' %in% class(dataset[,var]) | 'numeric' %in% class(dataset[,var])){
+        crosstab.data$proplevel <- as.numeric(as.character(crosstab.data$proplevel))
+      }
 
-    ## Get totals for each time point
-    time.totals <- crosstab.data %>%
-      group_by(facetvar, data.time) %>%
-      summarise(time.n = sum(freq, na.rm = TRUE)) %>%
-      ungroup()
+      ## Get totals for each time point
+      time.totals <- crosstab.data %>%
+        group_by(facetvar, data.time) %>%
+        summarise(time.n = sum(freq, na.rm = TRUE)) %>%
+        ungroup()
 
-    ## Merge time totals, calculate proportions
-    crosstab.data <- crosstab.data %>%
-      left_join(time.totals, by = c('facetvar', 'data.time'), all = TRUE) %>%
-      mutate(prop = freq / time.n)
+      ## Merge time totals, calculate proportions
+      crosstab.data <- crosstab.data %>%
+        left_join(time.totals, by = c('facetvar', 'data.time'), all = TRUE) %>%
+        mutate(prop = freq / time.n)
 
-    ## Create plot
-    prop.plot <- ggplot(data = crosstab.data, aes(x = proplevel, y = prop, fill = data.time)) +
-      geom_bar(stat = 'identity', position = 'dodge') +
-      scale_y_continuous(name = use.ylab,
-                         limits = c(0, 1),
-                         breaks = seq(0, 1, 0.25),
-                         labels = paste0(seq(0, 100, 25), '%')) +
-      scale_fill_manual(name = NULL, values = time.colors) +
-      ggtitle(title.string) +
-      theme(legend.position = 'bottom',
-            legend.direction = 'horizontal',
-            legend.key.size = unit(legend.key.cm, 'cm'),
-            legend.text = element_text(size = legend.text.size),
-            strip.text = element_text(face = 'bold', size = strip.text.size),
-            plot.title = element_text(hjust = title.hjust, face = 'bold', size = title.size),
-            axis.text.x = element_text(angle = x.angle, hjust = x.hjust, size = axis.text.size),
-            axis.text.y = element_text(size = axis.text.size),
-            axis.title = element_text(size = axis.title.size))
+      ## Create plot
+      prop.plot <- ggplot(data = crosstab.data, aes(x = proplevel, y = prop, fill = data.time)) +
+        geom_bar(stat = 'identity', position = 'dodge') +
+        scale_y_continuous(name = use.ylab,
+                           limits = c(0, 1),
+                           breaks = seq(0, 1, 0.25),
+                           labels = paste0(seq(0, 100, 25), '%')) +
+        scale_fill_manual(name = NULL, values = time.colors) +
+        ggtitle(title.string) +
+        theme(legend.position = 'bottom',
+              legend.direction = 'horizontal',
+              legend.key.size = unit(legend.key.cm, 'cm'),
+              legend.text = element_text(size = legend.text.size),
+              strip.text = element_text(face = 'bold', size = strip.text.size),
+              plot.title = element_text(hjust = title.hjust, face = 'bold', size = title.size),
+              axis.text.x = element_text(angle = x.angle, hjust = x.hjust, size = axis.text.size),
+              axis.text.y = element_text(size = axis.text.size),
+              axis.title = element_text(size = axis.title.size))
 
-    ## Facet plot, if needed
-    if(!is.null(facet.var)){
-      prop.plot <- prop.plot + facet_wrap(~ facetvar, ncol = facet.col)
-    }
+      ## Facet plot, if needed
+      if(!is.null(facet.var)){
+        prop.plot <- prop.plot + facet_wrap(~ facetvar, ncol = facet.col)
+      }
 
-    ## Remove legend if requested
-    if(!use.legend){
-      prop.plot <- prop.plot + guides(fill = 'none')
+      ## Remove legend if requested
+      if(!use.legend){
+        prop.plot <- prop.plot + guides(fill = 'none')
+      }
     }
 
     ## X axis breaks and title
