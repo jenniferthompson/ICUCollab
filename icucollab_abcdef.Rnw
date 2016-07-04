@@ -192,6 +192,9 @@ compliance <- read.csv('RawData/compliance.csv', stringsAsFactors = FALSE)
 source('compliance_redcap.R')
 names(compliance) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(compliance)))
 
+## Add label for complete data variable
+label(compliance$daily.compliance.form.complete.f) <- 'Daily form status'
+
 ## Spreadsheet from Vishakha showing which hospitals belong in which region
 hosp.region <- read.csv('RawData/hospital_regions.csv', stringsAsFactors = FALSE) %>%
   filter(region != '') %>%
@@ -549,7 +552,8 @@ comp.summary.icu <- compliance %>%
             mean.sed.assess.either = calc.mean.na(sed.assess.either),
             mean.del.assess.valid = calc.mean.na(delirium.assess.valid),
             mean.del.assess.other = calc.mean.na(delirium.assess.other),
-            mean.del.assess.either = calc.mean.na(delirium.assess.either)) %>%
+            mean.del.assess.either = calc.mean.na(delirium.assess.either),
+            n.comp.days = sum(daily.compliance.form.complete.f == 'Complete', na.rm = TRUE)) %>%
   ungroup()
 
 demog <- demog %>%
@@ -565,6 +569,28 @@ label(demog$mean.sed.assess.either) <- 'Mean total arousal asmts'
 label(demog$mean.del.assess.valid) <- 'Mean PAD-rec. delirium asmts'
 label(demog$mean.del.assess.other) <- 'Mean other delirium asmts'
 label(demog$mean.del.assess.either) <- 'Mean total delirium asmts'
+label(demog$n.comp.days) <- 'Number of days marked complete'
+
+@
+
+\subsection{Data Collection Status}
+<<datacollect>>=
+data.status.daily <- summaryM(daily.compliance.form.complete.f ~ data.time,
+                              data = compliance, overall = TRUE)
+
+data.status.patient <- summaryM(n.comp.days ~ data.time, data = demog, overall = TRUE)
+@
+
+<<printdatacollect, results = 'asis'>>=
+my.print.summaryM(data.status.daily,
+                  caption = 'Data Collection Status for All Patient-Days',
+                  caption.lot = 'Data Collection Status for All Patient-Days',
+                  exclude1 = FALSE)
+
+my.print.summaryM(data.status.patient,
+                  caption = 'Days of Complete Data Per Patient',
+                  caption.lot = 'Days of Complete Data Per Patient',
+                  exclude1 = FALSE)
 
 @
 
