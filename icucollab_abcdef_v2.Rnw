@@ -1,0 +1,296 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.5in]{geometry}
+\usepackage{hyperref}
+
+\title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
+\author{Society of Critical Care Medicine}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\listoftables
+\listoffigures
+
+The following tables and figures present descriptions of compliance with the ABCDEF bundle at ICU
+Collaborative sites before and after implementation. Code for all data management and analysis can
+be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef.Rnw}{here}.
+
+<<setup, message=FALSE, echo=FALSE>>=
+opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
+options(replace.assign = TRUE, width = 90)
+
+## Load libraries
+library(Hmisc)
+library(dplyr)
+library(tidyr)
+library(devtools)
+
+## Wrapper function for latex-ing summaryM objects
+my.print.summaryM <- function(...){
+  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
+                 npct = 'both', what = '%', ...)
+}
+
+## Function to round number to and print same number of digits
+rndformat <- function(x, ndigits = 2){
+  format(round(x, digits = ndigits), nsmall = ndigits)
+}
+
+## Function to format p-values
+formatp <- function(p){
+  ifelse(p < 0.0001, '<0.0001',
+  ifelse(p < 0.001, '<0.001',
+         rndformat(p, 3)))
+}
+
+## multiplot() function for multiple ggplot objects on one page (from Winston Chang's Cookbook for
+##  R: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/)
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    for (i in 1:numPlots) {
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+## -- Function to calculate & plot proportions of patient-days by time and, if needed, -------------
+## -- faceting variable ----------------------------------------------------------------------------
+ggplot.prop <-
+  function(var,                                             ## X variable to plot
+           facet.var = NULL,                                ## variable to facet by
+           facet.col = 1,                                   ## number of columns for faceting
+           use.na = c('no', 'ifany', 'always'),             ## include missing values in facets
+           dataset = subset(compliance, icu.24.f == 'Yes'), ## data set to use
+           use.ylab = 'Percent of ICU Days',                ## Y axis label
+           use.xlab = NULL,                                 ## X axis label
+           x.limits = NULL,                                 ## X axis limits
+           x.breaks = NULL,                                 ## breaks to use for X axis
+           x.angle = 0, x.hjust = 0.5,                      ## X axis text formatting
+           axis.text.size = 7,                              ## axis text size
+           axis.title.size = 8,                             ## axis title size
+           time.colors = c('#9ecae1', '#08306b'),           ## colors for bars
+           use.legend = TRUE,                               ## include legend?
+           legend.text.size = 7,                            ## legend text size
+           legend.key.cm = 0.4,                             ## legend key size in cm
+           strip.text.size = 8,                             ## strip text size
+           title.string = var,                              ## plot title; defaults to X var name
+           title.size = 9,                                  ## font size for main title
+           title.hjust = 0){                                ## justification for plot title
+
+  use.na <- match.arg(use.na)
+
+  ## Get number in each cell
+  if(!is.null(facet.var)){
+    crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", facet.var, ", ",
+                                              var, ", data.time, useNA = '", use.na, "')))")))
+    names(crosstab.data) <- gsub(facet.var, 'facetvar', names(crosstab.data))
+  } else{
+    crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", var,
+                                              ", data.time, useNA = '", use.na, "')))")))
+    crosstab.data$facetvar <- 'All'
+  }
+  names(crosstab.data) <- gsub(var, 'proplevel', tolower(names(crosstab.data)))
+
+  ## If original X variable is numeric, force tabulated form to be numeric
+  if('integer' %in% class(dataset[,var]) | 'numeric' %in% class(dataset[,var])){
+    crosstab.data$proplevel <- as.numeric(as.character(crosstab.data$proplevel))
+  }
+
+  ## Get totals for each time point
+  time.totals <- crosstab.data %>%
+    group_by(facetvar, data.time) %>%
+    summarise(time.n = sum(freq, na.rm = TRUE)) %>%
+    ungroup()
+
+  ## Merge time totals, calculate proportions
+  crosstab.data <- crosstab.data %>%
+    left_join(time.totals, by = c('facetvar', 'data.time'), all = TRUE) %>%
+    mutate(prop = freq / time.n)
+
+  ## Create plot
+  prop.plot <- ggplot(data = crosstab.data, aes(x = proplevel, y = prop, fill = data.time)) +
+    geom_bar(stat = 'identity', position = 'dodge') +
+    scale_y_continuous(name = use.ylab,
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.25),
+                       labels = paste0(seq(0, 100, 25), '%')) +
+    scale_fill_manual(name = NULL, values = time.colors) +
+    ggtitle(title.string) +
+    theme(legend.position = 'bottom',
+          legend.direction = 'horizontal',
+          legend.key.size = unit(legend.key.cm, 'cm'),
+          legend.text = element_text(size = legend.text.size),
+          strip.text = element_text(face = 'bold', size = strip.text.size),
+          plot.title = element_text(hjust = title.hjust, face = 'bold', size = title.size),
+          axis.text.x = element_text(angle = x.angle, hjust = x.hjust, size = axis.text.size),
+          axis.text.y = element_text(size = axis.text.size),
+          axis.title = element_text(size = axis.title.size))
+
+  ## Facet plot, if needed
+  if(!is.null(facet.var)){
+    prop.plot <- prop.plot + facet_wrap(~ facetvar, ncol = facet.col)
+  }
+
+  ## Remove legend if requested
+  if(!use.legend){
+    prop.plot <- prop.plot + guides(fill = 'none')
+  }
+
+  ## X axis breaks and title
+  if(!is.null(x.breaks)){
+    if(!is.null(x.limits)){
+      prop.plot <- prop.plot +
+        scale_x_continuous(name = use.xlab, limits = x.limits, breaks = x.breaks)
+    } else{
+      prop.plot <- prop.plot + scale_x_continuous(name = use.xlab, breaks = x.breaks)
+    }
+  } else{
+    prop.plot <- prop.plot + xlab(use.xlab)
+  }
+
+  return(prop.plot)
+}
+
+@
+
+<<datamgmt>>=
+## -- Read in data, create factors/labels using REDCap scripts -------------------------------------
+## Demographics form
+demog <- read.csv('RawData/demog.csv', stringsAsFactors = FALSE)
+source('demog_redcap.R')
+names(demog) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(demog)))
+
+## Compliance form
+compliance <- read.csv('RawData/compliance.csv', stringsAsFactors = FALSE)
+source('compliance_redcap.R')
+names(compliance) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(compliance)))
+
+## Add label for complete data variable
+label(compliance$daily.compliance.form.complete.f) <- 'Daily form status'
+
+## Spreadsheet from Vishakha showing which hospitals belong in which region
+hosp.region <- read.csv('RawData/hospital_regions.csv', stringsAsFactors = FALSE) %>%
+  filter(region != '') %>%
+  separate(hospital, ', ', into = c('hosp.num', 'hosp.f')) %>%
+  mutate(region = factor(region))
+levels(hosp.region$region) <- c('East Coast', 'Midwest', 'West Coast')
+
+## Spreadsheet from Vishakha showing hospital types (teaching vs community)
+hosp.type <- read.csv('RawData/hospital_types.csv', stringsAsFactors = FALSE) %>%
+  filter(hospital.code != '') %>%
+  ## Strip leading/trailing spaces from hospital.type
+  mutate(hospital.type = factor(gsub(' +', '', hospital.type)))
+
+hosp.info <- full_join(hosp.region, hosp.type, by = 'hospital.code')
+
+## -- Remove any test patients ---------------------------------------------------------------------
+## Get list of IDs which don't meet required format to send Vishakha
+reformat.ids <-
+  demog$id[grep('^[A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9]$', toupper(demog$id), invert = TRUE)]
+
+## Remove any patient with "test" in the ID
+demog <- demog[grep('test', tolower(demog$id), invert = TRUE),]
+compliance <- compliance[grep('test', tolower(compliance$id), invert = TRUE),]
+
+## -- Data management for demographic form ---------------------------------------------------------
+## Create indicator for retrospective (mos 1-6) vs. prospective (mos 7-) data collection
+demog$data.time <- with(demog, {
+  factor(ifelse(month <= 6, 1, 2), levels = 1:2, labels = c('Baseline', 'Prospective')) })
+
+## Create variable for retrospective vs each following month
+max.month <- max(subset(demog, month < 97)$month, na.rm = TRUE)
+demog$data.month <- with(demog, {
+  factor(ifelse(is.na(month) | month %in% 97:99, NA,
+         ifelse(month <= 6, 6, month)),
+         levels = 6:max.month, labels = c('Baseline', paste('Month', 7:max.month))) })
+
+## Merge on hospital region, type
+demog <- merge(demog, subset(hosp.info, select = c(region, hospital.type, hosp.num)),
+               by.x = c('hosp'), by.y = c('hosp.num'), all.x = TRUE, all.y = FALSE)
+
+## Create single race variable
+demog$race.f <- with(demog, {
+  factor(ifelse(rowSums(demog[,grep('^race\\.[1-6]$', names(demog))]) == 0, 8,
+         ifelse(rowSums(demog[,grep('^race\\.[1-6]$', names(demog))]) > 1, 7,
+         ifelse(race.1 == 1, 1,
+         ifelse(race.2 == 1, 2,
+         ifelse(race.3 == 1, 3,
+         ifelse(race.4 == 1, 4,
+         ifelse(race.5 == 1, 5, NA))))))),
+         levels = 1:8,
+         labels = c('American Indian/AK Native',
+                    'Black/African American',
+                    'White',
+                    'Asian',
+                    'Native HI/Pacific Islander',
+                    'Other/nonspecified',
+                    'Multiple races indicated',
+                    'Missing data')) })
+
+## Shorten levels as needed
+levels(demog$dc.status.f) <- c('Died in ICU, collaborative stay',
+                               'Died in ICU, not collaborative stay',
+                               'Died during hospitalization, not ICU',
+                               'Discharged alive')
+
+## Total time on invasive, noninvasive MV
+demog$hrs.invas.vent <- with(demog, {
+  ifelse(is.na(invas.vent.episode) | invas.vent.episode == 0, NA,
+         rowSums(demog[,paste0('invas.vent.length.', 1:6)], na.rm = TRUE)) })
+
+demog$hrs.noninvas.vent <- with(demog, {
+  ifelse(is.na(noninvas.vent.episode) | noninvas.vent.episode == 0, NA,
+         rowSums(demog[,paste0('invas.vent.length.', 1:6)], na.rm = TRUE)) })
+
+label(demog$data.time) <- 'Time of data collection'
+label(demog$data.plan.f) <- 'Data plan'
+label(demog$region) <- 'Hospital region'
+label(demog$month.f) <- 'Month in Collaborative ICU'
+label(demog$age.f) <- 'Age range'
+label(demog$sex.f) <- 'Sex'
+label(demog$race.f) <- 'Race'
+label(demog$hispanic.f) <- 'Hispanic'
+label(demog$english.f) <- 'English-speaking'
+label(demog$invas.vent.episode) <- 'Episodes of invasive MV'
+label(demog$hrs.invas.vent) <- 'Total hours on invasive MV'
+label(demog$noninvas.vent.episode) <- 'Episodes of noninvasive MV'
+label(demog$hrs.noninvas.vent) <- 'Total hours on noninvasive MV'
+label(demog$icu.los) <- 'ICU length of stay'
+label(demog$hosp.losv) <- 'Hospital length of stay'
+label(demog$dc.status.f) <- 'Discharge/mortality status'
+
+
+## -- Data management for compliance form ----------------------------------------------------------
+
+
+@
+
+
+\end{document}
