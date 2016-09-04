@@ -20,7 +20,8 @@
 
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at ICU
 Collaborative sites before and after implementation. Code for all data management and analysis can
-be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef.Rnw}{here}.
+be found
+\href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_v2.Rnw}{here}.
 
 <<setup, message=FALSE, echo=FALSE>>=
 opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
@@ -287,8 +288,40 @@ label(demog$hosp.losv) <- 'Hospital length of stay'
 label(demog$dc.status.f) <- 'Discharge/mortality status'
 
 
-## -- Data management for compliance form ----------------------------------------------------------
-
+## -- Data management for compliance form ---------------------------------------------------------
+compliance <- compliance %>%
+  mutate(## Denominator for all following variables: days in ICU full 24h
+         comp.tracked = !is.na(icu.24.f) & icu.24.f == 'Yes',
+         ## A: Assess, prevent and manage pain ##
+         ## Compliant if received >=6 pain assessments in 24h using a PAD-recommended instrument
+         n.painassess = ifelse(!is.na(pain.valid) & !is.na(pain.verbal), pain.valid + pain.verbal,
+                        ifelse(!is.na(pain.valid), pain.valid,
+                        ifelse(!is.na(pain.verbal), pain.verbal, NA))),
+           ## If no pain assessment data was recorded, day is considered noncompliant
+         comp.a = ifelse(!comp.tracked, NA, !is.na(n.painassess) & n.painassess >= 6),
+         ## B: both SAT and SBT ##
+         ## On sedative: In ICU all 24h + either continuous infusion or intermittent sched sedation
+         on.sedative.icu = ifelse(!comp.tracked, NA, sedative.1 == 1 | sedative.2 == 1),
+         ## Compliant on SAT: on sedation + SAT screen passed + SAT performed
+         comp.b.sat = ifelse(!on.sedative.icu, NA,
+                      ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
+                             satscreen.f == 'Passed' & satperformed.f == 'Yes')),
+         ## On mechanical ventilation: in ICU all 24h + on MV today
+         on.mv.icu = ifelse(!comp.tracked, NA,
+                     ifelse(is.na(venttoday.f) | venttoday.f == 'No', FALSE, TRUE)),
+         ## Compliant on SBT: on MV + SBT screen passed + SBT performed
+         comp.b.sbt = ifelse(!on.mv.icu, NA,
+                      ifelse(is.na(sbtscreen.f) | is.na(sbtperformed.f), FALSE,
+                             sbtscreen.f == 'Passed' & sbtperformed.f == 'Yes')),
+         ## Compliant on SAT+SBT: SAT performed before an SBT
+         had.satsbt.icu = ifelse(!comp.tracked, NA, on.sedative.icu & on.mv.icu),
+         comp.b.satsbt = ifelse(!had.satsbt.icu, NA,
+                         ifelse(is.na(satperformed.f) | is.na(sbtperformed.f) | is.na(satsbt.f),
+                                FALSE,
+                                satperformed.f == 'Yes' &
+                                  sbtperformed.f == 'Yes' &
+                                  satsbt.f == 'Yes'))
+         )
 
 @
 
