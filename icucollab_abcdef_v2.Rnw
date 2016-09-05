@@ -35,7 +35,7 @@ library(devtools)
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
-  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
+  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = FALSE, long = FALSE,
                  npct = 'both', what = '%', ...)
 }
 
@@ -220,21 +220,32 @@ reformat.ids <-
 demog <- demog[grep('test', tolower(demog$id), invert = TRUE),]
 compliance <- compliance[grep('test', tolower(compliance$id), invert = TRUE),]
 
+## Which IDs are used >1 time?
+multiple.pt.ids <- subset(as.data.frame(table(demog$id)), Freq > 1)
+
 ## -- Data management for demographic form ---------------------------------------------------------
 ## Create indicator for retrospective (mos 1-6) vs. prospective (mos 7-) data collection
 demog$data.time <- with(demog, {
-  factor(ifelse(month <= 6, 1, 2), levels = 1:2, labels = c('Baseline', 'Prospective')) })
+  factor(ifelse(month <= 6, 1, 2), levels = 1:2, labels = c('Retrospective', 'Prospective')) })
 
 ## Create variable for retrospective vs each following month
 max.month <- max(subset(demog, month < 97)$month, na.rm = TRUE)
 demog$data.month <- with(demog, {
   factor(ifelse(is.na(month) | month %in% 97:99, NA,
          ifelse(month <= 6, 6, month)),
-         levels = 6:max.month, labels = c('Baseline', paste('Month', 7:max.month))) })
+         levels = 6:max.month, labels = c('Retrospective', paste('Month', 7:max.month))) })
 
 ## Merge on hospital region, type
 demog <- merge(demog, subset(hosp.info, select = c(region, hospital.type, hosp.num)),
                by.x = c('hosp'), by.y = c('hosp.num'), all.x = TRUE, all.y = FALSE)
+
+## Recategorize age per request
+demog$agecat.f <- with(demog, factor(ifelse(is.na(age.f), NA,
+                                     ifelse(age.f %in% c('< 18', '18-29', '30-39', '40-49'), 1,
+                                     ifelse(age.f %in% c('50-59', '60-69'), 2,
+                                     ifelse(age.f %in% c('70-79', '80-89'), 3, 4)))),
+                                     levels = 1:4,
+                                     labels = c('18-49', '50-69', '70-89', '90+')))
 
 ## Create single race variable
 demog$race.f <- with(demog, {
@@ -261,6 +272,15 @@ levels(demog$dc.status.f) <- c('Died in ICU, collaborative stay',
                                'Died during hospitalization, not ICU',
                                'Discharged alive')
 
+## Ever received invasive, noninvasive MV?
+demog$ever.invas.vent <- with(demog, factor(ifelse(is.na(invas.vent.episode), NA,
+                                            ifelse(invas.vent.episode > 0, 1, 0)),
+                                            levels = 0:1, labels = c('No', 'Yes')))
+
+demog$ever.noninvas.vent <- with(demog, factor(ifelse(is.na(noninvas.vent.episode), NA,
+                                               ifelse(noninvas.vent.episode > 0, 1, 0)),
+                                               levels = 0:1, labels = c('No', 'Yes')))
+
 ## Total time on invasive, noninvasive MV
 demog$hrs.invas.vent <- with(demog, {
   ifelse(is.na(invas.vent.episode) | invas.vent.episode == 0, NA,
@@ -275,13 +295,16 @@ label(demog$data.plan.f) <- 'Data plan'
 label(demog$region) <- 'Hospital region'
 label(demog$month.f) <- 'Month in Collaborative ICU'
 label(demog$age.f) <- 'Age range'
+label(demog$agecat.f) <- 'Age category'
 label(demog$sex.f) <- 'Sex'
 label(demog$race.f) <- 'Race'
 label(demog$hispanic.f) <- 'Hispanic'
 label(demog$english.f) <- 'English-speaking'
 label(demog$invas.vent.episode) <- 'Episodes of invasive MV'
+label(demog$ever.invas.vent) <- 'Ever received invasive MV'
 label(demog$hrs.invas.vent) <- 'Total hours on invasive MV'
 label(demog$noninvas.vent.episode) <- 'Episodes of noninvasive MV'
+label(demog$ever.noninvas.vent) <- 'Ever received noninvasive MV'
 label(demog$hrs.noninvas.vent) <- 'Total hours on noninvasive MV'
 label(demog$icu.los) <- 'ICU length of stay'
 label(demog$hosp.losv) <- 'Hospital length of stay'
@@ -397,6 +420,57 @@ label(compliance$mobility.high.icu) <- 'Highest level of exercise/mobilization p
 label(compliance$comp.e) <- 'Early mobility protocol compliance'
 label(compliance$family.present.icu) <- 'Days family present in ICU'
 label(compliance$comp.f) <- 'Family engagement protocol compliance'
+
+## -- Calculate days of delirium, coma per compliance form -----------------------------------------
+days.mental <- compliance %>%
+  group_by(id) %>%
+  summarise(days.delirium = ifelse(sum(!is.na(delirium.present.valid.f)) == 0, NA,
+                                   sum(delirium.present.valid.f == 'Yes', na.rm = TRUE)),
+            days.coma = ifelse(sum(!is.na(coma.f)) == 0, NA, sum(coma.f == 'Yes', na.rm = TRUE)))
+
+demog <- demog %>%left_join(days.mental, by = 'id')
+label(demog$days.delirium) <- 'Days of delirium per PAD-rec. assessment'
+label(demog$days.coma) <- 'Days of coma'
+
+quantile.example <- quantile(subset(demog, data.time == 'Retrospective')$icu.los,
+                             probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+@
+
+\clearpage
+\section{Entire Cohort}
+\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
+Table \ref{table:descstats} describes the patients whose data was collected during the retrospective
+and prospective data collection period. There are \Sexpr{length(unique(demog$id))} unique patient
+IDs in the database; of these, \Sexpr{length(unique(subset(demog, data.time == 'Retrospective')$id))}
+were collected during the retrospective period (months 1-6), and
+\Sexpr{length(unique(subset(demog, data.time == 'Prospective')$id))} were collected during the
+prospective period (months 7-). (The remaining
+\Sexpr{length(unique(subset(demog, is.na(data.time))$id))} patients had no ``month" entered in the
+database and therefore cannot be counted when comparing the two cohorts.)
+
+For continuous variables (like hours of invasive ventilation), the 25th, 50th, and 75th percentiles
+are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a "typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+
+For example, in the retrospective cohort, 25\% of patients had \Sexpr{quantile.example['25%']} or
+fewer days in the ICU; half the patients had \Sexpr{quantile.example['50%']} or fewer days in the
+ICU; and 75\% of patients had \Sexpr{quantile.example['75%']} or fewer days in the ICU.
+
+<<desccohort>>=
+desc.all <- summaryM(region + agecat.f + sex.f + race.f + hispanic.f + english.f +
+                       ever.invas.vent + hrs.invas.vent + ever.noninvas.vent +
+                       hrs.noninvas.vent + days.delirium + days.coma + icu.los + hosp.losv +
+                       dc.status.f ~ data.time,
+                     data = demog)
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
+                  exclude1 = TRUE,
+                  label = 'table:descstats')
 
 @
 
