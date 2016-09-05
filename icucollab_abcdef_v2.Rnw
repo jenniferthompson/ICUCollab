@@ -474,5 +474,146 @@ my.print.summaryM(desc.all,
 
 @
 
+\section{ABCDEF Bundle Compliance}
+<<compdatamgmt>>=
+## -- Summarize compliance for each month ----------------------------------------------------------
+compliance <- left_join(compliance, demog[,c('id', 'data.month', 'hospital.type')], by = 'id')
+
+comp.summary.overall <- compliance %>%
+  group_by(data.month) %>%
+  summarise(## Days compliance was tracked
+            days.tracked = sum(comp.tracked),
+            ## A: Assess, prevent and manage pain
+            asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
+            asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
+            days.comp.a = sum(comp.a, na.rm = TRUE),
+            pct.comp.a = mean(comp.a, na.rm = TRUE),
+            ## B: Both SAT and SBT
+            days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
+            days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
+            pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.mv = sum(on.mv.icu, na.rm = TRUE),
+            days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
+            pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
+            days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
+            pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## C: Choice of analgesia and sedation
+            days.comp.c = sum(comp.c, na.rm = TRUE),
+            pct.comp.c = mean(comp.c, na.rm = TRUE),
+            asmt.sed.median = median(sed.assess.icu, na.rm = TRUE),
+            asmt.sed.25 = quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.sed.75 = quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE),
+            ## D: Delirium - assess, prevent and manage
+            days.comp.d = sum(comp.d, na.rm = TRUE),
+            pct.comp.d = mean(comp.d, na.rm = TRUE),
+            ## E: Early mobility and exercise
+            days.comp.e = sum(comp.e, na.rm = TRUE),
+            pct.comp.e = mean(comp.e, na.rm = TRUE),
+            ## F: Family engagement and empowerment
+            days.family.present = sum(family.present.icu, na.rm = TRUE),
+            days.comp.f = sum(comp.f, na.rm = TRUE),
+            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+  filter(!is.na(data.month)) %>%
+  mutate(hospital.type = 'All sites',
+         line.alpha = 1)
+
+comp.summary.type <- compliance %>%
+  group_by(data.month, hospital.type) %>%
+  summarise(## Days compliance was tracked
+            days.tracked = sum(comp.tracked),
+            ## A: Assess, prevent and manage pain
+            asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
+            asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
+            days.comp.a = sum(comp.a, na.rm = TRUE),
+            pct.comp.a = mean(comp.a, na.rm = TRUE),
+            ## B: Both SAT and SBT
+            days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
+            days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
+            pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.mv = sum(on.mv.icu, na.rm = TRUE),
+            days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
+            pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
+            days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
+            pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## C: Choice of analgesia and sedation
+            days.comp.c = sum(comp.c, na.rm = TRUE),
+            pct.comp.c = mean(comp.c, na.rm = TRUE),
+            asmt.sed.median = median(sed.assess.icu, na.rm = TRUE),
+            asmt.sed.25 = quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.sed.75 = quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE),
+            ## D: Delirium - assess, prevent and manage
+            days.comp.d = sum(comp.d, na.rm = TRUE),
+            pct.comp.d = mean(comp.d, na.rm = TRUE),
+            ## E: Early mobility and exercise
+            days.comp.e = sum(comp.e, na.rm = TRUE),
+            pct.comp.e = mean(comp.e, na.rm = TRUE),
+            ## F: Family engagement and empowerment
+            days.family.present = sum(family.present.icu, na.rm = TRUE),
+            days.comp.f = sum(comp.f, na.rm = TRUE),
+            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+  filter(!is.na(data.month) & !is.na(hospital.type)) %>%
+  mutate(line.alpha = 2)
+
+comp.summary <- bind_rows(comp.summary.overall, comp.summary.type) %>%
+  mutate(line.alpha.f = factor(line.alpha, levels = 1:2, labels = c('All sites', 'Site subtype')))
+
+## -- Function to plot compliance percentage over time --------------------------------------------
+plot.compliance <- function(compvar, ytitle){
+  ggplot(data = comp.summary,
+         aes_string(x = 'data.month', y = compvar,
+                    group = 'hospital.type', colour = 'hospital.type', alpha = 'hospital.type')) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = 1.5) +
+    geom_line() +
+    geom_point() +
+    scale_x_discrete(name = '') +
+    scale_y_continuous(name = ytitle,
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.2),
+                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+    scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '') +
+    scale_alpha_manual(values = c(1, 0.5, 0.5), guide = 'none') +
+    theme(legend.position = c(0, 0),
+          legend.justification = c(0.1, 0.1),
+          legend.direction = 'vertical',
+          legend.title = element_blank(),
+          legend.background = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+}
+
+plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Assessment Compliance')
+plot.comp.b.sat <- plot.compliance('pct.comp.b.sat', 'SAT Protocol Compliance')
+plot.comp.b.sbt <- plot.compliance('pct.comp.b.sbt', 'SBT Protocol Compliance')
+plot.comp.b.satsbt <- plot.compliance('pct.comp.b.satsbt', 'SAT Prior to SBT')
+plot.comp.c <- plot.compliance('pct.comp.c', 'Sedation Assessment Compliance')
+plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Assessment Compliance')
+plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Protocol Compliance')
+plot.comp.f <- plot.compliance('pct.comp.f', 'Family Engagement Compliance')
+
+## Quick boxplot to show concept
+compliance.plotdata <- subset(compliance, !is.na(data.month) & comp.tracked)
+
+box.asmts.a <- ggplot(data = compliance.plotdata, aes(x = data.month, y = n.painassess.icu)) +
+  geom_boxplot(fill = NA, colour = 'navy') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'PAD-Recommended Pain\nAssessments in 24h',
+                     breaks = seq(0,
+                                  max(compliance.plotdata$n.painassess.icu, na.rm = TRUE), 10)) +
+  geom_vline(xintercept = 1.5, colour = 'white', size = 2) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1.2),
+        axis.text.y = element_text(hjust = 2))
+
+pdf(file = 'icucollab_boxplot_a.pdf', width = 7, height = 7*0.618)
+box.asmts.a
+dev.off()
+
+@
 
 \end{document}
