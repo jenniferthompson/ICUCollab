@@ -412,17 +412,17 @@ label(compliance$had.satsbt.icu) <- 'Eligible for SAT and SBT'
 label(compliance$comp.b.satsbt) <- 'SAT prior to SBT'
 label(compliance$sed.assess.icu) <- 'Sedation assessments/day in ICU'
 label(compliance$comp.c) <- 'Sedation assessment compliance'
-label(compliance$opioid.icu) <- 'Received opioids in ICU'
-label(compliance$benzo.icu) <- 'Received benzodiazepines in ICU'
-label(compliance$propofol.icu) <- 'Received propofol in ICU'
-label(compliance$dex.icu) <- 'Received dexmedetomidine in ICU'
-label(compliance$ketam.icu) <- 'Received ketamine in ICU'
-label(compliance$antipsyc.typ.icu) <- 'Received typical antipsychotics in ICU'
-label(compliance$antipsyc.atyp.icu) <- 'Received atypical antipsychotics in ICU'
-label(compliance$no.sedanal.icu) <- 'Received no sedatives/analgesics in ICU'
+label(compliance$opioid.icu) <- 'Received opioids'
+label(compliance$benzo.icu) <- 'Received benzodiazepines'
+label(compliance$propofol.icu) <- 'Received propofol'
+label(compliance$dex.icu) <- 'Received dexmedetomidine'
+label(compliance$ketam.icu) <- 'Received ketamine'
+label(compliance$antipsyc.typ.icu) <- 'Received typical antipsychotics'
+label(compliance$antipsyc.atyp.icu) <- 'Received atypical antipsychotics'
+label(compliance$no.sedanal.icu) <- 'Received no sedatives/analgesics'
 label(compliance$delirium.assess.icu) <- 'Delirium assessments/day in ICU'
 label(compliance$comp.d) <- 'Delirium assessment compliance'
-label(compliance$mobility.high.icu) <- 'Highest level of exercise/mobilization performed in ICU'
+label(compliance$mobility.high.icu) <- 'Highest level of exercise/mobilization'
 label(compliance$comp.e) <- 'Early mobility protocol compliance'
 label(compliance$family.present.icu) <- 'Days family present in ICU'
 label(compliance$comp.f) <- 'Family engagement protocol compliance'
@@ -599,7 +599,7 @@ results.month <- function(m){
 
   ## Combine percentages and counts for % compliance
   create.npct <- function(nvar, pctvar){
-    paste0(mdata[nvar], ' (', rndformat(as.numeric(mdata[pctvar])*100, 0), '\\%)')
+    paste0(rndformat(as.numeric(mdata[pctvar])*100, 0), '\\% (', mdata[nvar], ')')
   }
   npct.a <- create.npct('days.comp.a', 'pct.comp.a')
   npct.b.sat <- create.npct('days.comp.b.sat', 'pct.comp.b.sat')
@@ -730,6 +730,8 @@ latex(compliance.table, file = '',
       # landscape = TRUE,
       where = '!h',
       title = '',
+      caption = 'ABCDEF Bundle Compliance',
+      caption.lot = 'ABCDEF Bundle Compliance',
       label = 'table:compliance',
       size = 'footnotesize',
       rgroup = c('',
@@ -760,5 +762,28 @@ multiplot(plot.comp.a,
                           byrow = TRUE, nrow = 5))
 
 @
+
+\begin{landscape}
+Table \ref{table:medsmobility} describes sedative and analgesia use, as well as the highest level of
+mobility performed, on days patients were in the ICU all 24 hours.
+
+<<printmedmobilitytable, results = 'asis'>>=
+latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + antipsyc.typ.icu +
+                 antipsyc.atyp.icu + no.sedanal.icu + mobility.high.icu ~ data.month,
+               data = subset(compliance, comp.tracked)), file = '',
+      # landscape = TRUE,
+      where = '!h',
+      what = '%',
+      title = '',
+      prn = FALSE,
+      prN = FALSE,
+      long = TRUE,
+      size = 'small',
+      caption = 'Sedatives, Analgesics and Early Mobility in the ICU',
+      caption.lot = 'Sedatives, Analgesics and Early Mobility in the ICU',
+      label = 'table:medsmobility')
+
+@
+\end{landscape}
 
 \end{document}
