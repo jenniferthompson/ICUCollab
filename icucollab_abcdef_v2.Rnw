@@ -7,6 +7,7 @@
 \usepackage{longtable}
 \usepackage[margin = 0.5in]{geometry}
 \usepackage{hyperref}
+\usepackage{pdflscape}
 
 \title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
 \author{Society of Critical Care Medicine}
@@ -14,9 +15,9 @@
 
 \begin{document}
 \maketitle
-\tableofcontents
-\listoftables
-\listoffigures
+% \tableofcontents
+% \listoftables
+% \listoffigures
 
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at ICU
 Collaborative sites before and after implementation. Code for all data management and analysis can
@@ -442,7 +443,7 @@ quantile.example <- quantile(subset(demog, data.time == 'Retrospective')$icu.los
 
 @
 
-\clearpage
+% \clearpage
 \section{Entire Cohort}
 \subsection{Demographic, Baseline, and Hospital Stay Characteristics}
 Table \ref{table:descstats} describes the patients whose data was collected during the retrospective
@@ -479,7 +480,15 @@ my.print.summaryM(desc.all,
 
 @
 
+\begin{landscape}
 \section{ABCDEF Bundle Compliance}
+Table \ref{table:compliance} presents compliance results by time period for all parts of the ABCDEF
+Bundle. For parts A, C, D, and E, the proportion of days compliant is out of all days where the
+patient was in the ICU the full 24 hours (row 1 in table). For part B, the proportion of SAT
+compliance is out of all days the patient was in the ICU the full 24 hours and on either continuous or intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For part F, the proportion of compliance is out of all days where a family member or significant other was present.
+
+The number of pain, sedation and delirium assessments are described using the median (25th, 75th percentiles). The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a "typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+
 <<compdatamgmt>>=
 ## -- Summarize compliance for each month ----------------------------------------------------------
 compliance <- left_join(compliance,
@@ -515,6 +524,9 @@ comp.summary.overall <- compliance %>%
             ## D: Delirium - assess, prevent and manage
             days.comp.d = sum(comp.d, na.rm = TRUE),
             pct.comp.d = mean(comp.d, na.rm = TRUE),
+            asmt.del.median = median(delirium.assess.icu, na.rm = TRUE),
+            asmt.del.25 = quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.del.75 = quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE),
             ## E: Early mobility and exercise
             days.comp.e = sum(comp.e, na.rm = TRUE),
             pct.comp.e = mean(comp.e, na.rm = TRUE),
@@ -555,6 +567,9 @@ comp.summary.type <- compliance %>%
             ## D: Delirium - assess, prevent and manage
             days.comp.d = sum(comp.d, na.rm = TRUE),
             pct.comp.d = mean(comp.d, na.rm = TRUE),
+            asmt.del.median = median(delirium.assess.icu, na.rm = TRUE),
+            asmt.del.25 = quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.del.75 = quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE),
             ## E: Early mobility and exercise
             days.comp.e = sum(comp.e, na.rm = TRUE),
             pct.comp.e = mean(comp.e, na.rm = TRUE),
@@ -568,8 +583,74 @@ comp.summary.type <- compliance %>%
 comp.summary <- bind_rows(comp.summary.overall, comp.summary.type) %>%
   mutate(line.alpha.f = factor(line.alpha, levels = 1:2, labels = c('All sites', 'Site subtype')))
 
+## -- Create results table by month ---------------------------------------------------------------
+results.month <- function(m){
+  mdata <-
+    unlist(subset(comp.summary.overall, data.month.short == m)[,2:ncol(comp.summary.overall)])
+
+  ## Combine descriptive statistics for number of assessments
+  create.asmtstats <- function(med, p25, p75){
+    paste0(mdata[med], ' (', mdata[p25], ', ', mdata[p75], ')')
+  }
+
+  pain.mediqr <- create.asmtstats('asmt.pain.median', 'asmt.pain.25', 'asmt.pain.75')
+  sed.mediqr <- create.asmtstats('asmt.sed.median', 'asmt.sed.25', 'asmt.sed.75')
+  del.mediqr <- create.asmtstats('asmt.del.median', 'asmt.del.25', 'asmt.del.75')
+
+  ## Combine percentages and counts for % compliance
+  create.npct <- function(nvar, pctvar){
+    paste0(mdata[nvar], ' (', rndformat(as.numeric(mdata[pctvar])*100, 0), '\\%)')
+  }
+  npct.a <- create.npct('days.comp.a', 'pct.comp.a')
+  npct.b.sat <- create.npct('days.comp.b.sat', 'pct.comp.b.sat')
+  npct.b.sbt <- create.npct('days.comp.b.sbt', 'pct.comp.b.sbt')
+  npct.b.satsbt <- create.npct('days.comp.b.satsbt', 'pct.comp.b.satsbt')
+  npct.c <- create.npct('days.comp.c', 'pct.comp.c')
+  npct.d <- create.npct('days.comp.d', 'pct.comp.d')
+  npct.e <- create.npct('days.comp.e', 'pct.comp.e')
+  npct.f <- create.npct('days.comp.f', 'pct.comp.f')
+
+  c(mdata['days.tracked'],
+    npct.a, pain.mediqr,
+    mdata['days.sedatives'], npct.b.sat,
+    mdata['days.mv'], npct.b.sbt,
+    mdata['days.satsbt'], npct.b.satsbt,
+    npct.c, sed.mediqr,
+    npct.d, del.mediqr,
+    npct.e,
+    mdata['days.family.present'], npct.f)
+
+}
+
+compliance.table <- do.call(cbind, lapply(levels(demog$data.month.short), FUN = results.month))
+rownames(compliance.table) <- c('Days compliance was tracked',
+                                'Pain assessment compliance',
+                                'Pain assessments/day (median/IQR)',
+                                'Days on sedatives',
+                                'SAT protocol compliance',
+                                'Days on mechanical ventilation',
+                                'SBT protocol compliance',
+                                'Days with SAT + SBT',
+                                'Days SAT prior to SBT',
+                                'Sedation assessment compliance',
+                                'Sedation assessments/day (median/IQR)',
+                                'Delirium assessment compliance',
+                                'Delirium assessments/day (median/IQR)',
+                                'Early mobility protocol compliance',
+                                'Days family present',
+                                'Family engagement/empowerment compliance')
+colnames(compliance.table) <- levels(demog$data.month)
+
 ## -- Function to plot compliance percentage over time --------------------------------------------
-plot.compliance <- function(compvar, ytitle){
+plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top')){
+
+  put.legend <- match.arg(put.legend)
+  if(put.legend == 'top'){
+    legend.y <- 0.65
+  } else{
+    legend.y <- 0
+  }
+
   ggplot(data = comp.summary,
          aes_string(x = 'data.month.short', y = compvar,
                     group = 'hospital.type', colour = 'hospital.type', alpha = 'hospital.type')) +
@@ -583,8 +664,8 @@ plot.compliance <- function(compvar, ytitle){
                        labels = paste0(seq(0, 1, 0.2)*100, '%')) +
     scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '') +
     scale_alpha_manual(values = c(1, 0.5, 0.5), guide = 'none') +
-    theme(legend.position = c(0, 0),
-          legend.justification = c(0.1, 0.1),
+    theme(legend.position = c(0, legend.y),
+          legend.justification = c(0, 0),
           legend.direction = 'vertical',
           legend.title = element_blank(),
           legend.text = element_text(size = 6),
@@ -594,19 +675,35 @@ plot.compliance <- function(compvar, ytitle){
           legend.margin = unit(0.01, 'cm'),
           axis.ticks = element_blank(),
           axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
-          axis.title.y = element_text(size = 8),
+          axis.title.y = element_text(size = 7),
           axis.text.y = element_text(size = 7))
 
 }
 
-plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Assessment Compliance')
-plot.comp.b.sat <- plot.compliance('pct.comp.b.sat', 'SAT Protocol Compliance')
-plot.comp.b.sbt <- plot.compliance('pct.comp.b.sbt', 'SBT Protocol Compliance')
-plot.comp.b.satsbt <- plot.compliance('pct.comp.b.satsbt', 'SAT Prior to SBT')
-plot.comp.c <- plot.compliance('pct.comp.c', 'Sedation Assessment Compliance')
-plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Assessment Compliance')
-plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Protocol Compliance')
-plot.comp.f <- plot.compliance('pct.comp.f', 'Family Engagement Compliance')
+plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Asmt Compliance') +
+  labs(title = 'A: Assess, prevent and manage pain') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.b.sat <-
+  plot.compliance('pct.comp.b.sat', 'SAT Protocol Compliance', put.legend = 'top') +
+    labs(title = 'B: Both SAT + SBT') +
+    theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.b.sbt <-
+  plot.compliance('pct.comp.b.sbt', 'SBT Protocol Compliance', put.legend = 'top') +
+  labs(title = '')
+plot.comp.b.satsbt <- plot.compliance('pct.comp.b.satsbt', 'SAT Prior to SBT', put.legend = 'top') +
+  labs(title = '')
+plot.comp.c <- plot.compliance('pct.comp.c', 'Sedation Asmt Compliance') +
+  labs(title = 'C: Choice of analgesia and sedation') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Asmt Compliance') +
+  labs(title = 'D: Delirium - assess, prevent and manage') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Compliance', put.legend = 'top') +
+  labs(title = 'E: Early mobility and exercise') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.f <- plot.compliance('pct.comp.f', 'Family Engagement Compliance') +
+  labs(title = 'F: Family engagement') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
 
 ## Quick boxplot to show concept
 compliance.plotdata <- subset(compliance, !is.na(data.month) & comp.tracked)
@@ -627,6 +724,27 @@ box.asmts.a
 dev.off()
 
 @
+
+<<printcompliancetable, results = 'asis'>>=
+latex(compliance.table, file = '',
+      # landscape = TRUE,
+      where = '!h',
+      title = '',
+      label = 'table:compliance',
+      size = 'footnotesize',
+      rgroup = c('',
+                 'A: Assess, prevent and manage pain',
+                 'B: Both SAT and SBT',
+                 'C: Choice of analgesia and sedation',
+                 'D: Delirium - assess, prevent and manage',
+                 'E: Early mobility and exercise',
+                 'F: Family engagement and empowerment'),
+      n.rgroup = c(1, 2, 6, 2, 2, 1, 2),
+      col.just = rep('r', ncol(compliance.table)),
+      insert.bottom = 'Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.')
+
+@
+\end{landscape}
 
 <<printcompliancefigs, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time', fig.width = 7, fig.height = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.a,
