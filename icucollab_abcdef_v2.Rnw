@@ -32,6 +32,7 @@ library(Hmisc)
 library(dplyr)
 library(tidyr)
 library(devtools)
+library(wesanderson)
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
@@ -234,6 +235,10 @@ demog$data.month <- with(demog, {
   factor(ifelse(is.na(month) | month %in% 97:99, NA,
          ifelse(month <= 6, 6, month)),
          levels = 6:max.month, labels = c('Retrospective', paste('Month', 7:max.month))) })
+demog$data.month.short <- with(demog, {
+  factor(ifelse(is.na(month) | month %in% 97:99, NA,
+         ifelse(month <= 6, 6, month)),
+         levels = 6:max.month, labels = c('Retro.', paste0('M', 7:max.month))) })
 
 ## Merge on hospital region, type
 demog <- merge(demog, subset(hosp.info, select = c(region, hospital.type, hosp.num)),
@@ -477,10 +482,12 @@ my.print.summaryM(desc.all,
 \section{ABCDEF Bundle Compliance}
 <<compdatamgmt>>=
 ## -- Summarize compliance for each month ----------------------------------------------------------
-compliance <- left_join(compliance, demog[,c('id', 'data.month', 'hospital.type')], by = 'id')
+compliance <- left_join(compliance,
+                        demog[,c('id', 'data.month', 'data.month.short', 'hospital.type')],
+                        by = 'id')
 
 comp.summary.overall <- compliance %>%
-  group_by(data.month) %>%
+  group_by(data.month.short) %>%
   summarise(## Days compliance was tracked
             days.tracked = sum(comp.tracked),
             ## A: Assess, prevent and manage pain
@@ -515,12 +522,12 @@ comp.summary.overall <- compliance %>%
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
             pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
-  filter(!is.na(data.month)) %>%
+  filter(!is.na(data.month.short)) %>%
   mutate(hospital.type = 'All sites',
          line.alpha = 1)
 
 comp.summary.type <- compliance %>%
-  group_by(data.month, hospital.type) %>%
+  group_by(data.month.short, hospital.type) %>%
   summarise(## Days compliance was tracked
             days.tracked = sum(comp.tracked),
             ## A: Assess, prevent and manage pain
@@ -555,7 +562,7 @@ comp.summary.type <- compliance %>%
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
             pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
-  filter(!is.na(data.month) & !is.na(hospital.type)) %>%
+  filter(!is.na(data.month.short) & !is.na(hospital.type)) %>%
   mutate(line.alpha = 2)
 
 comp.summary <- bind_rows(comp.summary.overall, comp.summary.type) %>%
@@ -564,7 +571,7 @@ comp.summary <- bind_rows(comp.summary.overall, comp.summary.type) %>%
 ## -- Function to plot compliance percentage over time --------------------------------------------
 plot.compliance <- function(compvar, ytitle){
   ggplot(data = comp.summary,
-         aes_string(x = 'data.month', y = compvar,
+         aes_string(x = 'data.month.short', y = compvar,
                     group = 'hospital.type', colour = 'hospital.type', alpha = 'hospital.type')) +
     geom_vline(xintercept = 1.5, colour = 'white', size = 1.5) +
     geom_line() +
@@ -580,10 +587,15 @@ plot.compliance <- function(compvar, ytitle){
           legend.justification = c(0.1, 0.1),
           legend.direction = 'vertical',
           legend.title = element_blank(),
+          legend.text = element_text(size = 6),
           legend.background = element_blank(),
           legend.key = element_blank(),
+          legend.key.size = unit(0.5, 'lines'),
+          legend.margin = unit(0.01, 'cm'),
           axis.ticks = element_blank(),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+          axis.title.y = element_text(size = 8),
+          axis.text.y = element_text(size = 7))
 
 }
 
@@ -613,6 +625,21 @@ box.asmts.a <- ggplot(data = compliance.plotdata, aes(x = data.month, y = n.pain
 pdf(file = 'icucollab_boxplot_a.pdf', width = 7, height = 7*0.618)
 box.asmts.a
 dev.off()
+
+@
+
+<<printcompliancefigs, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time', fig.width = 7, fig.height = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.a,
+          plot.comp.b.sat, plot.comp.b.sbt, plot.comp.b.satsbt,
+          plot.comp.c,
+          plot.comp.d,
+          plot.comp.e, plot.comp.f,
+          layout = matrix(c(1, 1, 1, 1, 1, 1,
+                            2, 2, 3, 3, 4, 4,
+                            5, 5, 5, 5, 5, 5,
+                            6, 6, 6, 6, 6, 6,
+                            7, 7, 7, 8, 8, 8),
+                          byrow = TRUE, nrow = 5))
 
 @
 
