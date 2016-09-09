@@ -35,9 +35,12 @@ library(tidyr)
 library(devtools)
 library(wesanderson)
 
+## What's the last month that should be included in the report?
+last.month <- 14
+
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
-  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = FALSE, long = FALSE,
+  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = FALSE, long = TRUE,
                  npct = 'both', what = '%', ...)
 }
 
@@ -225,6 +228,14 @@ compliance <- compliance[grep('test', tolower(compliance$id), invert = TRUE),]
 ## Which IDs are used >1 time?
 multiple.pt.ids <- subset(as.data.frame(table(demog$id)), Freq > 1)
 
+## -- Remove any data collected after last.month ---------------------------------------------------
+keep.ids <- subset(demog, !is.na(month) & month <= last.month)$id
+nomonth.ids <- length(subset(demog, is.na(month))$id)
+afterlastmonth.ids <- length(subset(demog, !is.na(month) & month > last.month)$id)
+
+demog <- subset(demog, id %in% keep.ids)
+compliance <- subset(compliance, id %in% keep.ids)
+
 ## -- Data management for demographic form ---------------------------------------------------------
 ## Create indicator for retrospective (mos 1-6) vs. prospective (mos 7-) data collection
 demog$data.time <- with(demog, {
@@ -312,8 +323,8 @@ label(demog$hrs.invas.vent) <- 'Total hours on invasive MV'
 label(demog$noninvas.vent.episode) <- 'Episodes of noninvasive MV'
 label(demog$ever.noninvas.vent) <- 'Ever received noninvasive MV'
 label(demog$hrs.noninvas.vent) <- 'Total hours on noninvasive MV'
-label(demog$icu.los) <- 'ICU length of stay'
-label(demog$hosp.losv) <- 'Hospital length of stay'
+label(demog$icu.los) <- 'ICU length of stay (days)'
+label(demog$hosp.losv) <- 'Hospital length of stay (days)'
 label(demog$dc.status.f) <- 'Discharge/mortality status'
 
 
@@ -435,7 +446,7 @@ days.mental <- compliance %>%
             days.coma = ifelse(sum(!is.na(coma.f)) == 0, NA, sum(coma.f == 'Yes', na.rm = TRUE)))
 
 demog <- demog %>%left_join(days.mental, by = 'id')
-label(demog$days.delirium) <- 'Days of delirium per PAD-rec. assessment'
+label(demog$days.delirium) <- 'Days of delirium per PAD-recommended assessment'
 label(demog$days.coma) <- 'Days of coma'
 
 quantile.example <- quantile(subset(demog, data.time == 'Retrospective')$icu.los,
@@ -448,15 +459,17 @@ quantile.example <- quantile(subset(demog, data.time == 'Retrospective')$icu.los
 \subsection{Demographic, Baseline, and Hospital Stay Characteristics}
 Table \ref{table:descstats} describes the patients whose data was collected during the retrospective
 and prospective data collection period. There are \Sexpr{length(unique(demog$id))} unique patient
-IDs in the database; of these, \Sexpr{length(unique(subset(demog, data.time == 'Retrospective')$id))}
-were collected during the retrospective period (months 1-6), and
+IDs with data recorded up to month \Sexpr{last.month}; of these,
+\Sexpr{length(unique(subset(demog, data.time == 'Retrospective')$id))} were collected during the
+retrospective period (months 1-6), and
 \Sexpr{length(unique(subset(demog, data.time == 'Prospective')$id))} were collected during the
-prospective period (months 7-). (The remaining
-\Sexpr{length(unique(subset(demog, is.na(data.time))$id))} patients had no ``month" entered in the
-database and therefore cannot be counted when comparing the two cohorts.)
+prospective period (months 7-\Sexpr{last.month}). (In addition, \Sexpr{nomonth.ids} patients had no
+``month" entered in the database and therefore cannot be counted when comparing the two cohorts, and
+\Sexpr{afterlastmonth.ids} patients had data collected after month \Sexpr{last.month} which will be
+included in a later report.)
 
 For continuous variables (like hours of invasive ventilation), the 25th, 50th, and 75th percentiles
-are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a "typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
 
 For example, in the retrospective cohort, 25\% of patients had \Sexpr{quantile.example['25%']} or
 fewer days in the ICU; half the patients had \Sexpr{quantile.example['50%']} or fewer days in the
@@ -483,16 +496,16 @@ my.print.summaryM(desc.all,
 \begin{landscape}
 \section{ABCDEF Bundle Compliance}
 Table \ref{table:compliance} presents compliance results by time period for all parts of the ABCDEF
-Bundle. For parts A, C, D, and E, the proportion of days compliant is out of all days where the
-patient was in the ICU the full 24 hours (row 1 in table). For part B, the proportion of SAT
-compliance is out of all days the patient was in the ICU the full 24 hours and on either continuous or intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For part F, the proportion of compliance is out of all days where a family member or significant other was present.
+Bundle. For elements A, C, D, and E, the proportion of days compliant is out of all days where the
+patient was in the ICU the full 24 hours (row 1 in table). For element B, the proportion of SAT
+compliance is out of all days the patient was in the ICU the full 24 hours and on either continuous or intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For element F, the proportion of compliance is out of all days where a family member or significant other was present.
 
 The number of pain, sedation and delirium assessments are described using the median (25th, 75th percentiles). The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a "typical" patient: half the patients have a value below that number, and half the patients have a value above it.
 
 <<compdatamgmt>>=
 ## -- Summarize compliance for each month ----------------------------------------------------------
 compliance <- left_join(compliance,
-                        demog[,c('id', 'data.month', 'data.month.short', 'hospital.type')],
+                        demog[,c('id', 'month', 'data.month', 'data.month.short', 'hospital.type')],
                         by = 'id')
 
 comp.summary.overall <- compliance %>%
