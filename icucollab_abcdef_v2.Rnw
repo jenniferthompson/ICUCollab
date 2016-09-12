@@ -464,16 +464,17 @@ IDs with data recorded up to month \Sexpr{last.month}; of these,
 retrospective period (months 1-6), and
 \Sexpr{length(unique(subset(demog, data.time == 'Prospective')$id))} were collected during the
 prospective period (months 7-\Sexpr{last.month}). (In addition, \Sexpr{nomonth.ids} patients had no
-``month" entered in the database and therefore cannot be counted when comparing the two cohorts, and
-\Sexpr{afterlastmonth.ids} patients had data collected after month \Sexpr{last.month} which will be
-included in a later report.)
+``month" entered in the database and therefore cannot be counted when comparing the two cohorts;
+Month 14 appears to be only 1/3 complete; and \Sexpr{afterlastmonth.ids} patients had data collected
+after month \Sexpr{last.month} which will be included in a later report.)
 
 For continuous variables (like hours of invasive ventilation), the 25th, 50th, and 75th percentiles
 are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
 
-For example, in the retrospective cohort, 25\% of patients had \Sexpr{quantile.example['25%']} or
-fewer days in the ICU; half the patients had \Sexpr{quantile.example['50%']} or fewer days in the
-ICU; and 75\% of patients had \Sexpr{quantile.example['75%']} or fewer days in the ICU.
+For example, for ICU length of stay in the retrospective cohort (see Table \ref{table:descstats}),
+25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had
+\Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
+\Sexpr{quantile.example['75%']} or fewer days in the ICU.
 
 <<desccohort>>=
 desc.all <- summaryM(region + agecat.f + sex.f + race.f + hispanic.f + english.f +
@@ -752,6 +753,7 @@ plot.assessments <- function(asmtvar, ytitle){
     geom_boxplot(fill = wes_palette('GrandBudapest')[3],
                  colour = wes_palette('GrandBudapest')[3],
                  outlier.shape = NA,
+                 # outlier.size = 0.5,
                  alpha = 0.4) +
     ## Way too crowded with community + teaching included; can come back to this if V/D/B request
     # geom_boxplot(aes(colour = hospital.type), fill = NA, alpha = 0.5, outlier.size = 0.5) +
@@ -815,10 +817,10 @@ multiplot(plot.comp.a, box.asmts.a,
 @
 
 \begin{landscape}
-Table \ref{table:medsmobility} describes sedative and analgesia use, as well as the highest level of
-mobility performed, on days patients were in the ICU all 24 hours.
+Tables \ref{table:meds}-\ref{table:mobility} describe sedative and analgesia use, as well as the
+highest level of mobility performed, on days patients were in the ICU all 24 hours.
 
-<<printmedmobilitytable, results = 'asis'>>=
+<<printmedmobilitytables, results = 'asis'>>=
 latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + antipsyc.typ.icu +
                  antipsyc.atyp.icu + no.sedanal.icu + mobility.high.icu ~ data.month,
                data = subset(compliance, comp.tracked)), file = '',
@@ -830,9 +832,22 @@ latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + ant
       prN = FALSE,
       long = TRUE,
       size = 'small',
-      caption = 'Sedatives, Analgesics and Early Mobility in the ICU',
-      caption.lot = 'Sedatives, Analgesics and Early Mobility in the ICU',
-      label = 'table:medsmobility')
+      caption = 'Sedatives and Analgesics in the ICU',
+      caption.lot = 'Sedatives and Analgesics in the ICU',
+      label = 'table:meds')
+
+latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance, comp.tracked)), file = '',
+      # landscape = TRUE,
+      where = '!h',
+      what = '%',
+      title = '',
+      prn = FALSE,
+      prN = FALSE,
+      long = TRUE,
+      size = 'small',
+      caption = 'Early Mobility in the ICU',
+      caption.lot = 'Early Mobility in the ICU',
+      label = 'table:mobility')
 
 @
 \end{landscape}
