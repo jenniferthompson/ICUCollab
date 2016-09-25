@@ -201,20 +201,11 @@ names(compliance) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(compliance)
 ## Add label for complete data variable
 label(compliance$daily.compliance.form.complete.f) <- 'Daily form status'
 
-## Spreadsheet from Vishakha showing which hospitals belong in which region
-hosp.region <- read.csv('RawData/hospital_regions.csv', stringsAsFactors = FALSE) %>%
-  filter(region != '') %>%
-  separate(hospital, ', ', into = c('hosp.num', 'hosp.f')) %>%
-  mutate(region = factor(region))
-levels(hosp.region$region) <- c('East Coast', 'Midwest', 'West Coast')
-
-## Spreadsheet from Vishakha showing hospital types (teaching vs community)
-hosp.type <- read.csv('RawData/hospital_types.csv', stringsAsFactors = FALSE) %>%
-  filter(hospital.code != '') %>%
-  ## Strip leading/trailing spaces from hospital.type
-  mutate(hospital.type = factor(gsub(' +', '', hospital.type)))
-
-hosp.info <- full_join(hosp.region, hosp.type, by = 'hospital.code')
+## Spreadsheet from Vishakha with hospital regions, types
+hosp.types.region <- read.csv('RawData/hospital_types_regions.csv', stringsAsFactors = FALSE) %>%
+  filter(hosp.code != '') %>%
+  mutate(hosp.type = factor(gsub(' +', '', hosp.type)),
+         hosp.name = gsub(' +', '', hosp.name))
 
 ## -- Remove any test patients ---------------------------------------------------------------------
 ## Get list of IDs which don't meet required format to send Vishakha
@@ -253,8 +244,8 @@ demog$data.month.short <- with(demog, {
          levels = 6:max.month, labels = c('Retro.', paste0('M', 7:max.month))) })
 
 ## Merge on hospital region, type
-demog <- merge(demog, subset(hosp.info, select = c(region, hospital.type, hosp.num)),
-               by.x = c('hosp'), by.y = c('hosp.num'), all.x = TRUE, all.y = FALSE)
+demog <- merge(demog, hosp.types.region,
+               by.x = c('hosp.f'), by.y = c('hosp.redcap'), all.x = TRUE, all.y = FALSE)
 
 ## Recategorize age per request
 demog$agecat.f <- with(demog, factor(ifelse(is.na(age.f), NA,
