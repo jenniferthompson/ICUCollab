@@ -434,11 +434,20 @@ days.mental <- compliance %>%
   group_by(id) %>%
   summarise(days.delirium = ifelse(sum(!is.na(delirium.present.valid.f)) == 0, NA,
                                    sum(delirium.present.valid.f == 'Yes', na.rm = TRUE)),
-            days.coma = ifelse(sum(!is.na(coma.f)) == 0, NA, sum(coma.f == 'Yes', na.rm = TRUE)))
+            ever.delirious = ifelse(is.na(days.delirium), NA, days.delirium > 0),
+            days.delirium.ever = ifelse(!ever.delirious, NA, days.delirium),
+            days.coma = ifelse(sum(!is.na(coma.f)) == 0, NA, sum(coma.f == 'Yes', na.rm = TRUE)),
+            ever.comatose = ifelse(is.na(days.coma), NA, days.coma > 0),
+            days.coma.ever = ifelse(!ever.comatose, NA, days.coma))
 
 demog <- demog %>%left_join(days.mental, by = 'id')
 label(demog$days.delirium) <- 'Days of delirium per PAD-recommended assessment'
+label(demog$ever.delirious) <- 'Ever delirious per PAD-recommended assessment'
+label(demog$days.delirium.ever) <-
+  'Days of delirium per PAD-recommended assessment among those ever delirious'
 label(demog$days.coma) <- 'Days of coma'
+label(demog$ever.comatose) <- 'Ever comatose'
+label(demog$days.coma.ever) <- 'Days of coma among those ever comatose'
 
 quantile.example <- quantile(subset(demog, data.time == 'Retrospective')$icu.los,
                              probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
@@ -470,8 +479,8 @@ For example, for ICU length of stay in the retrospective cohort (see Table \ref{
 <<desccohort>>=
 desc.all <- summaryM(hosp.region + agecat.f + sex.f + race.f + hispanic.f + english.f +
                        ever.invas.vent + hrs.invas.vent + ever.noninvas.vent +
-                       hrs.noninvas.vent + days.delirium + days.coma + icu.los + hosp.losv +
-                       dc.status.f ~ data.time,
+                       hrs.noninvas.vent + ever.delirious + days.delirium.ever + ever.comatose +
+                       days.coma.ever + icu.los + hosp.losv + dc.status.f ~ data.time,
                      data = demog)
 
 @
