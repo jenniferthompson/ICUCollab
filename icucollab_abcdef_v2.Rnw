@@ -668,6 +668,7 @@ plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), re
   ggplot(data = comp.summary,
          aes_string(x = 'data.month.short', y = compvar,
                     group = 'hosp.type', colour = 'hosp.type', alpha = 'hosp.type')) +
+    geom_hline(yintercept = 0.9, linetype = 'dotted', colour = 'grey50') +
     geom_vline(xintercept = 1.5, colour = 'white', size = refline.size) +
     geom_line() +
     geom_point() +
@@ -747,7 +748,7 @@ plot.comp.f <- plot.compliance('pct.comp.f', 'Family Engagement Compliance', ref
 # dev.off()
 
 ## -- Function to plot number of assessments over time ---------------------------------------------
-plot.assessments <- function(asmtvar, ytitle){
+plot.assessments <- function(asmtvar){
   ggplot(data = subset(compliance, comp.tracked & !is.na(data.month.short)),
          aes_string(x = 'data.month.short', y = asmtvar)) +
     geom_boxplot(fill = wes_palette('GrandBudapest')[3],
@@ -759,22 +760,26 @@ plot.assessments <- function(asmtvar, ytitle){
     # geom_boxplot(aes(colour = hosp.type), fill = NA, alpha = 0.5, outlier.size = 0.5) +
     scale_colour_manual(values = wes_palette('GrandBudapest')[c(2, 1)], guide = 'none') +
     scale_x_discrete(name = '') +
-    scale_y_continuous(name = ytitle,
-                       breaks = seq(0,
-                                    max(compliance[compliance$comp.tracked, asmtvar], na.rm = TRUE),
-                                    10)) +
+    # scale_y_continuous(name = ytitle,
+    #                    breaks = seq(0,
+    #                                 max(compliance[compliance$comp.tracked, asmtvar], na.rm = TRUE),
+    #                                 10)) +
     geom_vline(xintercept = 1.5, colour = 'white', size = 1) +
     theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1, vjust = 1),
           axis.text.y = element_text(size = 6, hjust = 1),
           axis.title.y = element_text(size = 7)) +
     labs(title = '')
-
 }
 
-box.asmts.a <- plot.assessments(asmtvar = 'n.painassess.icu', ytitle = 'Pain Assessments in 24h')
-box.asmts.c <- plot.assessments(asmtvar = 'sed.assess.icu', ytitle = 'Sedation Assessments in 24h')
-box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu',
-                                ytitle = 'Delirium Assessments in 24h')
+box.asmts.a <- plot.assessments(asmtvar = 'n.painassess.icu') +
+  scale_y_continuous(name = 'Pain Assessments in 24h', limits = c(0, 35), breaks = seq(0, 35, 5)) +
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = 'grey50')
+box.asmts.c <- plot.assessments(asmtvar = 'sed.assess.icu') +
+  scale_y_continuous(name = 'Sedation Assessments in 24h', limits = c(0, 25), breaks = seq(0, 25, 5)) +
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = 'grey50')
+box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu') +
+  scale_y_continuous(name = 'Delirium Assessments in 24h', limits = c(0, 10), breaks = seq(0, 10, 2)) +
+  geom_hline(yintercept = 2, linetype = 'dotted', colour = 'grey50')
 
 @
 
@@ -822,7 +827,7 @@ highest level of mobility performed, on days patients were in the ICU all 24 hou
 
 <<printmedmobilitytables, results = 'asis'>>=
 latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + antipsyc.typ.icu +
-                 antipsyc.atyp.icu + no.sedanal.icu + mobility.high.icu ~ data.month,
+                 antipsyc.atyp.icu + no.sedanal.icu ~ data.month,
                data = subset(compliance, comp.tracked)), file = '',
       # landscape = TRUE,
       where = '!h',
@@ -850,6 +855,7 @@ latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance, comp.tr
       label = 'table:mobility')
 
 @
+
 \end{landscape}
 
 \end{document}
