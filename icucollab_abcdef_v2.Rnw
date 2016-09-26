@@ -300,7 +300,7 @@ demog$hrs.noninvas.vent <- with(demog, {
 
 label(demog$data.time) <- 'Time of data collection'
 label(demog$data.plan.f) <- 'Data plan'
-label(demog$region) <- 'Hospital region'
+label(demog$hosp.region) <- 'Hospital region'
 label(demog$month.f) <- 'Month in Collaborative ICU'
 label(demog$age.f) <- 'Age range'
 label(demog$agecat.f) <- 'Age category'
@@ -468,7 +468,7 @@ For example, for ICU length of stay in the retrospective cohort (see Table \ref{
 \Sexpr{quantile.example['75%']} or fewer days in the ICU.
 
 <<desccohort>>=
-desc.all <- summaryM(region + agecat.f + sex.f + race.f + hispanic.f + english.f +
+desc.all <- summaryM(hosp.region + agecat.f + sex.f + race.f + hispanic.f + english.f +
                        ever.invas.vent + hrs.invas.vent + ever.noninvas.vent +
                        hrs.noninvas.vent + days.delirium + days.coma + icu.los + hosp.losv +
                        dc.status.f ~ data.time,
@@ -497,7 +497,7 @@ The number of pain, sedation and delirium assessments are described using the me
 <<compdatamgmt>>=
 ## -- Summarize compliance for each month ----------------------------------------------------------
 compliance <- left_join(compliance,
-                        demog[,c('id', 'month', 'data.month', 'data.month.short', 'hospital.type')],
+                        demog[,c('id', 'month', 'data.month', 'data.month.short', 'hosp.type')],
                         by = 'id')
 
 comp.summary.overall <- compliance %>%
@@ -540,11 +540,11 @@ comp.summary.overall <- compliance %>%
             days.comp.f = sum(comp.f, na.rm = TRUE),
             pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
-  mutate(hospital.type = 'All sites',
+  mutate(hosp.type = 'All sites',
          line.alpha = 1)
 
 comp.summary.type <- compliance %>%
-  group_by(data.month.short, hospital.type) %>%
+  group_by(data.month.short, hosp.type) %>%
   summarise(## Days compliance was tracked
             days.tracked = sum(comp.tracked),
             ## A: Assess, prevent and manage pain
@@ -582,7 +582,7 @@ comp.summary.type <- compliance %>%
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
             pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
-  filter(!is.na(data.month.short) & !is.na(hospital.type)) %>%
+  filter(!is.na(data.month.short) & !is.na(hosp.type)) %>%
   mutate(line.alpha = 2)
 
 comp.summary <- bind_rows(comp.summary.overall, comp.summary.type) %>%
@@ -658,7 +658,7 @@ plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), re
 
   ggplot(data = comp.summary,
          aes_string(x = 'data.month.short', y = compvar,
-                    group = 'hospital.type', colour = 'hospital.type', alpha = 'hospital.type')) +
+                    group = 'hosp.type', colour = 'hosp.type', alpha = 'hosp.type')) +
     geom_vline(xintercept = 1.5, colour = 'white', size = refline.size) +
     geom_line() +
     geom_point() +
@@ -722,7 +722,7 @@ plot.comp.f <- plot.compliance('pct.comp.f', 'Family Engagement Compliance', ref
 #                colour = wes_palette('GrandBudapest')[3],
 #                outlier.shape = NA,
 #                alpha = 0.4) +
-#   geom_boxplot(aes(colour = hospital.type), fill = NA, alpha = 0.5) +
+#   geom_boxplot(aes(colour = hosp.type), fill = NA, alpha = 0.5) +
 #   scale_colour_manual(values = wes_palette('GrandBudapest')[c(2, 1)], guide = 'none') +
 #   scale_x_discrete(name = '') +
 #   scale_y_continuous(name = 'PAD-Recommended Pain\nAssessments in 24h',
@@ -747,7 +747,7 @@ plot.assessments <- function(asmtvar, ytitle){
                  # outlier.size = 0.5,
                  alpha = 0.4) +
     ## Way too crowded with community + teaching included; can come back to this if V/D/B request
-    # geom_boxplot(aes(colour = hospital.type), fill = NA, alpha = 0.5, outlier.size = 0.5) +
+    # geom_boxplot(aes(colour = hosp.type), fill = NA, alpha = 0.5, outlier.size = 0.5) +
     scale_colour_manual(values = wes_palette('GrandBudapest')[c(2, 1)], guide = 'none') +
     scale_x_discrete(name = '') +
     scale_y_continuous(name = ytitle,
