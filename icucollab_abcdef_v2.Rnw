@@ -1102,7 +1102,7 @@ latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance, comp.tr
 \begin{table}[!h]
 \caption[Data Definitions]{Data Definitions\label{}}
 \begin{center}
-\begin{tabular}{lp{17cm}}
+\begin{tabular}{lp{18cm}}
 \hline\hline
 \multicolumn{1}{l}{}&\multicolumn{1}{}{Compliance Definition}\tabularnewline
 \hline
