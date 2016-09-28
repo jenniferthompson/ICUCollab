@@ -7,6 +7,7 @@
 \usepackage{longtable}
 \usepackage[margin = 0.5in]{geometry}
 \usepackage{hyperref}
+\usepackage{float}
 \usepackage{pdflscape}
 
 \title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
@@ -506,7 +507,8 @@ The number of pain, sedation and delirium assessments are described using the me
 <<compdatamgmt>>=
 ## -- Summarize compliance for each month ----------------------------------------------------------
 compliance <- left_join(compliance,
-                        demog[,c('id', 'month', 'data.month', 'data.month.short', 'hosp.type')],
+                        demog[,c('id', 'month', 'data.month', 'data.month.short', 'hosp.type',
+                                 'hosp.region')],
                         by = 'id')
 
 comp.summary.overall <- compliance %>%
@@ -597,6 +599,95 @@ comp.summary.type <- compliance %>%
 comp.summary <- bind_rows(comp.summary.overall, comp.summary.type) %>%
   mutate(line.alpha.f = factor(line.alpha, levels = 1:2, labels = c('All sites', 'Site subtype')))
 
+## -- Summarize compliance by region --------------------------------------------------------------
+comp.summary.region <- compliance %>%
+  group_by(data.month.short, hosp.region) %>%
+  summarise(## Days compliance was tracked
+            days.tracked = sum(comp.tracked),
+            ## A: Assess, prevent and manage pain
+            asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
+            asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
+            days.comp.a = sum(comp.a, na.rm = TRUE),
+            pct.comp.a = mean(comp.a, na.rm = TRUE),
+            ## B: Both SAT and SBT
+            days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
+            days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
+            pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.mv = sum(on.mv.icu, na.rm = TRUE),
+            days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
+            pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
+            days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
+            pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## C: Choice of analgesia and sedation
+            days.comp.c = sum(comp.c, na.rm = TRUE),
+            pct.comp.c = mean(comp.c, na.rm = TRUE),
+            asmt.sed.median = median(sed.assess.icu, na.rm = TRUE),
+            asmt.sed.25 = quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.sed.75 = quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE),
+            ## D: Delirium - assess, prevent and manage
+            days.comp.d = sum(comp.d, na.rm = TRUE),
+            pct.comp.d = mean(comp.d, na.rm = TRUE),
+            asmt.del.median = median(delirium.assess.icu, na.rm = TRUE),
+            asmt.del.25 = quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.del.75 = quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE),
+            ## E: Early mobility and exercise
+            days.comp.e = sum(comp.e, na.rm = TRUE),
+            pct.comp.e = mean(comp.e, na.rm = TRUE),
+            ## F: Family engagement and empowerment
+            days.family.present = sum(family.present.icu, na.rm = TRUE),
+            days.comp.f = sum(comp.f, na.rm = TRUE),
+            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+  filter(!is.na(data.month.short) & !is.na(hosp.region)) %>%
+  mutate(hosp.type = 'All types',
+         line.alpha = 1)
+
+comp.summary.regiontype <- compliance %>%
+  group_by(data.month.short, hosp.region, hosp.type) %>%
+  summarise(## Days compliance was tracked
+            days.tracked = sum(comp.tracked),
+            ## A: Assess, prevent and manage pain
+            asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
+            asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
+            days.comp.a = sum(comp.a, na.rm = TRUE),
+            pct.comp.a = mean(comp.a, na.rm = TRUE),
+            ## B: Both SAT and SBT
+            days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
+            days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
+            pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.mv = sum(on.mv.icu, na.rm = TRUE),
+            days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
+            pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
+            days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
+            pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## C: Choice of analgesia and sedation
+            days.comp.c = sum(comp.c, na.rm = TRUE),
+            pct.comp.c = mean(comp.c, na.rm = TRUE),
+            asmt.sed.median = median(sed.assess.icu, na.rm = TRUE),
+            asmt.sed.25 = quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.sed.75 = quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE),
+            ## D: Delirium - assess, prevent and manage
+            days.comp.d = sum(comp.d, na.rm = TRUE),
+            pct.comp.d = mean(comp.d, na.rm = TRUE),
+            asmt.del.median = median(delirium.assess.icu, na.rm = TRUE),
+            asmt.del.25 = quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE),
+            asmt.del.75 = quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE),
+            ## E: Early mobility and exercise
+            days.comp.e = sum(comp.e, na.rm = TRUE),
+            pct.comp.e = mean(comp.e, na.rm = TRUE),
+            ## F: Family engagement and empowerment
+            days.family.present = sum(family.present.icu, na.rm = TRUE),
+            days.comp.f = sum(comp.f, na.rm = TRUE),
+            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+  filter(!is.na(data.month.short) & !is.na(hosp.region) & !is.na(hosp.type)) %>%
+  mutate(line.alpha = 2)
+
+comp.summary.region.plot <- bind_rows(comp.summary.region, comp.summary.regiontype) %>%
+  mutate(line.alpha.f = factor(line.alpha, levels = 1:2, labels = c('All sites', 'Site subtype')))
+
 ## -- Create results table by month ---------------------------------------------------------------
 results.month <- function(m){
   mdata <-
@@ -656,11 +747,14 @@ rownames(compliance.table) <- c('Days compliance was tracked',
 colnames(compliance.table) <- levels(demog$data.month)
 
 ## -- Function to plot compliance percentage over time --------------------------------------------
+## Shade for reference lines
+ref.line.shade <- '#D38482'
+
 plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), refline.size = 1.5){
 
   put.legend <- match.arg(put.legend)
   if(put.legend == 'top'){
-    legend.y <- 0.65
+    legend.y <- 0.6
   } else{
     legend.y <- 0
   }
@@ -668,7 +762,7 @@ plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), re
   ggplot(data = comp.summary,
          aes_string(x = 'data.month.short', y = compvar,
                     group = 'hosp.type', colour = 'hosp.type', alpha = 'hosp.type')) +
-    geom_hline(yintercept = 0.9, linetype = 'dotted', colour = 'grey50') +
+    geom_hline(yintercept = 0.9, linetype = 'dotted', colour = ref.line.shade) +
     geom_vline(xintercept = 1.5, colour = 'white', size = refline.size) +
     geom_line() +
     geom_point() +
@@ -751,6 +845,7 @@ plot.comp.f <- plot.compliance('pct.comp.f', 'Family Engagement Compliance', ref
 plot.assessments <- function(asmtvar){
   ggplot(data = subset(compliance, comp.tracked & !is.na(data.month.short)),
          aes_string(x = 'data.month.short', y = asmtvar)) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = 1) +
     geom_boxplot(fill = wes_palette('GrandBudapest')[3],
                  colour = wes_palette('GrandBudapest')[3],
                  outlier.shape = NA,
@@ -764,7 +859,6 @@ plot.assessments <- function(asmtvar){
     #                    breaks = seq(0,
     #                                 max(compliance[compliance$comp.tracked, asmtvar], na.rm = TRUE),
     #                                 10)) +
-    geom_vline(xintercept = 1.5, colour = 'white', size = 1) +
     theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1, vjust = 1),
           axis.text.y = element_text(size = 6, hjust = 1),
           axis.title.y = element_text(size = 7)) +
@@ -773,13 +867,108 @@ plot.assessments <- function(asmtvar){
 
 box.asmts.a <- plot.assessments(asmtvar = 'n.painassess.icu') +
   scale_y_continuous(name = 'Pain Assessments in 24h', limits = c(0, 35), breaks = seq(0, 35, 5)) +
-  geom_hline(yintercept = 6, linetype = 'dotted', colour = 'grey50')
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.c <- plot.assessments(asmtvar = 'sed.assess.icu') +
   scale_y_continuous(name = 'Sedation Assessments in 24h', limits = c(0, 25), breaks = seq(0, 25, 5)) +
-  geom_hline(yintercept = 6, linetype = 'dotted', colour = 'grey50')
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu') +
   scale_y_continuous(name = 'Delirium Assessments in 24h', limits = c(0, 10), breaks = seq(0, 10, 2)) +
-  geom_hline(yintercept = 2, linetype = 'dotted', colour = 'grey50')
+  geom_hline(yintercept = 2, linetype = 'dotted', colour = ref.line.shade)
+
+## -- Figures by region ----------------------------------------------------------------------------
+plot.compliance.region <- function(compvar,
+                                   ytitle,
+                                   put.legend = c('bottom', 'top'), refline.size = 1.0){
+
+  put.legend <- match.arg(put.legend)
+  if(put.legend == 'top'){
+    legend.y <- 0.6
+  } else{
+    legend.y <- 0
+  }
+
+  ggplot(data = comp.summary.region.plot,
+         aes_string(x = 'data.month.short', y = compvar,
+                    group = 'hosp.type', colour = 'hosp.type', alpha = 'hosp.type')) +
+    facet_wrap(~ hosp.region, nrow = 1) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = refline.size) +
+    geom_hline(yintercept = 0.9, linetype = 'dotted', colour = ref.line.shade) +
+    geom_line() +
+    geom_point(size = 0.75) +
+    scale_x_discrete(name = '') +
+    scale_y_continuous(name = ytitle,
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.2),
+                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+    scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], guide = 'none') +
+    scale_alpha_manual(values = c(1, 0.5, 0.5), guide = 'none') +
+    theme(legend.position = c(0, legend.y),
+          legend.justification = c(0, 0),
+          legend.direction = 'vertical',
+          legend.title = element_blank(),
+          legend.text = element_text(size = 6),
+          legend.background = element_blank(),
+          legend.key = element_blank(),
+          legend.key.size = unit(0.5, 'lines'),
+          legend.margin = unit(0.01, 'cm'),
+          strip.text = element_text(size = 7),
+          axis.ticks = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 5),
+          axis.title.y = element_text(size = 6),
+          axis.text.y = element_text(size = 5))
+
+}
+
+plot.comp.region.a <- plot.compliance.region('pct.comp.a', 'Pain Asmt Compliance') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.region.b.sat <- plot.compliance.region('pct.comp.b.sat', 'SAT Protocol Compliance',
+                                                 put.legend = 'top', refline.size = 1) +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.region.b.sbt <- plot.compliance.region('pct.comp.b.sbt', 'SBT Protocol Compliance',
+                                                 put.legend = 'top', refline.size = 1)
+plot.comp.region.b.satsbt <- plot.compliance.region('pct.comp.b.satsbt', 'SAT Prior to SBT',
+                                                    put.legend = 'top', refline.size = 1)
+plot.comp.region.c <- plot.compliance.region('pct.comp.c', 'Sedation Asmt Compliance') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.region.d <- plot.compliance.region('pct.comp.d', 'Delirium Asmt Compliance') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.region.e <- plot.compliance.region('pct.comp.e', 'Early Mobility Compliance',
+                                             put.legend = 'top', refline.size = 1) +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.region.f <- plot.compliance.region('pct.comp.f',
+                                             'Family Engagement Compliance',
+                                             refline.size = 1) +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+
+plot.assessments.region <- function(asmtvar){
+  ggplot(data = subset(compliance, comp.tracked & !is.na(data.month.short)),
+         aes_string(x = 'data.month.short', y = asmtvar)) +
+    facet_wrap(~ hosp.region, nrow = 1) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = 0.75) +
+    geom_boxplot(fill = wes_palette('GrandBudapest')[3],
+                 colour = wes_palette('GrandBudapest')[3],
+                 outlier.shape = NA,
+                 # outlier.size = 0.5,
+                 alpha = 0.4) +
+    scale_colour_manual(values = wes_palette('GrandBudapest')[c(2, 1)], guide = 'none') +
+    scale_x_discrete(name = '') +
+    theme(axis.text.x = element_text(size = 5, angle = 45, hjust = 1, vjust = 1),
+          axis.text.y = element_text(size = 5, hjust = 1),
+          axis.title.y = element_text(size = 6),
+          strip.text = element_text(size = 7))
+}
+
+box.asmts.region.a <- plot.assessments.region(asmtvar = 'n.painassess.icu') +
+  scale_y_continuous(name = 'Pain Assessments in 24h', limits = c(0, 35), breaks = seq(0, 35, 5)) +
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
+box.asmts.region.c <- plot.assessments.region(asmtvar = 'sed.assess.icu') +
+  scale_y_continuous(name = 'Sedation Assessments in 24h',
+                     limits = c(0, 25), breaks = seq(0, 25, 5)) +
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
+box.asmts.region.d <- plot.assessments.region(asmtvar = 'delirium.assess.icu') +
+  scale_y_continuous(name = 'Delirium Assessments in 24h',
+                     limits = c(0, 10), breaks = seq(0, 10, 2)) +
+  geom_hline(yintercept = 2, linetype = 'dotted', colour = ref.line.shade)
 
 @
 
@@ -804,24 +993,76 @@ latex(compliance.table, file = '',
       insert.bottom = 'Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.')
 
 @
-\end{landscape}
+%' \end{landscape}
+%'
+%' <<printcompliancefigs, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time', fig.width = 7, fig.height = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+%' multiplot(plot.comp.a, box.asmts.a,
+%'           plot.comp.b.sat, plot.comp.b.sbt, plot.comp.b.satsbt,
+%'           plot.comp.c, box.asmts.c,
+%'           plot.comp.d, box.asmts.d,
+%'           plot.comp.e, plot.comp.f,
+%'           layout = matrix(c(1, 1, 1, 1, 2, 2,
+%'                             3, 3, 4, 4, 5, 5,
+%'                             6, 6, 6, 6, 7, 7,
+%'                             8, 8, 8, 8, 9, 9,
+%'                             10, 10, 10, 11, 11, 11),
+%'                           byrow = TRUE, nrow = 5))
+%'
+%' @
 
-<<printcompliancefigs, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time', fig.width = 7, fig.height = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+In Figures \ref{fig:printcompliancefigs1}-\ref{fig:printcompliancefigs3}, the overall compliance
+data shown above is presented visually (darkest line in main panels); in addition, we present data
+specific to community and teaching hospitals nationwide, and add panels with the same information
+specific to each region (EC = East Coast; MW = Midwest; WC = West Coast). Reference lines are added
+to indicate ``compliance" for each panel: For overall compliance, the bar is set at 90\%; for
+sedation and pain assessments, at 6 assessments per day; and for delirium assessments, at 2 assessments per day.
+
+<<printcompliancefigs1, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time: Elements A \\& B', fig.height = 8, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.a, box.asmts.a,
+          plot.comp.region.a, box.asmts.region.a,
           plot.comp.b.sat, plot.comp.b.sbt, plot.comp.b.satsbt,
-          plot.comp.c, box.asmts.c,
-          plot.comp.d, box.asmts.d,
-          plot.comp.e, plot.comp.f,
+          plot.comp.region.b.sat, plot.comp.region.b.sbt, plot.comp.region.b.satsbt,
           layout = matrix(c(1, 1, 1, 1, 2, 2,
-                            3, 3, 4, 4, 5, 5,
-                            6, 6, 6, 6, 7, 7,
-                            8, 8, 8, 8, 9, 9,
-                            10, 10, 10, 11, 11, 11),
-                          byrow = TRUE, nrow = 5))
+                            1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            3, 3, 3, 3, 4, 4,
+                            3, 3, 3, 3, 4, 4,
+                            5, 5, 6, 6, 7, 7,
+                            5, 5, 6, 6, 7, 7,
+                            5, 5, 6, 6, 7, 7,
+                            8, 8, 9, 9, 10, 10,
+                            8, 8, 9, 9, 10, 10),
+                          byrow = TRUE, nrow = 10))
 
 @
 
-\begin{landscape}
+<<printcompliancefigs2, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time: Elements C \\& D', fig.height = 8, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.c, box.asmts.c,
+          plot.comp.region.c, box.asmts.region.c,
+          plot.comp.d, box.asmts.d,
+          plot.comp.region.d, box.asmts.region.d,
+          layout = matrix(c(1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            3, 3, 3, 3, 4, 4,
+                            3, 3, 3, 3, 4, 4,
+                            5, 5, 5, 5, 6, 6,
+                            5, 5, 5, 5, 6, 6,
+                            5, 5, 5, 5, 6, 6,
+                            7, 7, 7, 7, 8, 8,
+                            7, 7, 7, 7, 8, 8),
+                          byrow = TRUE, nrow = 10))
+
+@
+
+<<printcompliancefigs3, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time: Elements E \\& F', fig.height = 4.5, fig.width = 10.5, fig.pos = 't'>>=
+multiplot(plot.comp.e, plot.comp.f,
+          plot.comp.region.e, plot.comp.region.f,
+          layout = matrix(1:4, byrow = TRUE, nrow = 2))
+
+@
+
+\clearpage
 Tables \ref{table:meds}-\ref{table:mobility} describe sedative and analgesia use, as well as the
 highest level of mobility performed, on days patients were in the ICU all 24 hours.
 
