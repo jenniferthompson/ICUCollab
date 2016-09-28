@@ -1097,6 +1097,45 @@ latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance, comp.tr
 
 @
 
-\end{landscape}
+\clearpage
+\section{Data Definitions}
+\begin{table}[!h]
+\caption[Data Definitions]{Data Definitions\label{}}
+\begin{center}
+\begin{tabular}{lp{17cm}}
+\hline\hline
+\multicolumn{1}{l}{}&\multicolumn{1}{}{Compliance Definition}\tabularnewline
+\hline
+{\bfseries Days Compliance Was Tracked}&\tabularnewline
+~~ &Days where patient was in the ICU a full 24 hours during the 7 or 14 day period.\tabularnewline
+\hline
+{\bfseries Assess, prevent and manage pain}&\tabularnewline
+~~  &There was documentation that the patient received a minimum of 6 pain assessments in the 24 hour period using a PAD Guideline recommended instrument (i.e., self-report, NRS, BPS or CPOT).\tabularnewline\tabularnewline
+~~   &The number of pain assessments/day using self-report/NRS, BPS or CPOT that were documented in the nursing flowsheet.\tabularnewline
+\hline
+{\bfseries Both SAT and SBT}&\tabularnewline
+~~    &\textbf{Days on sedative:} In patients receiving continuously infused (CI) and/or scheduled intermittent sedatives/opioids, the patient passed a SAT safety screen and received a SAT in the 24 hours period.\tabularnewline\tabularnewline
+~~     &\textbf{Days on mechanical ventilation:} In patients receiving invasive mechanical ventilation (MV), the patient passed a SBT safety screen and received a SBT in the 24 hours period.\tabularnewline\tabularnewline
+~~      &In patients who received both a SAT and a SBT, the SAT was performed before a SBT in the prior 24 hours period.\tabularnewline
+\hline
+{\bfseries Choice of analgesia and sedation}&\tabularnewline
+~~       &There was documentation that the patient received a minimum of 6 sedation/agitation assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., RASS, SAS).\tabularnewline\tabularnewline
+~~        &The number of sedation assessments/day using the RASS or SAS that were documented in the nursing flowsheet.\tabularnewline
+\hline
+{\bfseries Delirium: assess, prevent and manage}&\tabularnewline
+~~         &There was documentation that the patient received a minimum of 2 delirium assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., CAM-ICU, ICDSC).\tabularnewline\tabularnewline
+~~          &The number of delirium assessments/day using the CAM-ICU or ICDSC that were documented in the nursing flowsheet.\tabularnewline
+\hline
+{\bfseries Early mobility and exercise}&\tabularnewline
+~~           &There was documentation that the patient passed an early exercise/mobility safety screen and the patient received exercise/mobility in the prior 24 hours.\tabularnewline\tabularnewline
+~~           &\emph{Early exercise/mobility is defined as, at a minimum, sitting assisted or unassisted at the edge of bed (i.e., active and passive range of motion, or passive bed to chair transfers not included).}\tabularnewline
+\hline
+{\bfseries Family engagement and empowerment}&\tabularnewline
+~~            &Documentation at least once in a 24-hour period that a family member/significant other participated in rounds or a family conference or assisted with the plan of care or the ABCDEF Bundle Care or received education on the bundle elements.\tabularnewline
+\hline
+\end{tabular}\end{center}
 
+\end{table}
+
+\end{landscape}
 \end{document}
