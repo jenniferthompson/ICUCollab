@@ -435,17 +435,23 @@ days.mental <- compliance %>%
   group_by(id) %>%
   summarise(days.delirium = ifelse(sum(!is.na(delirium.present.valid.f)) == 0, NA,
                                    sum(delirium.present.valid.f == 'Yes', na.rm = TRUE)),
-            ever.delirious = ifelse(is.na(days.delirium), NA, days.delirium > 0),
-            days.delirium.ever = ifelse(!ever.delirious, NA, days.delirium),
+            ever.delirious = factor(ifelse(is.na(days.delirium), 3,
+                                    ifelse(days.delirium > 0, 2, 1)),
+                                    levels = 1:3,
+                                    labels = c('Never', '>=1 day', 'No assessments')),
             days.coma = ifelse(sum(!is.na(coma.f)) == 0, NA, sum(coma.f == 'Yes', na.rm = TRUE)),
-            ever.comatose = ifelse(is.na(days.coma), NA, days.coma > 0),
-            days.coma.ever = ifelse(!ever.comatose, NA, days.coma))
+            ever.comatose = factor(ifelse(is.na(days.coma), 3,
+                                   ifelse(days.coma > 0, 2, 1)),
+                                   levels = 1:3,
+                                   labels = c('Never', '>=1 day', 'No assessments')),
+            days.coma.ever = ifelse(ever.comatose != '>=1 day', NA, days.coma)) %>%
+  mutate(days.delirium.ever = ifelse(ever.delirious == '>=1 day', days.delirium, NA),
+         days.coma.ever = ifelse(ever.comatose == '>=1 day', days.coma, NA))
 
 demog <- demog %>%left_join(days.mental, by = 'id')
 label(demog$days.delirium) <- 'Days of delirium per PAD-recommended assessment'
 label(demog$ever.delirious) <- 'Ever delirious per PAD-recommended assessment'
-label(demog$days.delirium.ever) <-
-  'Days of delirium per PAD-recommended assessment among those ever delirious'
+label(demog$days.delirium.ever) <- 'Days of delirium among those ever delirious'
 label(demog$days.coma) <- 'Days of coma'
 label(demog$ever.comatose) <- 'Ever comatose'
 label(demog$days.coma.ever) <- 'Days of coma among those ever comatose'
