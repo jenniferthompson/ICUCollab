@@ -339,22 +339,25 @@ compliance <- compliance %>%
          ## Compliant on SAT: on sedation + SAT screen passed + SAT performed
          comp.b.sat = ifelse(!on.sedative.icu, NA,
                       ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
-                             satscreen.f == 'Passed' & satperformed.f == 'Yes')),
+                             satscreen.f == 'Failed' |
+                               (satscreen.f == 'Passed' & satperformed.f == 'Yes'))),
+         ## SAT performed: on sedation + SAT performed, regardless of safety screen
+         perf.b.sat = ifelse(!on.sedative.icu, NA, !is.na(satperformed.f) & satperformed.f == 'Yes'),
          ## On mechanical ventilation: in ICU all 24h + on MV today
          on.mv.icu = ifelse(!comp.tracked, NA,
                      ifelse(is.na(venttoday.f) | venttoday.f == 'No', FALSE, TRUE)),
          ## Compliant on SBT: on MV + SBT screen passed + SBT performed
          comp.b.sbt = ifelse(!on.mv.icu, NA,
                       ifelse(is.na(sbtscreen.f) | is.na(sbtperformed.f), FALSE,
-                             sbtscreen.f == 'Passed' & sbtperformed.f == 'Yes')),
-         ## Compliant on SAT+SBT: SAT performed before an SBT
-         had.satsbt.icu = ifelse(!comp.tracked, NA, on.sedative.icu & on.mv.icu),
-         comp.b.satsbt = ifelse(!had.satsbt.icu, NA,
-                         ifelse(is.na(satperformed.f) | is.na(sbtperformed.f) | is.na(satsbt.f),
-                                FALSE,
-                                satperformed.f == 'Yes' &
-                                  sbtperformed.f == 'Yes' &
-                                  satsbt.f == 'Yes')),
+                             sbtscreen.f == 'Failed' |
+                               (sbtscreen.f == 'Passed' & sbtperformed.f == 'Yes'))),
+         ## SBT performed: on MV + SBT performed, regardless of safety screen
+         perf.b.sbt = ifelse(!on.mv.icu, NA, !is.na(sbtperformed.f) & sbtperformed.f == 'Yes'),
+         ## Compliant on SAT+SBT: SAT and SBT both done and SAT performed before an SBT
+         had.satsbt.icu = ifelse(!comp.tracked, NA,
+                                 !is.na(satperformed.f) & satperformed.f == 'Yes' &
+                                   !is.na(sbtperformed.f) & sbtperformed.f == 'Yes'),
+         comp.b.satsbt = ifelse(!had.satsbt.icu, NA, !is.na(satsbt.f) & satsbt.f == 'Yes'),
 
          ## C: Choice of analgesia and sedation ##
          ## Compliant if patient had >=6 PAD-recommended sedation/agitation assessments
@@ -387,10 +390,17 @@ compliance <- compliance %>%
          mobility.high.icu = factor(ifelse(!comp.tracked, NA, mobilityhighest),
                                     levels = 1:8, labels = levels(compliance$mobilityhighest.f)),
          comp.e = ifelse(!comp.tracked, NA,
-                  ifelse(is.na(mobilityperformed.f) | is.na(mobility.high.icu), FALSE,
-                         mobilityperformed.f == 'Yes' &
+                  ifelse(is.na(mobilityscreen.f) | is.na(mobilityperformed.f) |
+                           is.na(mobility.high.icu), FALSE,
+                         mobilityscreen.f == 'Failed' |
+                           (mobilityscreen.f == 'Passed' & mobilityperformed.f == 'Yes' &
+                            !(mobility.high.icu %in% c('Active ROM - in bed',
+                                                       'Not documented /unclear'))))),
+         ## Mobility performed: ICU day and some mobility performed other than active ROM
+         perf.e = ifelse(!comp.tracked, NA,
+                         !is.na(mobility.high.icu) &
                            !(mobility.high.icu %in% c('Active ROM - in bed',
-                                                      'Not document /unclear')))),
+                                                      'Not documented /unclear'))),
 
          ## F: Family engagement ##
          ## Compliant if family member/SO participated in rounds, conference, etc ##
@@ -409,8 +419,10 @@ label(compliance$n.painassess.icu) <- 'Pain assessments/day in ICU'
 label(compliance$comp.a) <- 'Pain assessment compliance'
 label(compliance$on.sedative.icu) <- 'On infused or scheduled sedation in ICU'
 label(compliance$comp.b.sat) <- 'SAT protocol compliance'
+label(compliance$perf.b.sat) <- 'SAT performed'
 label(compliance$on.mv.icu) <- 'On MV in ICU'
 label(compliance$comp.b.sbt) <- 'SBT protocol compliance'
+label(compliance$perf.b.sbt) <- 'SBT performed'
 label(compliance$had.satsbt.icu) <- 'Eligible for SAT and SBT'
 label(compliance$comp.b.satsbt) <- 'SAT prior to SBT'
 label(compliance$sed.assess.icu) <- 'Sedation assessments/day in ICU'
@@ -427,6 +439,7 @@ label(compliance$delirium.assess.icu) <- 'Delirium assessments/day in ICU'
 label(compliance$comp.d) <- 'Delirium assessment compliance'
 label(compliance$mobility.high.icu) <- 'Highest level of exercise/mobilization'
 label(compliance$comp.e) <- 'Early mobility protocol compliance'
+label(compliance$perf.e) <- 'Early mobility performed'
 label(compliance$family.present.icu) <- 'Days family present in ICU'
 label(compliance$comp.f) <- 'Family engagement protocol compliance'
 
@@ -502,7 +515,7 @@ my.print.summaryM(desc.all,
 @
 
 \begin{landscape}
-\section{ABCDEF Bundle Compliance}
+\section{ABCDEF Bundle Compliance and Performance}
 Table \ref{table:compliance} presents compliance results by time period for all parts of the ABCDEF
 Bundle. For elements A, C, D, and E, the proportion of days compliant is out of all days where the
 patient was in the ICU the full 24 hours (row 1 in table). For element B, the proportion of SAT
@@ -531,9 +544,13 @@ comp.summary.overall <- compliance %>%
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.perf.b.sat = sum(perf.b.sat, na.rm = TRUE),
+            pct.perf.b.sat = mean(perf.b.sat, na.rm = TRUE),
             days.mv = sum(on.mv.icu, na.rm = TRUE),
             days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
             pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.perf.b.sbt = sum(perf.b.sbt, na.rm = TRUE),
+            pct.perf.b.sbt = mean(perf.b.sbt, na.rm = TRUE),
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
@@ -552,6 +569,8 @@ comp.summary.overall <- compliance %>%
             ## E: Early mobility and exercise
             days.comp.e = sum(comp.e, na.rm = TRUE),
             pct.comp.e = mean(comp.e, na.rm = TRUE),
+            days.perf.e = sum(perf.e, na.rm = TRUE),
+            pct.perf.e = mean(perf.e, na.rm = TRUE),
             ## F: Family engagement and empowerment
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
@@ -574,9 +593,13 @@ comp.summary.type <- compliance %>%
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.perf.b.sat = sum(comp.b.sbt, na.rm = TRUE),
+            pct.perf.b.sat = mean(comp.b.sbt, na.rm = TRUE),
             days.mv = sum(on.mv.icu, na.rm = TRUE),
             days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
             pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.perf.b.sbt = sum(perf.b.sbt, na.rm = TRUE),
+            pct.perf.b.sbt = mean(perf.b.sbt, na.rm = TRUE),
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
@@ -595,6 +618,8 @@ comp.summary.type <- compliance %>%
             ## E: Early mobility and exercise
             days.comp.e = sum(comp.e, na.rm = TRUE),
             pct.comp.e = mean(comp.e, na.rm = TRUE),
+            days.perf.e = sum(perf.e, na.rm = TRUE),
+            pct.perf.e = mean(perf.e, na.rm = TRUE),
             ## F: Family engagement and empowerment
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
@@ -620,9 +645,13 @@ comp.summary.region <- compliance %>%
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.perf.b.sat = sum(perf.b.sat, na.rm = TRUE),
+            pct.perf.b.sat = mean(perf.b.sat, na.rm = TRUE),
             days.mv = sum(on.mv.icu, na.rm = TRUE),
             days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
             pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.perf.b.sbt = sum(perf.b.sbt, na.rm = TRUE),
+            pct.perf.b.sbt = mean(perf.b.sbt, na.rm = TRUE),
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
@@ -641,6 +670,8 @@ comp.summary.region <- compliance %>%
             ## E: Early mobility and exercise
             days.comp.e = sum(comp.e, na.rm = TRUE),
             pct.comp.e = mean(comp.e, na.rm = TRUE),
+            days.perf.e = sum(perf.e, na.rm = TRUE),
+            pct.perf.e = mean(perf.e, na.rm = TRUE),
             ## F: Family engagement and empowerment
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
@@ -663,9 +694,13 @@ comp.summary.regiontype <- compliance %>%
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+            days.perf.b.sat = sum(perf.b.sat, na.rm = TRUE),
+            pct.perf.b.sat = mean(perf.b.sat, na.rm = TRUE),
             days.mv = sum(on.mv.icu, na.rm = TRUE),
             days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
             pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+            days.perf.b.sbt = sum(perf.b.sbt, na.rm = TRUE),
+            pct.perf.b.sbt = mean(perf.b.sbt, na.rm = TRUE),
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
@@ -684,6 +719,8 @@ comp.summary.regiontype <- compliance %>%
             ## E: Early mobility and exercise
             days.comp.e = sum(comp.e, na.rm = TRUE),
             pct.comp.e = mean(comp.e, na.rm = TRUE),
+            days.perf.e = sum(perf.e, na.rm = TRUE),
+            pct.perf.e = mean(perf.e, na.rm = TRUE),
             ## F: Family engagement and empowerment
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
@@ -714,21 +751,24 @@ results.month <- function(m){
   }
   npct.a <- create.npct('days.comp.a', 'pct.comp.a')
   npct.b.sat <- create.npct('days.comp.b.sat', 'pct.comp.b.sat')
+  npct.perf.b.sat <- create.npct('days.perf.b.sat', 'pct.perf.b.sat')
   npct.b.sbt <- create.npct('days.comp.b.sbt', 'pct.comp.b.sbt')
+  npct.perf.b.sbt <- create.npct('days.perf.b.sbt', 'pct.perf.b.sbt')
   npct.b.satsbt <- create.npct('days.comp.b.satsbt', 'pct.comp.b.satsbt')
   npct.c <- create.npct('days.comp.c', 'pct.comp.c')
   npct.d <- create.npct('days.comp.d', 'pct.comp.d')
   npct.e <- create.npct('days.comp.e', 'pct.comp.e')
+  npct.perf.e <- create.npct('days.perf.e', 'pct.perf.e')
   npct.f <- create.npct('days.comp.f', 'pct.comp.f')
 
   c(mdata['days.tracked'],
     npct.a, pain.mediqr,
-    mdata['days.sedatives'], npct.b.sat,
-    mdata['days.mv'], npct.b.sbt,
+    mdata['days.sedatives'], npct.b.sat, npct.perf.b.sat,
+    mdata['days.mv'], npct.b.sbt, npct.perf.b.sbt,
     mdata['days.satsbt'], npct.b.satsbt,
     npct.c, sed.mediqr,
     npct.d, del.mediqr,
-    npct.e,
+    npct.e, npct.perf.e,
     mdata['days.family.present'], npct.f)
 
 }
@@ -739,8 +779,10 @@ rownames(compliance.table) <- c('Days compliance was tracked',
                                 'Pain assessments/day (median/IQR)',
                                 'Days on sedatives',
                                 'SAT protocol compliance',
+                                'SAT performed at all',
                                 'Days on mechanical ventilation',
                                 'SBT protocol compliance',
+                                'SBT performed at all',
                                 'Days with SAT + SBT',
                                 'Days SAT prior to SBT',
                                 'Sedation assessment compliance',
@@ -748,6 +790,7 @@ rownames(compliance.table) <- c('Days compliance was tracked',
                                 'Delirium assessment compliance',
                                 'Delirium assessments/day (median/IQR)',
                                 'Early mobility protocol compliance',
+                                'Early mobility performed at all',
                                 'Days family present',
                                 'Family engagement/empowerment compliance')
 colnames(compliance.table) <- levels(demog$data.month)
@@ -795,32 +838,36 @@ plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), re
 
 }
 
-plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Asmt Compliance') +
+plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Asmt Compliance\nOut of All ICU Days') +
   labs(title = 'A: Assess, prevent and manage pain') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.b.sat <-
-  plot.compliance('pct.comp.b.sat', 'SAT Protocol Compliance',
+  plot.compliance('pct.comp.b.sat', 'SAT Protocol Compliance\nOut of All ICU Days on Sedation',
                   put.legend = 'top', refline.size = 1) +
     labs(title = 'B: Both SAT + SBT') +
     theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.b.sbt <-
-  plot.compliance('pct.comp.b.sbt', 'SBT Protocol Compliance',
+  plot.compliance('pct.comp.b.sbt', 'SBT Protocol Compliance\nOut of All ICU Days on MV',
                   put.legend = 'top', refline.size = 1) +
   labs(title = '')
-plot.comp.b.satsbt <- plot.compliance('pct.comp.b.satsbt', 'SAT Prior to SBT',
-                                      put.legend = 'top', refline.size = 1) +
+plot.comp.b.satsbt <- plot.compliance('pct.comp.b.satsbt',
+                                      'SAT Prior to SBT\nOut of All Days with SAT+SBT',
+                                      put.legend = 'bottom', refline.size = 1) +
   labs(title = '')
-plot.comp.c <- plot.compliance('pct.comp.c', 'Sedation Asmt Compliance') +
+plot.comp.c <- plot.compliance('pct.comp.c',
+                               'Sedation Asmt Compliance\nOut of All ICU Days on Sedation') +
   labs(title = 'C: Choice of analgesia and sedation') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Asmt Compliance') +
+plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Asmt Compliance\nOut of All ICU Days') +
   labs(title = 'D: Delirium - assess, prevent and manage') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Compliance',
+plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Compliance\nOut of All ICU Days',
                                put.legend = 'top', refline.size = 1) +
   labs(title = 'E: Early mobility and exercise') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.f <- plot.compliance('pct.comp.f', 'Family Engagement Compliance', refline.size = 1) +
+plot.comp.f <- plot.compliance('pct.comp.f',
+                               'Family Engagement Compliance\nOut of All ICU Days',
+                               refline.size = 1) +
   labs(title = 'F: Family engagement') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 
@@ -872,13 +919,16 @@ plot.assessments <- function(asmtvar){
 }
 
 box.asmts.a <- plot.assessments(asmtvar = 'n.painassess.icu') +
-  scale_y_continuous(name = 'Pain Assessments in 24h', limits = c(0, 35), breaks = seq(0, 35, 5)) +
+  scale_y_continuous(name = 'Pain Assessments in 24h\nOn All ICU Days',
+                     limits = c(0, 35), breaks = seq(0, 35, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.c <- plot.assessments(asmtvar = 'sed.assess.icu') +
-  scale_y_continuous(name = 'Sedation Assessments in 24h', limits = c(0, 25), breaks = seq(0, 25, 5)) +
+  scale_y_continuous(name = 'Sedation Assessments in 24h\nOn All ICU Days',
+                     limits = c(0, 25), breaks = seq(0, 25, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu') +
-  scale_y_continuous(name = 'Delirium Assessments in 24h', limits = c(0, 10), breaks = seq(0, 10, 2)) +
+  scale_y_continuous(name = 'Delirium Assessments in 24h\nOn All ICU Days',
+                     limits = c(0, 10), breaks = seq(0, 10, 2)) +
   geom_hline(yintercept = 2, linetype = 'dotted', colour = ref.line.shade)
 
 ## -- Figures by region ----------------------------------------------------------------------------
@@ -925,24 +975,34 @@ plot.compliance.region <- function(compvar,
 
 }
 
-plot.comp.region.a <- plot.compliance.region('pct.comp.a', 'Pain Asmt Compliance') +
+plot.comp.region.a <- plot.compliance.region('pct.comp.a',
+                                             'Pain Asmt Compliance\nOut of All ICU Days') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.region.b.sat <- plot.compliance.region('pct.comp.b.sat', 'SAT Protocol Compliance',
-                                                 put.legend = 'top', refline.size = 1) +
+plot.comp.region.b.sat <-
+  plot.compliance.region('pct.comp.b.sat',
+                         'SAT Protocol Compliance\nOut of All ICU Days on Sedation',
+                         put.legend = 'top', refline.size = 1) +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.region.b.sbt <- plot.compliance.region('pct.comp.b.sbt', 'SBT Protocol Compliance',
-                                                 put.legend = 'top', refline.size = 1)
-plot.comp.region.b.satsbt <- plot.compliance.region('pct.comp.b.satsbt', 'SAT Prior to SBT',
-                                                    put.legend = 'top', refline.size = 1)
-plot.comp.region.c <- plot.compliance.region('pct.comp.c', 'Sedation Asmt Compliance') +
+plot.comp.region.b.sbt <-
+  plot.compliance.region('pct.comp.b.sbt',
+                         'SBT Protocol Compliance\nOut of All ICU Days on MV',
+                         put.legend = 'top', refline.size = 1)
+plot.comp.region.b.satsbt <-
+  plot.compliance.region('pct.comp.b.satsbt',
+                         'SAT Prior to SBT\nOut of All Days with SAT+SBT',
+                         put.legend = 'top', refline.size = 1)
+plot.comp.region.c <- plot.compliance.region('pct.comp.c',
+                                             'Sedation Asmt Compliance\nOut of All ICU Days') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.region.d <- plot.compliance.region('pct.comp.d', 'Delirium Asmt Compliance') +
+plot.comp.region.d <- plot.compliance.region('pct.comp.d',
+                                             'Delirium Asmt Compliance\nOut of All ICU Days') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.region.e <- plot.compliance.region('pct.comp.e', 'Early Mobility Compliance',
+plot.comp.region.e <- plot.compliance.region('pct.comp.e',
+                                             'Early Mobility Compliance\nOut of All ICU Days',
                                              put.legend = 'top', refline.size = 1) +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.region.f <- plot.compliance.region('pct.comp.f',
-                                             'Family Engagement Compliance',
+                                             'Family Engagement Compliance\nOut of All ICU Days',
                                              refline.size = 1) +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 
@@ -965,14 +1025,15 @@ plot.assessments.region <- function(asmtvar){
 }
 
 box.asmts.region.a <- plot.assessments.region(asmtvar = 'n.painassess.icu') +
-  scale_y_continuous(name = 'Pain Assessments in 24h', limits = c(0, 35), breaks = seq(0, 35, 5)) +
+  scale_y_continuous(name = 'Pain Assessments in 24h\nOn All ICU Days',
+                     limits = c(0, 35), breaks = seq(0, 35, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.region.c <- plot.assessments.region(asmtvar = 'sed.assess.icu') +
-  scale_y_continuous(name = 'Sedation Assessments in 24h',
+  scale_y_continuous(name = 'Sedation Assessments in 24h\nOn All ICU Days',
                      limits = c(0, 25), breaks = seq(0, 25, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.region.d <- plot.assessments.region(asmtvar = 'delirium.assess.icu') +
-  scale_y_continuous(name = 'Delirium Assessments in 24h',
+  scale_y_continuous(name = 'Delirium Assessments in 24h\nOn All ICU Days',
                      limits = c(0, 10), breaks = seq(0, 10, 2)) +
   geom_hline(yintercept = 2, linetype = 'dotted', colour = ref.line.shade)
 
@@ -994,7 +1055,7 @@ latex(compliance.table, file = '',
                  'D: Delirium - assess, prevent and manage',
                  'E: Early mobility and exercise',
                  'F: Family engagement and empowerment'),
-      n.rgroup = c(1, 2, 6, 2, 2, 1, 2),
+      n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
       col.just = rep('r', ncol(compliance.table)),
       insert.bottom = 'Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.')
 
