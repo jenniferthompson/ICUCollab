@@ -139,7 +139,7 @@ comp.summary.referencedata <-
 ## -- Create results table by month ---------------------------------------------------------------
 results.month <- function(m){
   mdata <-
-    unlist(subset(comp.summary.overall, data.month.short == m)[,2:ncol(comp.summary.overall)])
+    unlist(subset(comp.summary.site, data.month.short == m)[,2:ncol(comp.summary.site)])
 
   ## Combine descriptive statistics for number of assessments
   create.asmtstats <- function(med, p25, p75){
