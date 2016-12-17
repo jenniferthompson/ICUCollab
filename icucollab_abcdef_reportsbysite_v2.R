@@ -5,7 +5,7 @@ library(tidyr)
 library(devtools)
 
 ## What's the last month that should be included in the report?
-last.month <- 14
+last.month <- 17
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
