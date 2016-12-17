@@ -324,9 +324,17 @@ label(demog$dc.status.f) <- 'Discharge/mortality status'
 
 
 ## -- Data management for compliance form ---------------------------------------------------------
+## Prep for alternate denominator: what is last day recorded for each patient?
+last.icu.days <- compliance %>%
+  group_by(id) %>%
+  summarise(last.icu.day = tail(redcap.event.name.f, n = 1))
+
 compliance <- compliance %>%
+  left_join(last.icu.days, by = 'id') %>%
   mutate(## Denominator for all following variables: days in ICU full 24h
          comp.tracked = !is.na(icu.24.f) & icu.24.f == 'Yes',
+         ## Alternate denominator: days in ICU full 24h + last day in ICU
+         comp.tracked.trans = comp.tracked | redcap.event.name.f == last.icu.day,
          ## A: Assess, prevent and manage pain ##
          ## Compliant if received >=6 pain assessments in 24h using a PAD-recommended instrument
          n.painassess.icu = ifelse(!comp.tracked, NA,
@@ -339,28 +347,49 @@ compliance <- compliance %>%
          ## B: both SAT and SBT ##
          ## On sedative: In ICU all 24h + either continuous infusion or intermittent sched sedation
          on.sedative.icu = ifelse(!comp.tracked, NA, sedative.1 == 1 | sedative.2 == 1),
+         on.sedative.icu.trans = ifelse(!comp.tracked.trans, NA, sedative.1 == 1 | sedative.2 == 1),
          ## Compliant on SAT: on sedation + SAT screen passed + SAT performed
          comp.b.sat = ifelse(!on.sedative.icu, NA,
                       ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
                              satscreen.f == 'Failed' |
                                (satscreen.f == 'Passed' & satperformed.f == 'Yes'))),
+         comp.b.sat.trans = ifelse(!on.sedative.icu.trans, NA,
+                            ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
+                                   satscreen.f == 'Failed' |
+                                     (satscreen.f == 'Passed' & satperformed.f == 'Yes'))),
          ## SAT performed: on sedation + SAT performed, regardless of safety screen
-         perf.b.sat = ifelse(!on.sedative.icu, NA, !is.na(satperformed.f) & satperformed.f == 'Yes'),
+         perf.b.sat = ifelse(!on.sedative.icu, NA,
+                             !is.na(satperformed.f) & satperformed.f == 'Yes'),
+         perf.b.sat.trans = ifelse(!on.sedative.icu.trans, NA,
+                                   !is.na(satperformed.f) & satperformed.f == 'Yes'),
          ## On mechanical ventilation: in ICU all 24h + on MV today
          on.mv.icu = ifelse(!comp.tracked, NA,
                      ifelse(is.na(venttoday.f) | venttoday.f == 'No', FALSE, TRUE)),
+         on.mv.icu.trans = ifelse(!comp.tracked.trans, NA,
+                           ifelse(is.na(venttoday.f) | venttoday.f == 'No', FALSE, TRUE)),
          ## Compliant on SBT: on MV + SBT screen passed + SBT performed
          comp.b.sbt = ifelse(!on.mv.icu, NA,
                       ifelse(is.na(sbtscreen.f) | is.na(sbtperformed.f), FALSE,
                              sbtscreen.f == 'Failed' |
                                (sbtscreen.f == 'Passed' & sbtperformed.f == 'Yes'))),
+         comp.b.sbt.trans = ifelse(!on.mv.icu.trans, NA,
+                            ifelse(is.na(sbtscreen.f) | is.na(sbtperformed.f), FALSE,
+                                   sbtscreen.f == 'Failed' |
+                                     (sbtscreen.f == 'Passed' & sbtperformed.f == 'Yes'))),
          ## SBT performed: on MV + SBT performed, regardless of safety screen
          perf.b.sbt = ifelse(!on.mv.icu, NA, !is.na(sbtperformed.f) & sbtperformed.f == 'Yes'),
+         perf.b.sbt.trans = ifelse(!on.mv.icu.trans, NA,
+                                   !is.na(sbtperformed.f) & sbtperformed.f == 'Yes'),
          ## Compliant on SAT+SBT: SAT and SBT both done and SAT performed before an SBT
          had.satsbt.icu = ifelse(!comp.tracked, NA,
                                  !is.na(satperformed.f) & satperformed.f == 'Yes' &
                                    !is.na(sbtperformed.f) & sbtperformed.f == 'Yes'),
          comp.b.satsbt = ifelse(!had.satsbt.icu, NA, !is.na(satsbt.f) & satsbt.f == 'Yes'),
+         had.satsbt.icu.trans = ifelse(!comp.tracked.trans, NA,
+                                       !is.na(satperformed.f) & satperformed.f == 'Yes' &
+                                         !is.na(sbtperformed.f) & sbtperformed.f == 'Yes'),
+         comp.b.satsbt.trans = ifelse(!had.satsbt.icu.trans, NA,
+                                      !is.na(satsbt.f) & satsbt.f == 'Yes'),
 
          ## C: Choice of analgesia and sedation ##
          ## Compliant if patient had >=6 PAD-recommended sedation/agitation assessments
@@ -414,10 +443,19 @@ compliance <- compliance %>%
                          familyinvite.2 == 1 | familyinvite.3 == 1 |
                            familyparticipate.1 == 1 | familyparticipate.2 == 1 |
                            familyeducate.1 == 1 | familyeducate.2 == 1 | familyeducate.3 == 1 |
-                           familyeducate.4 == 1 | familyeducate.5 == 1)
-         )
+                           familyeducate.4 == 1 | familyeducate.5 == 1),
+         family.present.icu.trans = ifelse(!comp.tracked.trans, NA,
+                                    ifelse(is.na(familyvisit.f) | !(familyvisit.f == 'Yes'), FALSE,
+                                           TRUE)),
+         comp.f.trans = ifelse(!family.present.icu.trans, NA,
+                               familyinvite.2 == 1 | familyinvite.3 == 1 |
+                                 familyparticipate.1 == 1 | familyparticipate.2 == 1 |
+                                 familyeducate.1 == 1 | familyeducate.2 == 1 |
+                                 familyeducate.3 == 1 | familyeducate.4 == 1 | familyeducate.5 == 1)
+  )
 
 label(compliance$comp.tracked) <- 'ABCDEF compliance tracked'
+label(compliance$comp.tracked.trans) <- 'ABCDEF compliance tracked (inc. day of transfer)'
 label(compliance$n.painassess.icu) <- 'Pain assessments/day in ICU'
 label(compliance$comp.a) <- 'Pain assessment compliance'
 label(compliance$on.sedative.icu) <- 'On infused or scheduled sedation in ICU'
@@ -428,6 +466,15 @@ label(compliance$comp.b.sbt) <- 'SBT protocol compliance'
 label(compliance$perf.b.sbt) <- 'SBT performed'
 label(compliance$had.satsbt.icu) <- 'Eligible for SAT and SBT'
 label(compliance$comp.b.satsbt) <- 'SAT prior to SBT'
+label(compliance$on.sedative.icu.trans) <-
+  'On infused or scheduled sedation in ICU (inc. day of transfer)'
+label(compliance$comp.b.sat.trans) <- 'SAT protocol compliance (inc. day of transfer)'
+label(compliance$perf.b.sat.trans) <- 'SAT performed (inc. day of transfer)'
+label(compliance$on.mv.icu.trans) <- 'On MV in ICU (inc. day of transfer)'
+label(compliance$comp.b.sbt.trans) <- 'SBT protocol compliance (inc. day of transfer)'
+label(compliance$perf.b.sbt.trans) <- 'SBT performed (inc. day of transfer)'
+label(compliance$had.satsbt.icu.trans) <- 'Eligible for SAT and SBT (inc. day of transfer)'
+label(compliance$comp.b.satsbt.trans) <- 'SAT prior to SBT (inc. day of transfer)'
 label(compliance$sed.assess.icu) <- 'Sedation assessments/day in ICU'
 label(compliance$comp.c) <- 'Sedation assessment compliance'
 label(compliance$opioid.icu) <- 'Received opioids'
@@ -445,6 +492,8 @@ label(compliance$comp.e) <- 'Early mobility protocol compliance'
 label(compliance$perf.e) <- 'Early mobility performed'
 label(compliance$family.present.icu) <- 'Days family present in ICU'
 label(compliance$comp.f) <- 'Family engagement protocol compliance'
+label(compliance$family.present.icu.trans) <- 'Days family present in ICU (inc. day of transfer)'
+label(compliance$comp.f.trans) <- 'Family engagement protocol compliance (inc. day of transfer)'
 
 ## -- Calculate days of delirium, coma per compliance form -----------------------------------------
 days.mental <- compliance %>%
@@ -538,13 +587,14 @@ comp.summary.overall <- compliance %>%
   group_by(data.month.short) %>%
   summarise(## Days compliance was tracked
             days.tracked = sum(comp.tracked),
+            days.tracked.trans = sum(comp.tracked.trans),
             ## A: Assess, prevent and manage pain
             asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
             asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
             asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
             days.comp.a = sum(comp.a, na.rm = TRUE),
             pct.comp.a = mean(comp.a, na.rm = TRUE),
-            ## B: Both SAT and SBT
+            ## B: Both SAT and SBT, original definition of denominator
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
@@ -558,6 +608,20 @@ comp.summary.overall <- compliance %>%
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## B: Both SAT and SBT, including days of transfer
+            days.sedatives.trans = sum(on.sedative.icu.trans, na.rm = TRUE),
+            days.comp.b.sat.trans = sum(comp.b.sat.trans, na.rm = TRUE),
+            pct.comp.b.sat.trans = mean(comp.b.sat.trans, na.rm = TRUE),
+            days.perf.b.sat.trans = sum(perf.b.sat.trans, na.rm = TRUE),
+            pct.perf.b.sat.trans = mean(perf.b.sat.trans, na.rm = TRUE),
+            days.mv.trans = sum(on.mv.icu.trans, na.rm = TRUE),
+            days.comp.b.sbt.trans = sum(comp.b.sbt.trans, na.rm = TRUE),
+            pct.comp.b.sbt.trans = mean(comp.b.sbt.trans, na.rm = TRUE),
+            days.perf.b.sbt.trans = sum(perf.b.sbt.trans, na.rm = TRUE),
+            pct.perf.b.sbt.trans = mean(perf.b.sbt.trans, na.rm = TRUE),
+            days.satsbt.trans = sum(had.satsbt.icu.trans, na.rm = TRUE),
+            days.comp.b.satsbt.trans = sum(comp.b.satsbt.trans, na.rm = TRUE),
+            pct.comp.b.satsbt.trans = mean(comp.b.satsbt.trans, na.rm = TRUE),
             ## C: Choice of analgesia and sedation
             days.comp.c = sum(comp.c, na.rm = TRUE),
             pct.comp.c = mean(comp.c, na.rm = TRUE),
@@ -575,10 +639,14 @@ comp.summary.overall <- compliance %>%
             pct.comp.e = mean(comp.e, na.rm = TRUE),
             days.perf.e = sum(perf.e, na.rm = TRUE),
             pct.perf.e = mean(perf.e, na.rm = TRUE),
-            ## F: Family engagement and empowerment
+            ## F: Family engagement and empowerment, original definition of denominator
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
-            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+            pct.comp.f = mean(comp.f, na.rm = TRUE),
+            ## F: Family engagement and empowerment, including days of transfer
+            days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
+            days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
   mutate(hosp.type = 'All sites',
          line.alpha = 1)
@@ -587,13 +655,14 @@ comp.summary.type <- compliance %>%
   group_by(data.month.short, hosp.type) %>%
   summarise(## Days compliance was tracked
             days.tracked = sum(comp.tracked),
+            days.tracked.trans = sum(comp.tracked.trans),
             ## A: Assess, prevent and manage pain
             asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
             asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
             asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
             days.comp.a = sum(comp.a, na.rm = TRUE),
             pct.comp.a = mean(comp.a, na.rm = TRUE),
-            ## B: Both SAT and SBT
+            ## B: Both SAT and SBT, original definition of denominator
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
@@ -607,6 +676,20 @@ comp.summary.type <- compliance %>%
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## B: Both SAT and SBT, including days of transfer
+            days.sedatives.trans = sum(on.sedative.icu.trans, na.rm = TRUE),
+            days.comp.b.sat.trans = sum(comp.b.sat.trans, na.rm = TRUE),
+            pct.comp.b.sat.trans = mean(comp.b.sat.trans, na.rm = TRUE),
+            days.perf.b.sat.trans = sum(perf.b.sat.trans, na.rm = TRUE),
+            pct.perf.b.sat.trans = mean(perf.b.sat.trans, na.rm = TRUE),
+            days.mv.trans = sum(on.mv.icu.trans, na.rm = TRUE),
+            days.comp.b.sbt.trans = sum(comp.b.sbt.trans, na.rm = TRUE),
+            pct.comp.b.sbt.trans = mean(comp.b.sbt.trans, na.rm = TRUE),
+            days.perf.b.sbt.trans = sum(perf.b.sbt.trans, na.rm = TRUE),
+            pct.perf.b.sbt.trans = mean(perf.b.sbt.trans, na.rm = TRUE),
+            days.satsbt.trans = sum(had.satsbt.icu.trans, na.rm = TRUE),
+            days.comp.b.satsbt.trans = sum(comp.b.satsbt.trans, na.rm = TRUE),
+            pct.comp.b.satsbt.trans = mean(comp.b.satsbt.trans, na.rm = TRUE),
             ## C: Choice of analgesia and sedation
             days.comp.c = sum(comp.c, na.rm = TRUE),
             pct.comp.c = mean(comp.c, na.rm = TRUE),
@@ -624,10 +707,14 @@ comp.summary.type <- compliance %>%
             pct.comp.e = mean(comp.e, na.rm = TRUE),
             days.perf.e = sum(perf.e, na.rm = TRUE),
             pct.perf.e = mean(perf.e, na.rm = TRUE),
-            ## F: Family engagement and empowerment
+            ## F: Family engagement and empowerment, original definition of denominator
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
-            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+            pct.comp.f = mean(comp.f, na.rm = TRUE),
+            ## F: Family engagement and empowerment, including days of transfer
+            days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
+            days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.type)) %>%
   mutate(line.alpha = 2)
 
@@ -645,12 +732,12 @@ comp.summary.region <- compliance %>%
             asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
             days.comp.a = sum(comp.a, na.rm = TRUE),
             pct.comp.a = mean(comp.a, na.rm = TRUE),
-            ## B: Both SAT and SBT
+            ## B: Both SAT and SBT, original definition of denominator
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
-            days.perf.b.sat = sum(perf.b.sat, na.rm = TRUE),
-            pct.perf.b.sat = mean(perf.b.sat, na.rm = TRUE),
+            days.perf.b.sat = sum(comp.b.sbt, na.rm = TRUE),
+            pct.perf.b.sat = mean(comp.b.sbt, na.rm = TRUE),
             days.mv = sum(on.mv.icu, na.rm = TRUE),
             days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
             pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
@@ -659,6 +746,20 @@ comp.summary.region <- compliance %>%
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## B: Both SAT and SBT, including days of transfer
+            days.sedatives.trans = sum(on.sedative.icu.trans, na.rm = TRUE),
+            days.comp.b.sat.trans = sum(comp.b.sat.trans, na.rm = TRUE),
+            pct.comp.b.sat.trans = mean(comp.b.sat.trans, na.rm = TRUE),
+            days.perf.b.sat.trans = sum(perf.b.sat.trans, na.rm = TRUE),
+            pct.perf.b.sat.trans = mean(perf.b.sat.trans, na.rm = TRUE),
+            days.mv.trans = sum(on.mv.icu.trans, na.rm = TRUE),
+            days.comp.b.sbt.trans = sum(comp.b.sbt.trans, na.rm = TRUE),
+            pct.comp.b.sbt.trans = mean(comp.b.sbt.trans, na.rm = TRUE),
+            days.perf.b.sbt.trans = sum(perf.b.sbt.trans, na.rm = TRUE),
+            pct.perf.b.sbt.trans = mean(perf.b.sbt.trans, na.rm = TRUE),
+            days.satsbt.trans = sum(had.satsbt.icu.trans, na.rm = TRUE),
+            days.comp.b.satsbt.trans = sum(comp.b.satsbt.trans, na.rm = TRUE),
+            pct.comp.b.satsbt.trans = mean(comp.b.satsbt.trans, na.rm = TRUE),
             ## C: Choice of analgesia and sedation
             days.comp.c = sum(comp.c, na.rm = TRUE),
             pct.comp.c = mean(comp.c, na.rm = TRUE),
@@ -676,10 +777,14 @@ comp.summary.region <- compliance %>%
             pct.comp.e = mean(comp.e, na.rm = TRUE),
             days.perf.e = sum(perf.e, na.rm = TRUE),
             pct.perf.e = mean(perf.e, na.rm = TRUE),
-            ## F: Family engagement and empowerment
+            ## F: Family engagement and empowerment, original definition of denominator
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
-            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+            pct.comp.f = mean(comp.f, na.rm = TRUE),
+            ## F: Family engagement and empowerment, including days of transfer
+            days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
+            days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region)) %>%
   mutate(hosp.type = 'All types',
          line.alpha = 1)
@@ -694,12 +799,12 @@ comp.summary.regiontype <- compliance %>%
             asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
             days.comp.a = sum(comp.a, na.rm = TRUE),
             pct.comp.a = mean(comp.a, na.rm = TRUE),
-            ## B: Both SAT and SBT
+            ## B: Both SAT and SBT, original definition of denominator
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
-            days.perf.b.sat = sum(perf.b.sat, na.rm = TRUE),
-            pct.perf.b.sat = mean(perf.b.sat, na.rm = TRUE),
+            days.perf.b.sat = sum(comp.b.sbt, na.rm = TRUE),
+            pct.perf.b.sat = mean(comp.b.sbt, na.rm = TRUE),
             days.mv = sum(on.mv.icu, na.rm = TRUE),
             days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
             pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
@@ -708,6 +813,20 @@ comp.summary.regiontype <- compliance %>%
             days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
             days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
             pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+            ## B: Both SAT and SBT, including days of transfer
+            days.sedatives.trans = sum(on.sedative.icu.trans, na.rm = TRUE),
+            days.comp.b.sat.trans = sum(comp.b.sat.trans, na.rm = TRUE),
+            pct.comp.b.sat.trans = mean(comp.b.sat.trans, na.rm = TRUE),
+            days.perf.b.sat.trans = sum(perf.b.sat.trans, na.rm = TRUE),
+            pct.perf.b.sat.trans = mean(perf.b.sat.trans, na.rm = TRUE),
+            days.mv.trans = sum(on.mv.icu.trans, na.rm = TRUE),
+            days.comp.b.sbt.trans = sum(comp.b.sbt.trans, na.rm = TRUE),
+            pct.comp.b.sbt.trans = mean(comp.b.sbt.trans, na.rm = TRUE),
+            days.perf.b.sbt.trans = sum(perf.b.sbt.trans, na.rm = TRUE),
+            pct.perf.b.sbt.trans = mean(perf.b.sbt.trans, na.rm = TRUE),
+            days.satsbt.trans = sum(had.satsbt.icu.trans, na.rm = TRUE),
+            days.comp.b.satsbt.trans = sum(comp.b.satsbt.trans, na.rm = TRUE),
+            pct.comp.b.satsbt.trans = mean(comp.b.satsbt.trans, na.rm = TRUE),
             ## C: Choice of analgesia and sedation
             days.comp.c = sum(comp.c, na.rm = TRUE),
             pct.comp.c = mean(comp.c, na.rm = TRUE),
@@ -725,10 +844,14 @@ comp.summary.regiontype <- compliance %>%
             pct.comp.e = mean(comp.e, na.rm = TRUE),
             days.perf.e = sum(perf.e, na.rm = TRUE),
             pct.perf.e = mean(perf.e, na.rm = TRUE),
-            ## F: Family engagement and empowerment
+            ## F: Family engagement and empowerment, original definition of denominator
             days.family.present = sum(family.present.icu, na.rm = TRUE),
             days.comp.f = sum(comp.f, na.rm = TRUE),
-            pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+            pct.comp.f = mean(comp.f, na.rm = TRUE),
+            ## F: Family engagement and empowerment, including days of transfer
+            days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
+            days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region) & !is.na(hosp.type)) %>%
   mutate(line.alpha = 2)
 
@@ -736,6 +859,7 @@ comp.summary.region.plot <- bind_rows(comp.summary.region, comp.summary.regionty
   mutate(line.alpha.f = factor(line.alpha, levels = 1:2, labels = c('All sites', 'Site subtype')))
 
 ## -- Create results table by month ---------------------------------------------------------------
+## Original definition of days to track (all days in ICU all 24 hours), all bundle elements
 results.month <- function(m){
   mdata <-
     unlist(subset(comp.summary.overall, data.month.short == m)[,2:ncol(comp.summary.overall)])
@@ -798,6 +922,71 @@ rownames(compliance.table) <- c('Days compliance was tracked',
                                 'Days family present',
                                 'Family engagement*** comp.')
 colnames(compliance.table) <- levels(demog$data.month)
+
+## Alternate definition of days to track (including days of ICU transfer), elements B and F only
+results.month.trans <- function(m){
+  mdata <-
+    unlist(subset(comp.summary.overall, data.month.short == m)[,2:ncol(comp.summary.overall)])
+
+  # ## Combine descriptive statistics for number of assessments
+  # create.asmtstats <- function(med, p25, p75){
+  #   paste0(mdata[med], ' (', mdata[p25], ', ', mdata[p75], ')')
+  # }
+  #
+  # pain.mediqr <- create.asmtstats('asmt.pain.median', 'asmt.pain.25', 'asmt.pain.75')
+  # sed.mediqr <- create.asmtstats('asmt.sed.median', 'asmt.sed.25', 'asmt.sed.75')
+  # del.mediqr <- create.asmtstats('asmt.del.median', 'asmt.del.25', 'asmt.del.75')
+
+  ## Combine percentages and counts for % compliance
+  create.npct <- function(nvar, pctvar){
+    paste0(rndformat(as.numeric(mdata[pctvar])*100, 0), '\\% (', mdata[nvar], ')')
+  }
+  # npct.a <- create.npct('days.comp.a', 'pct.comp.a')
+  npct.b.sat <- create.npct('days.comp.b.sat.trans', 'pct.comp.b.sat')
+  npct.perf.b.sat <- create.npct('days.perf.b.sat.trans', 'pct.perf.b.sat.trans')
+  npct.b.sbt <- create.npct('days.comp.b.sbt.trans', 'pct.comp.b.sbt.trans')
+  npct.perf.b.sbt <- create.npct('days.perf.b.sbt.trans', 'pct.perf.b.sbt.trans')
+  npct.b.satsbt <- create.npct('days.comp.b.satsbt.trans', 'pct.comp.b.satsbt.trans')
+  # npct.c <- create.npct('days.comp.c', 'pct.comp.c')
+  # npct.d <- create.npct('days.comp.d', 'pct.comp.d')
+  # npct.e <- create.npct('days.comp.e', 'pct.comp.e')
+  # npct.perf.e <- create.npct('days.perf.e', 'pct.perf.e')
+  npct.f <- create.npct('days.comp.f.trans', 'pct.comp.f.trans')
+
+  c(mdata['days.tracked.trans'],
+    # npct.a, pain.mediqr,
+    mdata['days.sedatives.trans'], npct.b.sat, npct.perf.b.sat,
+    mdata['days.mv.trans'], npct.b.sbt, npct.perf.b.sbt,
+    mdata['days.satsbt.trans'], npct.b.satsbt,
+    # npct.c, sed.mediqr,
+    # npct.d, del.mediqr,
+    # npct.e, npct.perf.e,
+    mdata['days.family.present.trans'], npct.f)
+
+}
+
+compliance.table.trans <- do.call(cbind, lapply(levels(demog$data.month.short),
+                                                FUN = results.month.trans))
+rownames(compliance.table.trans) <- c('Days compliance tracked, inc. last',
+                                      # 'Pain assessment compliance',
+                                      # 'Pain asmts/day (median/IQR)',
+                                      'Days on sedatives',
+                                      'SAT protocol compliance',
+                                      'SAT performance',
+                                      'Days on mechanical ventilation',
+                                      'SBT protocol compliance',
+                                      'SBT performance',
+                                      'Days with SAT + SBT',
+                                      'Days SAT prior to SBT',
+                                      # 'Sedation assessment compliance',
+                                      # 'Sedation asmts/day (med./IQR)',
+                                      # 'Delirium assessment compliance',
+                                      # 'Delirium asmts/day (med./IQR)',
+                                      # 'Early mobility compliance',
+                                      # 'Early mobility performance',
+                                      'Days family present',
+                                      'Family engagement* comp.')
+colnames(compliance.table.trans) <- levels(demog$data.month)
 
 ## -- Function to plot compliance percentage over time --------------------------------------------
 ## Shade for reference lines
@@ -1046,6 +1235,7 @@ box.asmts.region.d <- plot.assessments.region(asmtvar = 'delirium.assess.icu') +
 
 @
 
+\subsection{Compliance on Days Patient in ICU All 24 Hours}
 <<printcompliancetable, results = 'asis'>>=
 latex(compliance.table, file = '',
       # landscape = TRUE,
@@ -1067,6 +1257,7 @@ latex(compliance.table, file = '',
       insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is "Assess, prevent, and manage pain."\\\\ ***Full term is "Delirium - assess, prevent, and manage pain."\\\\ ****Full term is "Family engagement and empowerment."}')
 
 @
+
 %' \end{landscape}
 %'
 %' <<printcompliancefigs, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time', fig.width = 7, fig.height = 10.5, fig.pos = '!h', fig.align = 'center'>>=
@@ -1091,6 +1282,36 @@ specific to each region (WC = West Coast; MW = Midwest; EC = East Coast). Refere
 to indicate ``compliance" for each panel: For overall compliance/performance, the bar is set at
 90\%; for sedation and pain assessments, at 6 assessments per day; and for delirium assessments, at
 2 assessments per day.
+
+\clearpage
+\subsection{Compliance on Days Patient in ICU All 24 Hours + Last ICU Day}
+Elements A, C, D and E rely on a full 24 hours of information; therefore, days of ICU transfer, when
+the patient is in the ICU <24 hours, cannot be included in describing compliance for those elements.
+For elements B and F, we present compliance and performance information on all days the patient was
+either in the ICU the entire 24 hours, or was transferred or died.
+
+<<printcompliancetabletrans, results = 'asis'>>=
+latex(compliance.table.trans, file = '',
+      # landscape = TRUE,
+      where = '!h',
+      title = '',
+      caption = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
+      caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
+      label = 'table:compliancetrans',
+      size = 'scriptsize',
+      rgroup = c('',
+                 # 'A: Assess... pain*',
+                 'B: Both SAT \\& SBT',
+                 # 'C: Choice analgesia/sedation',
+                 # 'D: Delirium - assess...**',
+                 # 'E: Early mobility \\& exercise',
+                 'F: Family engagement*'),
+      # n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
+      n.rgroup = c(1, 8, 2),
+      col.just = rep('r', ncol(compliance.table.trans)),
+      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is "Family engagement and empowerment."}')
+
+@
 
 <<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.a, box.asmts.a,
