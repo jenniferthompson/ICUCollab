@@ -1188,6 +1188,95 @@ latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance, comp.tr
 @
 
 \clearpage
+\section{Secondary Outcomes}
+\subsection{Hours on Mechanical Ventilation}
+Figure \ref{fig:printhoursmv} presents the median (point) and interquartile range (errorbar; bottom = 25th percentile, top = 75th percentile) by month for hours on mechanical ventilation during each hospitalization. Patients who never received MV are assigned 0 hours.
+
+<<calchoursmv>>=
+hrs.mv.data.all <- demog %>%
+  ## Here in case they want to include non-MV patients
+  # mutate(hrs.invas.vent.all = ifelse(is.na(hrs.invas.vent) &
+  #                                      !is.na(ever.invas.vent) &
+  #                                      ever.invas.vent == 'No', 0,
+  #                                    hrs.invas.vent)) %>%
+  mutate(hrs.invas.vent.all = hrs.invas.vent) %>%
+  group_by(data.month) %>%
+  summarise(med.hrs.mv = median(hrs.invas.vent.all, na.rm = TRUE),
+            q25.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.25, na.rm = TRUE),
+            q75.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'All sites')
+
+hrs.mv.data.type <- demog %>%
+  ## Here in case they want to include non-MV patients
+  # mutate(hrs.invas.vent.all = ifelse(is.na(hrs.invas.vent) &
+  #                                      !is.na(ever.invas.vent) &
+  #                                      ever.invas.vent == 'No', 0,
+  #                                    hrs.invas.vent)) %>%
+  mutate(hrs.invas.vent.all = hrs.invas.vent) %>%
+  group_by(data.month, hosp.type) %>%
+  summarise(med.hrs.mv = median(hrs.invas.vent.all, na.rm = TRUE),
+            q25.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.25, na.rm = TRUE),
+            q75.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.75, na.rm = TRUE))
+
+hrs.mv.plot.data <- bind_rows(hrs.mv.data.all, hrs.mv.data.type)
+
+hrs.mv.plot.all <- ggplot(data = hrs.mv.plot.data, aes(x = data.month)) +
+  facet_wrap(~ hosp.type) +
+  geom_line(aes(group = hosp.type, y = med.hrs.mv, colour = hosp.type), alpha = 0.5) +
+  geom_pointrange(aes(y = med.hrs.mv, ymin = q25.hrs.mv, ymax = q75.hrs.mv, colour = hosp.type),
+                  alpha = 0.4) +
+  geom_point(aes(y = med.hrs.mv, colour = hosp.type)) +
+  scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '', guide = FALSE) +
+  scale_x_discrete(name = '', labels = levels(demog$data.month.short)) +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) Hours on Mechanical Ventilation\nAmong Patients who Received MV') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        panel.grid.major.x = element_blank())
+
+@
+
+<<printhoursmv, results = 'asis', fig.cap = 'Hours on Mechanical Ventilation by Month', fig.height = 4.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+hrs.mv.plot.all
+@
+
+\clearpage
+\subsection{ICU Length of Stay}
+Figure \ref{fig:printiculos} presents the median (point) and interquartile range (errorbar; bottom = 25th percentile, top = 75th percentile) by month for ICU length of stay.
+
+<<calciculos>>=
+icu.los.data.all <- demog %>%
+  group_by(data.month) %>%
+  summarise(med.icu.los = median(icu.los, na.rm = TRUE),
+            q25.icu.los = quantile(icu.los, probs = 0.25, na.rm = TRUE),
+            q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'All sites')
+
+icu.los.data.type <- demog %>%
+  group_by(data.month, hosp.type) %>%
+  summarise(med.icu.los = median(icu.los, na.rm = TRUE),
+            q25.icu.los = quantile(icu.los, probs = 0.25, na.rm = TRUE),
+            q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE))
+
+icu.los.plot.data <- bind_rows(icu.los.data.all, icu.los.data.type)
+
+icu.los.plot.all <- ggplot(data = icu.los.plot.data, aes(x = data.month)) +
+  facet_wrap(~ hosp.type) +
+  geom_line(aes(group = hosp.type, y = med.icu.los, colour = hosp.type), alpha = 0.5) +
+  geom_pointrange(aes(y = med.icu.los, ymin = q25.icu.los, ymax = q75.icu.los, colour = hosp.type),
+                  alpha = 0.4) +
+  geom_point(aes(y = med.icu.los, colour = hosp.type)) +
+  scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '', guide = FALSE) +
+  scale_x_discrete(name = '', labels = levels(demog$data.month.short)) +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) ICU Length of Stay') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        panel.grid.major.x = element_blank())
+
+@
+
+<<printiculos, results = 'asis', fig.cap = 'ICU Length of Stay by Month', fig.height = 4.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+icu.los.plot.all
+@
+
+\clearpage
 \section{Data Definitions}
 \begin{table}[!h]
 \caption[Data Definitions]{Data Definitions\label{}}
