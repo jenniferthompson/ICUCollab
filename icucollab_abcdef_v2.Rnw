@@ -25,7 +25,7 @@ Collaborative sites before and after implementation. Code for all data managemen
 be found
 \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_v2.Rnw}{here}.
 
-<<setup, message=FALSE, echo=FALSE>>=
+<<setup, message=FALSE, echo=FALSE, warning=FALSE>>=
 opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
 options(replace.assign = TRUE, width = 90)
 
@@ -37,7 +37,7 @@ library(devtools)
 library(wesanderson)
 
 ## What's the last month that should be included in the report?
-last.month <- 14
+last.month <- 17
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
@@ -780,7 +780,7 @@ results.month <- function(m){
 compliance.table <- do.call(cbind, lapply(levels(demog$data.month.short), FUN = results.month))
 rownames(compliance.table) <- c('Days compliance was tracked',
                                 'Pain assessment compliance',
-                                'Pain assessments/day (median/IQR)',
+                                'Pain asmts/day (median/IQR)',
                                 'Days on sedatives',
                                 'SAT protocol compliance',
                                 'SAT performance',
@@ -790,13 +790,13 @@ rownames(compliance.table) <- c('Days compliance was tracked',
                                 'Days with SAT + SBT',
                                 'Days SAT prior to SBT',
                                 'Sedation assessment compliance',
-                                'Sedation assessments/day (median/IQR)',
+                                'Sedation asmts/day (med./IQR)',
                                 'Delirium assessment compliance',
-                                'Delirium assessments/day (median/IQR)',
-                                'Early mobility protocol compliance',
+                                'Delirium asmts/day (med./IQR)',
+                                'Early mobility compliance',
                                 'Early mobility performance',
                                 'Days family present',
-                                'Family engagement/empowerment compliance')
+                                'Family engagement*** comp.')
 colnames(compliance.table) <- levels(demog$data.month)
 
 ## -- Function to plot compliance percentage over time --------------------------------------------
@@ -807,9 +807,9 @@ plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), re
 
   put.legend <- match.arg(put.legend)
   if(put.legend == 'top'){
-    legend.y <- 0.6
+    legend.y <- 0.8
   } else{
-    legend.y <- 0
+    legend.y <- 0.05
   }
 
   ggplot(data = comp.summary,
@@ -826,59 +826,60 @@ plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), re
                        labels = paste0(seq(0, 1, 0.2)*100, '%')) +
     scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '') +
     scale_alpha_manual(values = c(1, 0.5, 0.5), guide = 'none') +
-    theme(legend.position = c(0, legend.y),
+    theme(legend.position = c(0.01, legend.y),
           legend.justification = c(0, 0),
           legend.direction = 'vertical',
           legend.title = element_blank(),
-          legend.text = element_text(size = 6),
+          legend.text = element_text(size = 7),
           legend.background = element_blank(),
           legend.key = element_blank(),
           legend.key.size = unit(0.5, 'lines'),
           legend.margin = unit(0.01, 'cm'),
           axis.ticks = element_blank(),
           axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
-          axis.title.y = element_text(size = 7),
+          axis.title.y = element_text(size = 9),
           axis.text.y = element_text(size = 7))
 
 }
 
-plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Asmt Compliance\nOut of All ICU Days') +
+plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Asmt Compliance Out of All ICU Days') +
   labs(title = 'A: Assess, prevent and manage pain') +
-  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+  theme(plot.title = element_text(hjust = 0, face = 'bold'),
+        axis.title.y = element_text(size = 9))
 plot.comp.b.sat <-
-  plot.compliance('pct.comp.b.sat', 'SAT Protocol Compliance\nOut of All ICU Days on Sedation',
-                  put.legend = 'top', refline.size = 1) +
+  plot.compliance('pct.comp.b.sat', 'SAT Protocol Compliance Out of All ICU Days on Sedation',
+                  refline.size = 1) +
     labs(title = 'B: Both SAT + SBT') +
     theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.perf.b.sat <-
-  plot.compliance('pct.perf.b.sat', 'SAT Performance\nOut of All ICU Days on Sedation',
-                  put.legend = 'top', refline.size = 1) +
+  plot.compliance('pct.perf.b.sat', 'SAT Performance Out of All ICU Days on Sedation',
+                  refline.size = 1) +
     labs(title = 'B: Both SAT + SBT') +
     theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.b.sbt <-
-  plot.compliance('pct.comp.b.sbt', 'SBT Protocol Compliance\nOut of All ICU Days on MV',
-                  put.legend = 'top', refline.size = 1) +
+  plot.compliance('pct.comp.b.sbt', 'SBT Protocol Compliance Out of All ICU Days on MV',
+                  refline.size = 1) +
   labs(title = '')
 plot.perf.b.sbt <-
-  plot.compliance('pct.perf.b.sbt', 'SBT Performance\nOut of All ICU Days on MV',
-                  put.legend = 'top', refline.size = 1) +
+  plot.compliance('pct.perf.b.sbt', 'SBT Performance Out of All ICU Days on MV',
+                  refline.size = 1) +
   labs(title = '')
 plot.perf.b.satsbt <- plot.compliance('pct.comp.b.satsbt',
-                                      'SAT Prior to SBT\nOut of All Days with SAT+SBT',
+                                      'SAT Prior to SBT Out of All Days with SAT+SBT',
                                       put.legend = 'bottom', refline.size = 1) +
   labs(title = '')
 plot.comp.c <- plot.compliance('pct.comp.c',
-                               'Sedation Asmt Compliance\nOut of All ICU Days on Sedation') +
+                               'Sedation Asmt Compliance Out of All ICU Days on Sedation') +
   labs(title = 'C: Choice of analgesia and sedation') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Asmt Compliance\nOut of All ICU Days') +
+plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Asmt Compliance Out of All ICU Days') +
   labs(title = 'D: Delirium - assess, prevent and manage') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Compliance\nOut of All ICU Days',
+plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Compliance Out of All ICU Days',
                                put.legend = 'top', refline.size = 1) +
   labs(title = 'E: Early mobility and exercise') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.perf.e <- plot.compliance('pct.perf.e', 'Early Mobility Performance\nOut of All ICU Days',
+plot.perf.e <- plot.compliance('pct.perf.e', 'Early Mobility Performance Out of All ICU Days',
                                put.legend = 'top', refline.size = 1) +
   labs(title = 'E: Early mobility and exercise') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
@@ -902,20 +903,21 @@ plot.assessments <- function(asmtvar){
     scale_x_discrete(name = '') +
     theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1, vjust = 1),
           axis.text.y = element_text(size = 6, hjust = 1),
-          axis.title.y = element_text(size = 7)) +
+          axis.title.y = element_text(size = 9),
+          axis.ticks.x = element_blank()) +
     labs(title = '')
 }
 
 box.asmts.a <- plot.assessments(asmtvar = 'n.painassess.icu') +
-  scale_y_continuous(name = 'Pain Assessments in 24h\nOn All ICU Days',
+  scale_y_continuous(name = 'Pain Assessments in 24hOn All ICU Days',
                      limits = c(0, 35), breaks = seq(0, 35, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.c <- plot.assessments(asmtvar = 'sed.assess.icu') +
-  scale_y_continuous(name = 'Sedation Assessments in 24h\nOn All ICU Days',
+  scale_y_continuous(name = 'Sedation Assessments in 24h On All ICU Days',
                      limits = c(0, 25), breaks = seq(0, 25, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu') +
-  scale_y_continuous(name = 'Delirium Assessments in 24h\nOn All ICU Days',
+  scale_y_continuous(name = 'Delirium Assessments in 24h On All ICU Days',
                      limits = c(0, 10), breaks = seq(0, 10, 2)) +
   geom_hline(yintercept = 2, linetype = 'dotted', colour = ref.line.shade)
 
@@ -957,9 +959,9 @@ plot.compliance.region <- function(compvar,
           legend.margin = unit(0.01, 'cm'),
           strip.text = element_text(size = 7),
           axis.ticks = element_blank(),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 5),
-          axis.title.y = element_text(size = 6),
-          axis.text.y = element_text(size = 5),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+          axis.title.y = element_text(size = 8),
+          axis.text.y = element_text(size = 7),
           panel.grid.major = element_line(size = 0.25),
           panel.grid.minor = element_blank())
 
@@ -970,38 +972,36 @@ plot.comp.region.a <- plot.compliance.region('pct.comp.a',
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.region.b.sat <-
   plot.compliance.region('pct.comp.b.sat',
-                         'SAT Protocol Compliance\nOut of All ICU Days on Sedation',
-                         put.legend = 'top') +
+                         'SAT Protocol Compliance Out of All ICU Days on Sedation') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.perf.region.b.sat <-
   plot.compliance.region('pct.perf.b.sat',
-                         'SAT Performance\nOut of All ICU Days on Sedation',
-                         put.legend = 'top') +
-  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+                         'SAT Performance Out of All ICU Days on Sedation') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'),
+        axis.text.x = element_text(size = 5))
 plot.comp.region.b.sbt <-
   plot.compliance.region('pct.comp.b.sbt',
-                         'SBT Protocol Compliance\nOut of All ICU Days on MV',
-                         put.legend = 'top')
+                         'SBT Protocol Compliance Out of All ICU Days on MV')
 plot.perf.region.b.sbt <-
   plot.compliance.region('pct.perf.b.sbt',
-                         'SBT Performance\nOut of All ICU Days on MV',
-                         put.legend = 'top')
+                         'SBT Performance Out of All ICU Days on MV') +
+  theme(axis.text.x = element_text(size = 5))
 plot.perf.region.b.satsbt <-
   plot.compliance.region('pct.comp.b.satsbt',
-                         'SAT Prior to SBT\nOut of All Days with SAT+SBT',
-                         put.legend = 'top')
+                         'SAT Prior to SBT Out of All Days with SAT+SBT') +
+  theme(axis.text.x = element_text(size = 5))
 plot.comp.region.c <- plot.compliance.region('pct.comp.c',
-                                             'Sedation Asmt Compliance\nOut of All ICU Days') +
+                                             'Sedation Asmt Compliance Out of All ICU Days') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.region.d <- plot.compliance.region('pct.comp.d',
-                                             'Delirium Asmt Compliance\nOut of All ICU Days') +
+                                             'Delirium Asmt Compliance Out of All ICU Days') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.region.e <- plot.compliance.region('pct.comp.e',
-                                             'Early Mobility Compliance\nOut of All ICU Days',
+                                             'Early Mobility Compliance Out of All ICU Days',
                                              put.legend = 'top', refline.size = 1) +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.perf.region.e <- plot.compliance.region('pct.perf.e',
-                                             'Early Mobility Performance\nOut of All ICU Days',
+                                             'Early Mobility Performance Out of All ICU Days',
                                              put.legend = 'top', refline.size = 1) +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.region.f <-
@@ -1024,22 +1024,23 @@ plot.assessments.region <- function(asmtvar){
     scale_x_discrete(name = '') +
     theme(axis.text.x = element_text(size = 5, angle = 45, hjust = 1, vjust = 1),
           axis.text.y = element_text(size = 5, hjust = 1),
-          axis.title.y = element_text(size = 6),
+          axis.ticks.x = element_blank(),
+          axis.title.y = element_text(size = 8),
           strip.text = element_text(size = 7),
           panel.grid.major = element_line(size = 0.25),
           panel.grid.minor = element_blank())
 }
 
 box.asmts.region.a <- plot.assessments.region(asmtvar = 'n.painassess.icu') +
-  scale_y_continuous(name = 'Pain Assessments in 24h\nOn All ICU Days',
+  scale_y_continuous(name = 'Pain Assessments in 24h On All ICU Days',
                      limits = c(0, 35), breaks = seq(0, 35, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.region.c <- plot.assessments.region(asmtvar = 'sed.assess.icu') +
-  scale_y_continuous(name = 'Sedation Assessments in 24h\nOn All ICU Days',
+  scale_y_continuous(name = 'Sedation Assessments in 24h On All ICU Days',
                      limits = c(0, 25), breaks = seq(0, 25, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.region.d <- plot.assessments.region(asmtvar = 'delirium.assess.icu') +
-  scale_y_continuous(name = 'Delirium Assessments in 24h\nOn All ICU Days',
+  scale_y_continuous(name = 'Delirium Assessments in 24h On All ICU Days',
                      limits = c(0, 10), breaks = seq(0, 10, 2)) +
   geom_hline(yintercept = 2, linetype = 'dotted', colour = ref.line.shade)
 
@@ -1053,17 +1054,17 @@ latex(compliance.table, file = '',
       caption = 'ABCDEF Bundle Protocol Compliance and Performance',
       caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance',
       label = 'table:compliance',
-      size = 'footnotesize',
+      size = 'scriptsize',
       rgroup = c('',
-                 'A: Assess, prevent and manage pain',
-                 'B: Both SAT and SBT',
-                 'C: Choice of analgesia and sedation',
-                 'D: Delirium - assess, prevent and manage',
-                 'E: Early mobility and exercise',
-                 'F: Family engagement and empowerment'),
+                 'A: Assess... pain*',
+                 'B: Both SAT \\& SBT',
+                 'C: Choice analgesia/sedation',
+                 'D: Delirium - assess...**',
+                 'E: Early mobility \\& exercise',
+                 'F: Family engagement***'),
       n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
       col.just = rep('r', ncol(compliance.table)),
-      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}')
+      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is "Assess, prevent, and manage pain."\\\\ ***Full term is "Delirium - assess, prevent, and manage pain."\\\\ ****Full term is "Family engagement and empowerment."}')
 
 @
 %' \end{landscape}
@@ -1083,7 +1084,7 @@ latex(compliance.table, file = '',
 %'
 %' @
 
-In Figures \ref{fig:printcompliancefigs1}-\ref{fig:printcompliancefigs3}, the overall compliance
+In Figures \ref{fig:printcompliancefigs_a}-\ref{fig:printcompliancefigs_f}, the overall compliance
 data shown above is presented visually (darkest line in main panels); in addition, we present data
 specific to community and teaching hospitals nationwide, and add panels with the same information
 specific to each region (WC = West Coast; MW = Midwest; EC = East Coast). Reference lines are added
@@ -1091,48 +1092,63 @@ to indicate ``compliance" for each panel: For overall compliance/performance, th
 90\%; for sedation and pain assessments, at 6 assessments per day; and for delirium assessments, at
 2 assessments per day.
 
-<<printcompliancefigs1, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Elements A \\& B', fig.height = 8, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+<<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.a, box.asmts.a,
           plot.comp.region.a, box.asmts.region.a,
-          plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
-          plot.perf.region.b.sat, plot.perf.region.b.sbt, plot.perf.region.b.satsbt,
           layout = matrix(c(1, 1, 1, 1, 2, 2,
                             1, 1, 1, 1, 2, 2,
                             1, 1, 1, 1, 2, 2,
                             3, 3, 3, 3, 4, 4,
-                            3, 3, 3, 3, 4, 4,
-                            5, 5, 6, 6, 7, 7,
-                            5, 5, 6, 6, 7, 7,
-                            5, 5, 6, 6, 7, 7,
-                            8, 8, 9, 9, 10, 10,
-                            8, 8, 9, 9, 10, 10),
-                          byrow = TRUE, nrow = 10))
+                            3, 3, 3, 3, 4, 4),
+                          byrow = TRUE, nrow = 5))
 
 @
 
-<<printcompliancefigs2, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Elements C \\& D', fig.height = 8, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+<<printcompliancefigs_b, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element B', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
+          plot.perf.region.b.sat, plot.perf.region.b.sbt, plot.perf.region.b.satsbt,
+          layout = matrix(c(1, 1, 2, 2, 3, 3,
+                            1, 1, 2, 2, 3, 3,
+                            1, 1, 2, 2, 3, 3,
+                            4, 4, 5, 5, 6, 6,
+                            4, 4, 5, 5, 6, 6),
+                          byrow = TRUE, nrow = 5))
+
+@
+
+<<printcompliancefigs_c, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element C', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.c, box.asmts.c,
           plot.comp.region.c, box.asmts.region.c,
-          plot.comp.d, box.asmts.d,
+          layout = matrix(c(1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            3, 3, 3, 3, 4, 4,
+                            3, 3, 3, 3, 4, 4),
+                          byrow = TRUE, nrow = 5))
+
+@
+
+<<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.d, box.asmts.d,
           plot.comp.region.d, box.asmts.region.d,
           layout = matrix(c(1, 1, 1, 1, 2, 2,
                             1, 1, 1, 1, 2, 2,
                             1, 1, 1, 1, 2, 2,
                             3, 3, 3, 3, 4, 4,
-                            3, 3, 3, 3, 4, 4,
-                            5, 5, 5, 5, 6, 6,
-                            5, 5, 5, 5, 6, 6,
-                            5, 5, 5, 5, 6, 6,
-                            7, 7, 7, 7, 8, 8,
-                            7, 7, 7, 7, 8, 8),
-                          byrow = TRUE, nrow = 10))
+                            3, 3, 3, 3, 4, 4),
+                          byrow = TRUE, nrow = 5))
 
 @
 
-<<printcompliancefigs3, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Elements E \\& F', fig.height = 4.5, fig.width = 10.5, fig.pos = 't'>>=
-multiplot(plot.perf.e, plot.comp.f,
-          plot.perf.region.e, plot.comp.region.f,
-          layout = matrix(1:4, byrow = TRUE, nrow = 2))
+<<printcompliancefigs_e, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element E', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.perf.e, plot.perf.region.e,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+<<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.comp.f, plot.comp.region.f,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
 
 @
 
@@ -1151,7 +1167,7 @@ latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + ant
       prn = FALSE,
       prN = FALSE,
       long = TRUE,
-      size = 'small',
+      size = 'tiny',
       caption = 'Sedatives and Analgesics in the ICU',
       caption.lot = 'Sedatives and Analgesics in the ICU',
       label = 'table:meds')
@@ -1164,7 +1180,7 @@ latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance, comp.tr
       prn = FALSE,
       prN = FALSE,
       long = TRUE,
-      size = 'small',
+      size = 'tiny',
       caption = 'Early Mobility in the ICU',
       caption.lot = 'Early Mobility in the ICU',
       label = 'table:mobility')
