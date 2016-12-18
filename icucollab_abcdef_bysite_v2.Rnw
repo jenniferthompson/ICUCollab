@@ -86,9 +86,9 @@ comp.summary.site <- compliance.site %>%
   summarise(## Days compliance was tracked
     days.tracked = sum(comp.tracked),
     ## A: Assess, prevent and manage pain
-    asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
-    asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.pain.median = round(median(n.painassess.icu, na.rm = TRUE)),
+    asmt.pain.25 = round(quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.pain.75 = round(quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE)),
     days.comp.a = sum(comp.a, na.rm = TRUE),
     pct.comp.a = mean(comp.a, na.rm = TRUE),
     ## B: Both SAT and SBT
@@ -108,15 +108,15 @@ comp.summary.site <- compliance.site %>%
     ## C: Choice of analgesia and sedation
     days.comp.c = sum(comp.c, na.rm = TRUE),
     pct.comp.c = mean(comp.c, na.rm = TRUE),
-    asmt.sed.median = median(sed.assess.icu, na.rm = TRUE),
-    asmt.sed.25 = quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.sed.75 = quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.sed.median = round(median(sed.assess.icu, na.rm = TRUE)),
+    asmt.sed.25 = round(quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.sed.75 = round(quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE)),
     ## D: Delirium - assess, prevent and manage
     days.comp.d = sum(comp.d, na.rm = TRUE),
     pct.comp.d = mean(comp.d, na.rm = TRUE),
-    asmt.del.median = median(delirium.assess.icu, na.rm = TRUE),
-    asmt.del.25 = quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.del.75 = quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.del.median = round(median(delirium.assess.icu, na.rm = TRUE)),
+    asmt.del.25 = round(quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.del.75 = round(quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE)),
     ## E: Early mobility and exercise
     days.comp.e = sum(comp.e, na.rm = TRUE),
     pct.comp.e = mean(comp.e, na.rm = TRUE),
@@ -134,6 +134,15 @@ comp.summary.site <- compliance.site %>%
 comp.summary.referencedata <-
   bind_rows(comp.summary.overall,
             dplyr::select(ungroup(compliance.regiontype), -hosp.region)) %>%
+  mutate(hosp.type = ifelse(hosp.type == 'All sites', hosp.type, 'Peer region/type'))
+
+## Combine overall, region/type MV, ICU LOS numbers for plotting
+mv.summary.referencedata <-
+  bind_rows(mv.summary.overall, dplyr::select(ungroup(mv.regiontype), -hosp.region)) %>%
+  mutate(hosp.type = ifelse(hosp.type == 'All sites', hosp.type, 'Peer region/type'))
+
+iculos.summary.referencedata <-
+  bind_rows(iculos.summary.overall, dplyr::select(ungroup(iculos.regiontype), -hosp.region)) %>%
   mutate(hosp.type = ifelse(hosp.type == 'All sites', hosp.type, 'Peer region/type'))
 
 ## -- Create results table by month ---------------------------------------------------------------
@@ -473,6 +482,109 @@ latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance.site, co
       caption = 'Early Mobility in the ICU',
       caption.lot = 'Early Mobility in the ICU',
       label = 'table:mobility')
+
+@
+
+\clearpage
+\section{Secondary Outcomes}
+\subsection{Hours on Mechanical Ventilation}
+Figure \ref{fig:printhoursmv} presents the median (point) and interquartile range (errorbar; bottom = 25th percentile, top = 75th percentile) by month for hours on mechanical ventilation during each hospitalization. Patients who never received MV are assigned 0 hours.
+
+<<plothoursmv>>=
+mv.summary.site <- demog.site %>%
+  ## Here in case they want to include non-MV patients
+  # mutate(hrs.invas.vent.all = ifelse(is.na(hrs.invas.vent) &
+  #                                      !is.na(ever.invas.vent) &
+  #                                      ever.invas.vent == 'No', 0,
+  #                                    hrs.invas.vent)) %>%
+  mutate(hrs.invas.vent.all = hrs.invas.vent) %>%
+  group_by(data.month.short) %>%
+  summarise(med.hrs.mv = median(hrs.invas.vent.all, na.rm = TRUE),
+            q25.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.25, na.rm = TRUE),
+            q75.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'This Site')
+
+## Plot for reference, faceted by hosp.type: hrs.mv.plot.ref
+hrs.mv.plot.site <- ggplot(data = mv.summary.site, aes(x = data.month.short, y = med.hrs.mv)) +
+  facet_wrap(~ hosp.type) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.hrs.mv, ymax = q75.hrs.mv), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) Hours on MV\nAmong Patients who Received MV') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+hrs.mv.plot.ref <- ggplot(data = mv.summary.referencedata,
+                          aes(x = data.month.short, y = med.hrs.mv)) +
+  facet_wrap(~ hosp.type, ncol = 2) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.hrs.mv, ymax = q75.hrs.mv), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) Hours on MV\nAmong Patients who Received MV') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+@
+
+<<printhoursmv, results = 'asis', fig.cap = 'Hours on Mechanical Ventilation by Month', fig.height = 6, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(hrs.mv.plot.site, hrs.mv.plot.ref,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+\clearpage
+\subsection{ICU Length of Stay}
+Figure \ref{fig:printiculos} presents the median (point) and interquartile range (errorbar; bottom = 25th percentile, top = 75th percentile) by month for ICU length of stay.
+
+<<ploticulos>>=
+iculos.summary.site <- demog.site %>%
+  group_by(data.month.short) %>%
+  summarise(med.icu.los = median(icu.los, na.rm = TRUE),
+            q25.icu.los = quantile(icu.los, probs = 0.25, na.rm = TRUE),
+            q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'This Site')
+
+## Plot for reference, faceted by hosp.type: hrs.mv.plot.ref
+icu.los.plot.site <- ggplot(data = iculos.summary.site, aes(x = data.month.short, y = med.icu.los)) +
+  facet_wrap(~ hosp.type) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.icu.los, ymax = q75.icu.los), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) ICU Length of Stay') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+icu.los.plot.ref <- ggplot(data = iculos.summary.referencedata,
+                           aes(x = data.month.short, y = med.icu.los)) +
+  facet_wrap(~ hosp.type, ncol = 2) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.icu.los, ymax = q75.icu.los), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) ICU Length of Stay') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+@
+
+<<printiculos, results = 'asis', fig.cap = 'ICU Length of Stay by Month', fig.height = 6, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(icu.los.plot.site, icu.los.plot.ref,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
 
 @
 
