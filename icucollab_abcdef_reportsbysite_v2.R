@@ -465,15 +465,15 @@ compliance <- left_join(compliance,
                                  'hosp.region')],
                         by = 'id')
 
-## All sites
+## All sites - round quantiles so table will be narrower
 comp.summary.overall <- compliance %>%
   group_by(data.month.short) %>%
   summarise(## Days compliance was tracked
     days.tracked = sum(comp.tracked),
     ## A: Assess, prevent and manage pain
-    asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
-    asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.pain.median = round(median(n.painassess.icu, na.rm = TRUE)),
+    asmt.pain.25 = round(quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.pain.75 = round(quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE)),
     days.comp.a = sum(comp.a, na.rm = TRUE),
     pct.comp.a = mean(comp.a, na.rm = TRUE),
     ## B: Both SAT and SBT
@@ -493,15 +493,15 @@ comp.summary.overall <- compliance %>%
     ## C: Choice of analgesia and sedation
     days.comp.c = sum(comp.c, na.rm = TRUE),
     pct.comp.c = mean(comp.c, na.rm = TRUE),
-    asmt.sed.median = median(sed.assess.icu, na.rm = TRUE),
-    asmt.sed.25 = quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.sed.75 = quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.sed.median = round(median(sed.assess.icu, na.rm = TRUE)),
+    asmt.sed.25 = round(quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.sed.75 = round(quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE)),
     ## D: Delirium - assess, prevent and manage
     days.comp.d = sum(comp.d, na.rm = TRUE),
     pct.comp.d = mean(comp.d, na.rm = TRUE),
-    asmt.del.median = median(delirium.assess.icu, na.rm = TRUE),
-    asmt.del.25 = quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.del.75 = quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.del.median = round(median(delirium.assess.icu, na.rm = TRUE)),
+    asmt.del.25 = round(quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.del.75 = round(quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE)),
     ## E: Early mobility and exercise
     days.comp.e = sum(comp.e, na.rm = TRUE),
     pct.comp.e = mean(comp.e, na.rm = TRUE),
@@ -521,9 +521,9 @@ comp.summary.regiontype <- compliance %>%
   summarise(## Days compliance was tracked
     days.tracked = sum(comp.tracked),
     ## A: Assess, prevent and manage pain
-    asmt.pain.median = median(n.painassess.icu, na.rm = TRUE),
-    asmt.pain.25 = quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.pain.75 = quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.pain.median = round(median(n.painassess.icu, na.rm = TRUE)),
+    asmt.pain.25 = round(quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.pain.75 = round(quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE)),
     days.comp.a = sum(comp.a, na.rm = TRUE),
     pct.comp.a = mean(comp.a, na.rm = TRUE),
     ## B: Both SAT and SBT
@@ -543,15 +543,15 @@ comp.summary.regiontype <- compliance %>%
     ## C: Choice of analgesia and sedation
     days.comp.c = sum(comp.c, na.rm = TRUE),
     pct.comp.c = mean(comp.c, na.rm = TRUE),
-    asmt.sed.median = median(sed.assess.icu, na.rm = TRUE),
-    asmt.sed.25 = quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.sed.75 = quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.sed.median = round(median(sed.assess.icu, na.rm = TRUE)),
+    asmt.sed.25 = round(quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.sed.75 = round(quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE)),
     ## D: Delirium - assess, prevent and manage
     days.comp.d = sum(comp.d, na.rm = TRUE),
     pct.comp.d = mean(comp.d, na.rm = TRUE),
-    asmt.del.median = median(delirium.assess.icu, na.rm = TRUE),
-    asmt.del.25 = quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE),
-    asmt.del.75 = quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE),
+    asmt.del.median = round(median(delirium.assess.icu, na.rm = TRUE)),
+    asmt.del.25 = round(quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.del.75 = round(quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE)),
     ## E: Early mobility and exercise
     days.comp.e = sum(comp.e, na.rm = TRUE),
     pct.comp.e = mean(comp.e, na.rm = TRUE),
@@ -563,6 +563,45 @@ comp.summary.regiontype <- compliance %>%
     pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region) & !is.na(hosp.type)) %>%
   mutate(line.alpha = 2)
+
+## -- Create data sets for overall and by region/type hours of MV, ICU LOS -------------------------
+mv.summary.overall <- demog %>%
+  ## Here in case they want to include non-MV patients
+  # mutate(hrs.invas.vent.all = ifelse(is.na(hrs.invas.vent) &
+  #                                      !is.na(ever.invas.vent) &
+  #                                      ever.invas.vent == 'No', 0,
+  #                                    hrs.invas.vent)) %>%
+  mutate(hrs.invas.vent.all = hrs.invas.vent) %>%
+  group_by(data.month.short) %>%
+  summarise(med.hrs.mv = median(hrs.invas.vent.all, na.rm = TRUE),
+            q25.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.25, na.rm = TRUE),
+            q75.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'All sites')
+
+mv.summary.regiontype <- demog %>%
+  ## Here in case they want to include non-MV patients
+  # mutate(hrs.invas.vent.all = ifelse(is.na(hrs.invas.vent) &
+  #                                      !is.na(ever.invas.vent) &
+  #                                      ever.invas.vent == 'No', 0,
+  #                                    hrs.invas.vent)) %>%
+  mutate(hrs.invas.vent.all = hrs.invas.vent) %>%
+  group_by(data.month.short, hosp.type, hosp.region) %>%
+  summarise(med.hrs.mv = median(hrs.invas.vent.all, na.rm = TRUE),
+            q25.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.25, na.rm = TRUE),
+            q75.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.75, na.rm = TRUE))
+
+iculos.summary.overall <- demog %>%
+  group_by(data.month.short) %>%
+  summarise(med.icu.los = median(icu.los, na.rm = TRUE),
+            q25.icu.los = quantile(icu.los, probs = 0.25, na.rm = TRUE),
+            q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'All sites')
+
+iculos.summary.regiontype <- demog %>%
+  group_by(data.month.short, hosp.type, hosp.region) %>%
+  summarise(med.icu.los = median(icu.los, na.rm = TRUE),
+            q25.icu.los = quantile(icu.los, probs = 0.25, na.rm = TRUE),
+            q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE))
 
 ## -- Create a report for each site ----------------------------------------------------------------
 for(site in sort(unique(demog$hosp.f))){
@@ -582,6 +621,12 @@ for(site in sort(unique(demog$hosp.f))){
 
     compliance.regiontype <- subset(comp.summary.regiontype,
                                     hosp.region == this.region & hosp.type == this.type)
+
+    mv.regiontype <- subset(mv.summary.regiontype,
+                            hosp.region == this.region & hosp.type == this.type)
+
+    iculos.regiontype <- subset(iculos.summary.regiontype,
+                                hosp.region == this.region & hosp.type == this.type)
 
     knit2pdf('icucollab_abcdef_bysite_v2.Rnw',
              output = paste0('icucollab_abcdef_v2_', gsub('[ -]+', '_', site), '.tex'))
