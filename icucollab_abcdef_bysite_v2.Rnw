@@ -393,7 +393,7 @@ latex(compliance.table, file = '',
                  'F: Family engagement***'),
       n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
       col.just = rep('r', ncol(compliance.table)),
-      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is "Assess, prevent, and manage pain."\\\\ ***Full term is "Delirium - assess, prevent, and manage pain."\\\\ ****Full term is "Family engagement and empowerment."}')
+      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is ``Assess, prevent, and manage pain."\\\\ ***Full term is ``Delirium - assess, prevent, and manage pain."\\\\ ****Full term is ``Family engagement and empowerment."}')
 
 @
 
