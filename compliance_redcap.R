@@ -1,6 +1,5 @@
 label(compliance$id)="Unique Patient ID: This ID should be your 3 letter site code followed by 4 digits (ex: UNC0001)"
 label(compliance$redcap_event_name)="Event Name"
-label(compliance$redcap_data_access_group)="Data Access Group"
 label(compliance$icu_24)="Was the patient in the collaborative ICU for the full 24 hours for this day?  "
 label(compliance$comfort_care)="During this 24 hour period, did the plan of care for this patient include any of the following: comfort care only, withdrawal of treatment (e.g. discontinuing mechanical ventilation or discontinuation of vasopressors), or no escalation of care."
 label(compliance$pain_verbal)="1. What was the number of documented pain assessments using patients self-report (i.e.,Yes/Noand/or NRS scale)?"
@@ -80,7 +79,6 @@ label(compliance$daily_compliance_form_complete)="Complete?"
 
 #Setting Factors(will create new variable for factors)
 compliance$redcap_event_name.factor = factor(compliance$redcap_event_name,levels=c("icu_day_1_arm_1","icu_day_2_arm_1","icu_day_3_arm_1","icu_day_4_arm_1","icu_day_5_arm_1","icu_day_6_arm_1","icu_day_7_arm_1","icu_day_8_premium_arm_1","icu_day_9_premium_arm_1","icu_day_10_premium_arm_1","icu_day_11_premium_arm_1","icu_day_12_premium_arm_1","icu_day_13_premium_arm_1","icu_day_14_premium_arm_1"))
-compliance$redcap_data_access_group.factor = factor(compliance$redcap_data_access_group,levels=c("acm","agh","alt","amh","avh","bfp","bmc","bmm","but","bwh","cds","cfv","clc","cmc","cor","crm","csm","dhm","euh","ewh","fsf","hmc","hmh","hrh","imh","iua","kec","kmc","lac","lch","lrg","mnh","mph","nhf","nhp","nmh","none","nxc","ohs","orm","osu","oum","pch","pkl","pmm","pph","ppm","psp","rrm","ruh","rum","rym","sch","scv","sgh","slh","smh","smm","spc","stc","tju","tvmtvs","unc","usf","uwh","vap","vmm","wch","whh"))
 compliance$icu_24.factor = factor(compliance$icu_24,levels=c("1","0"))
 compliance$comfort_care.factor = factor(compliance$comfort_care,levels=c("1","0"))
 compliance$sedative___1.factor = factor(compliance$sedative___1,levels=c("0","1"))
@@ -143,7 +141,6 @@ compliance$familyeducate___6.factor = factor(compliance$familyeducate___6,levels
 compliance$daily_compliance_form_complete.factor = factor(compliance$daily_compliance_form_complete,levels=c("0","1","2"))
 
 levels(compliance$redcap_event_name.factor)=c("ICU Day 1","ICU Day 2","ICU Day 3","ICU Day 4","ICU Day 5","ICU Day 6","ICU Day 7","ICU Day 8 (Premium)","ICU Day 9 (Premium)","ICU Day 10 (Premium)","ICU Day 11 (Premium)","ICU Day 12 (Premium)","ICU Day 13 (Premium)","ICU Day 14 (Premium)")
-levels(compliance$redcap_data_access_group.factor)=c("ACM","AGH","ALT","AMH","AVH","BFP","BMC","BMM","BUT","BWH","CDS","CFV","CLC","CMC","COR","CRM","CSM","DHM","EUH","EWH","FSF","HMC","HMH","HRH","IMH","IUA","KEC","KMC","LAC","LCH","LRG","MNH","MPH","NHF","NHP","NMH","none","NXC","OHS","ORM","OSU","OUM","PCH","PKL","PMM","PPH","PPM","PSP","RRM","RUH","RUM","RYM","SCH","SCV","SGH","SLH","SMH","SMM","SPC","STC","TJU","TVM-TVS","UNC","USF","UWH","VAP","VMM","WCH","WHH")
 levels(compliance$icu_24.factor)=c("Yes","No")
 levels(compliance$comfort_care.factor)=c("Yes","No")
 levels(compliance$sedative___1.factor)=c("Unchecked","Checked")
