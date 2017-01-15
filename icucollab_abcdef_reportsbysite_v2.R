@@ -5,7 +5,7 @@ library(tidyr)
 library(devtools)
 
 ## What's the last month that should be included in the report?
-last.month <- 17
+last.month <- 18
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
@@ -404,6 +404,12 @@ compliance <- compliance %>%
                          familyeducate.4 == 1 | familyeducate.5 == 1)) %>%
   left_join(dplyr::select(demog, id, hosp.f))
 
+## Relevel mobility variable for table (with all 18 months, runs off the page)
+compliance$mobility.high.shortlabs <- compliance$mobility.high.icu
+levels(compliance$mobility.high.shortlabs) <- c('Active ROM', 'Dangle', 'Stand', 'Active transfer',
+                                                'March in place', 'Walk in room', 'Walk in hall',
+                                                'Not documented')
+
 label(compliance$comp.tracked) <- 'ABCDEF compliance tracked'
 label(compliance$n.painassess.icu) <- 'Pain assessments/day in ICU'
 label(compliance$comp.a) <- 'Pain assessment compliance'
@@ -417,17 +423,18 @@ label(compliance$had.satsbt.icu) <- 'Eligible for SAT and SBT'
 label(compliance$comp.b.satsbt) <- 'SAT prior to SBT'
 label(compliance$sed.assess.icu) <- 'Sedation assessments/day in ICU'
 label(compliance$comp.c) <- 'Sedation assessment compliance'
-label(compliance$opioid.icu) <- 'Received opioids'
-label(compliance$benzo.icu) <- 'Received benzodiazepines'
-label(compliance$propofol.icu) <- 'Received propofol'
-label(compliance$dex.icu) <- 'Received dexmedetomidine'
-label(compliance$ketam.icu) <- 'Received ketamine'
-label(compliance$antipsyc.typ.icu) <- 'Received typical antipsychotics'
-label(compliance$antipsyc.atyp.icu) <- 'Received atypical antipsychotics'
-label(compliance$no.sedanal.icu) <- 'Received no sedatives/analgesics'
+label(compliance$opioid.icu) <- 'Opioids'
+label(compliance$benzo.icu) <- 'Benzodiazepines'
+label(compliance$propofol.icu) <- 'Propofol'
+label(compliance$dex.icu) <- 'Dexmedetomidine'
+label(compliance$ketam.icu) <- 'Ketamine'
+label(compliance$antipsyc.typ.icu) <- 'Typical antipsy.'
+label(compliance$antipsyc.atyp.icu) <- 'Atypicals'
+label(compliance$no.sedanal.icu) <- 'No sed./analgesics'
 label(compliance$delirium.assess.icu) <- 'Delirium assessments/day in ICU'
 label(compliance$comp.d) <- 'Delirium assessment compliance'
 label(compliance$mobility.high.icu) <- 'Highest level of exercise/mobilization'
+label(compliance$mobility.high.shortlabs) <- 'Highest exercise/mob.'
 label(compliance$comp.e) <- 'Early mobility protocol compliance'
 label(compliance$perf.e) <- 'Early mobility performed'
 label(compliance$family.present.icu) <- 'Days family present in ICU'

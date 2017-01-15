@@ -188,25 +188,25 @@ results.month <- function(m){
 }
 
 compliance.table <- do.call(cbind, lapply(levels(demog.site$data.month.short), FUN = results.month))
-rownames(compliance.table) <- c('Days compliance was tracked',
-                                'Pain assessment compliance',
-                                'Pain asmts/day (median/IQR)',
+rownames(compliance.table) <- c('Days comp. tracked',
+                                'Pain asmt comp.',
+                                'Pain asmts/day',
                                 'Days on sedatives',
-                                'SAT protocol compliance',
+                                'SAT protocol comp.',
                                 'SAT performance',
-                                'Days on mechanical ventilation',
-                                'SBT protocol compliance',
+                                'Days on MV',
+                                'SBT protocol comp.',
                                 'SBT performance',
-                                'Days with SAT + SBT',
-                                'Days SAT prior to SBT',
-                                'Sedation assessment compliance',
-                                'Sedation asmts/day (med./IQR)',
-                                'Delirium assessment compliance',
-                                'Delirium asmts/day (med./IQR)',
-                                'Early mobility compliance',
-                                'Early mobility performance',
+                                'Days with SAT+SBT',
+                                'Days SAT before SBT',
+                                'Sedation asmt comp.',
+                                'Sedation asmts/day',
+                                'Delirium asmt comp.',
+                                'Delirium asmts/day',
+                                'Early mobility comp.',
+                                'Early mobility perf.',
                                 'Days family present',
-                                'Family engagement*** comp.')
+                                'Family****** comp.')
 colnames(compliance.table) <- levels(demog.site$data.month)
 
 
@@ -385,15 +385,17 @@ latex(compliance.table, file = '',
       label = 'table:compliance',
       size = 'scriptsize',
       rgroup = c('',
-                 'A: Assess... pain*',
-                 'B: Both SAT \\& SBT',
-                 'C: Choice analgesia/sedation',
-                 'D: Delirium - assess...**',
-                 'E: Early mobility \\& exercise',
-                 'F: Family engagement***'),
+                 'A: Assess...*',
+                 'B: Both...**',
+                 'C: Choice...***',
+                 'D: Delirium...****',
+                 'E: Early...*****',
+                 'F: Family...******'),
       n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
+      colheads = c('Retro.', paste0('M', 7:last.month)),
       col.just = rep('r', ncol(compliance.table)),
-      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is ``Assess, prevent, and manage pain."\\\\ ***Full term is ``Delirium - assess, prevent, and manage pain."\\\\ ****Full term is ``Family engagement and empowerment."}')
+      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
+      insert.bottom = '\\emph{* ``Assess, prevent, and manage pain"; ** ``Both SAT and SBT"; *** ``Choice of analgesia and sedation"; **** ``Delirium - assess, prevent, and manage pain"; *****``Early mobility and exercise"; ****** ``Family engagement and empowerment"}')
 
 @
 
@@ -469,7 +471,7 @@ latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + ant
       caption.lot = 'Sedatives and Analgesics in the ICU',
       label = 'table:meds')
 
-latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance.site, comp.tracked)),
+latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance.site, comp.tracked)),
       file = '',
       # landscape = TRUE,
       where = '!h',

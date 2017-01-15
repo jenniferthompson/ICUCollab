@@ -37,7 +37,7 @@ library(devtools)
 library(wesanderson)
 
 ## What's the last month that should be included in the report?
-last.month <- 17
+last.month <- 18
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
@@ -454,6 +454,12 @@ compliance <- compliance %>%
                                  familyeducate.3 == 1 | familyeducate.4 == 1 | familyeducate.5 == 1)
   )
 
+## Relevel mobility variable for table (with all 18 months, runs off the page)
+compliance$mobility.high.shortlabs <- compliance$mobility.high.icu
+levels(compliance$mobility.high.shortlabs) <- c('Active ROM', 'Dangle', 'Stand', 'Active transfer',
+                                                'March in place', 'Walk in room', 'Walk in hall',
+                                                'Not documented')
+
 label(compliance$comp.tracked) <- 'ABCDEF compliance tracked'
 label(compliance$comp.tracked.trans) <- 'ABCDEF compliance tracked (inc. day of transfer)'
 label(compliance$n.painassess.icu) <- 'Pain assessments/day in ICU'
@@ -477,17 +483,18 @@ label(compliance$had.satsbt.icu.trans) <- 'Eligible for SAT and SBT (inc. day of
 label(compliance$comp.b.satsbt.trans) <- 'SAT prior to SBT (inc. day of transfer)'
 label(compliance$sed.assess.icu) <- 'Sedation assessments/day in ICU'
 label(compliance$comp.c) <- 'Sedation assessment compliance'
-label(compliance$opioid.icu) <- 'Received opioids'
-label(compliance$benzo.icu) <- 'Received benzodiazepines'
-label(compliance$propofol.icu) <- 'Received propofol'
-label(compliance$dex.icu) <- 'Received dexmedetomidine'
-label(compliance$ketam.icu) <- 'Received ketamine'
-label(compliance$antipsyc.typ.icu) <- 'Received typical antipsychotics'
-label(compliance$antipsyc.atyp.icu) <- 'Received atypical antipsychotics'
-label(compliance$no.sedanal.icu) <- 'Received no sedatives/analgesics'
+label(compliance$opioid.icu) <- 'Opioids'
+label(compliance$benzo.icu) <- 'Benzos'
+label(compliance$propofol.icu) <- 'Propofol'
+label(compliance$dex.icu) <- 'Dex.'
+label(compliance$ketam.icu) <- 'Ketamine'
+label(compliance$antipsyc.typ.icu) <- 'Typical antipsy.'
+label(compliance$antipsyc.atyp.icu) <- 'Atypicals'
+label(compliance$no.sedanal.icu) <- 'No sed./anal.'
 label(compliance$delirium.assess.icu) <- 'Delirium assessments/day in ICU'
 label(compliance$comp.d) <- 'Delirium assessment compliance'
-label(compliance$mobility.high.icu) <- 'Highest level of exercise/mobilization'
+label(compliance$mobility.high.icu) <- 'Highest level exercise/mobility'
+label(compliance$mobility.high.shortlabs) <- 'Highest exercise/mob.'
 label(compliance$comp.e) <- 'Early mobility protocol compliance'
 label(compliance$perf.e) <- 'Early mobility performed'
 label(compliance$family.present.icu) <- 'Days family present in ICU'
@@ -902,25 +909,25 @@ results.month <- function(m){
 }
 
 compliance.table <- do.call(cbind, lapply(levels(demog$data.month.short), FUN = results.month))
-rownames(compliance.table) <- c('Days compliance was tracked',
-                                'Pain assessment compliance',
-                                'Pain asmts/day (median/IQR)',
+rownames(compliance.table) <- c('Days comp. tracked',
+                                'Pain asmt comp.',
+                                'Pain asmts/day',
                                 'Days on sedatives',
-                                'SAT protocol compliance',
+                                'SAT protocol comp.',
                                 'SAT performance',
-                                'Days on mechanical ventilation',
-                                'SBT protocol compliance',
+                                'Days on MV',
+                                'SBT protocol comp.',
                                 'SBT performance',
-                                'Days with SAT + SBT',
-                                'Days SAT prior to SBT',
-                                'Sedation assessment compliance',
-                                'Sedation asmts/day (med./IQR)',
-                                'Delirium assessment compliance',
-                                'Delirium asmts/day (med./IQR)',
-                                'Early mobility compliance',
-                                'Early mobility performance',
+                                'Days with SAT+SBT',
+                                'Days SAT before SBT',
+                                'Sedation asmt comp.',
+                                'Sedation asmts/day',
+                                'Delirium asmt comp.',
+                                'Delirium asmts/day',
+                                'Early mobility comp.',
+                                'Early mobility perf.',
                                 'Days family present',
-                                'Family engagement*** comp.')
+                                'Family****** comp.')
 colnames(compliance.table) <- levels(demog$data.month)
 
 ## Alternate definition of days to track (including days of ICU transfer), elements B and F only
@@ -967,17 +974,17 @@ results.month.trans <- function(m){
 
 compliance.table.trans <- do.call(cbind, lapply(levels(demog$data.month.short),
                                                 FUN = results.month.trans))
-rownames(compliance.table.trans) <- c('Days compliance tracked, inc. last',
+rownames(compliance.table.trans) <- c('Days tracked, inc. last',
                                       # 'Pain assessment compliance',
                                       # 'Pain asmts/day (median/IQR)',
                                       'Days on sedatives',
-                                      'SAT protocol compliance',
-                                      'SAT performance',
-                                      'Days on mechanical ventilation',
-                                      'SBT protocol compliance',
-                                      'SBT performance',
-                                      'Days with SAT + SBT',
-                                      'Days SAT prior to SBT',
+                                      'SAT protocol comp.',
+                                      'SAT perf.',
+                                      'Days on MV',
+                                      'SBT protocol comp.',
+                                      'SBT perf.',
+                                      'Days with SAT+SBT',
+                                      'Days SAT before SBT',
                                       # 'Sedation assessment compliance',
                                       # 'Sedation asmts/day (med./IQR)',
                                       # 'Delirium assessment compliance',
@@ -985,7 +992,7 @@ rownames(compliance.table.trans) <- c('Days compliance tracked, inc. last',
                                       # 'Early mobility compliance',
                                       # 'Early mobility performance',
                                       'Days family present',
-                                      'Family engagement* comp.')
+                                      'Family** comp.')
 colnames(compliance.table.trans) <- levels(demog$data.month)
 
 ## -- Function to plot compliance percentage over time --------------------------------------------
@@ -1098,7 +1105,7 @@ plot.assessments <- function(asmtvar){
 }
 
 box.asmts.a <- plot.assessments(asmtvar = 'n.painassess.icu') +
-  scale_y_continuous(name = 'Pain Assessments in 24hOn All ICU Days',
+  scale_y_continuous(name = 'Pain Assessments in 24h On All ICU Days',
                      limits = c(0, 35), breaks = seq(0, 35, 5)) +
   geom_hline(yintercept = 6, linetype = 'dotted', colour = ref.line.shade)
 box.asmts.c <- plot.assessments(asmtvar = 'sed.assess.icu') +
@@ -1148,7 +1155,7 @@ plot.compliance.region <- function(compvar,
           legend.margin = unit(0.01, 'cm'),
           strip.text = element_text(size = 7),
           axis.ticks = element_blank(),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 6),
           axis.title.y = element_text(size = 8),
           axis.text.y = element_text(size = 7),
           panel.grid.major = element_line(size = 0.25),
@@ -1211,7 +1218,7 @@ plot.assessments.region <- function(asmtvar){
                  alpha = 0.4) +
     scale_colour_manual(values = wes_palette('GrandBudapest')[c(2, 1)], guide = 'none') +
     scale_x_discrete(name = '') +
-    theme(axis.text.x = element_text(size = 5, angle = 45, hjust = 1, vjust = 1),
+    theme(axis.text.x = element_text(size = 4, angle = 45, hjust = 1, vjust = 1),
           axis.text.y = element_text(size = 5, hjust = 1),
           axis.ticks.x = element_blank(),
           axis.title.y = element_text(size = 8),
@@ -1246,15 +1253,17 @@ latex(compliance.table, file = '',
       label = 'table:compliance',
       size = 'scriptsize',
       rgroup = c('',
-                 'A: Assess... pain*',
-                 'B: Both SAT \\& SBT',
-                 'C: Choice analgesia/sedation',
-                 'D: Delirium - assess...**',
-                 'E: Early mobility \\& exercise',
-                 'F: Family engagement***'),
+                 'A: Assess...*',
+                 'B: Both...**',
+                 'C: Choice...***',
+                 'D: Delirium...****',
+                 'E: Early...*****',
+                 'F: Family...******'),
       n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
+      colheads = c('Retro.', paste0('M', 7:last.month)),
       col.just = rep('r', ncol(compliance.table)),
-      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is ``Assess, prevent, and manage pain."\\\\ ***Full term is ``Delirium - assess, prevent, and manage pain."\\\\ ****Full term is ``Family engagement and empowerment."}')
+      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
+      insert.bottom = '\\emph{* ``Assess, prevent, and manage pain"; ** ``Both SAT and SBT"; *** ``Choice of analgesia and sedation"; **** ``Delirium - assess, prevent, and manage pain"; *****``Early mobility and exercise"; ****** ``Family engagement and empowerment"}')
 
 @
 
@@ -1286,7 +1295,7 @@ to indicate ``compliance" for each panel: For overall compliance/performance, th
 \clearpage
 \subsection{Compliance on Days Patient in ICU All 24 Hours + Last ICU Day}
 Elements A, C, D and E rely on a full 24 hours of information; therefore, days of ICU transfer, when
-the patient is in the ICU <24 hours, cannot be included in describing compliance for those elements.
+the patient is in the ICU less than 24 hours, cannot be included in describing compliance for those elements.
 For elements B and F, we present compliance and performance information on all days the patient was
 either in the ICU the entire 24 hours, or was transferred or died.
 
@@ -1300,16 +1309,17 @@ latex(compliance.table.trans, file = '',
       label = 'table:compliancetrans',
       size = 'scriptsize',
       rgroup = c('',
-                 # 'A: Assess... pain*',
-                 'B: Both SAT \\& SBT',
-                 # 'C: Choice analgesia/sedation',
-                 # 'D: Delirium - assess...**',
-                 # 'E: Early mobility \\& exercise',
-                 'F: Family engagement*'),
-      # n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
+                 # 'A: Assess...*',
+                 'B: Both...*',
+                 # 'C: Choice...***',
+                 # 'D: Delirium...****',
+                 # 'E: Early...*****',
+                 'F: Family...**'),
       n.rgroup = c(1, 8, 2),
+      colheads = c('Retro.', paste0('M', 7:last.month)),
       col.just = rep('r', ncol(compliance.table.trans)),
-      insert.bottom = '\\emph{Note: All data are reported as frequences and percentages unless otherwise noted. SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.\\\\ **Full term is ``Family engagement and empowerment."}')
+      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
+      insert.bottom = '\\emph{* ``Both SAT and SBT"; ** ``Family engagement and empowerment"}')
 
 @
 
@@ -1393,7 +1403,8 @@ latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + ant
       caption.lot = 'Sedatives and Analgesics in the ICU',
       label = 'table:meds')
 
-latex(summaryM(mobility.high.icu ~ data.month, data = subset(compliance, comp.tracked)), file = '',
+latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance, comp.tracked)),
+      file = '',
       # landscape = TRUE,
       where = '!h',
       what = '%',
