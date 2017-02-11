@@ -1,6 +1,12 @@
+*.aux
+*.lot
 *.tex
 *.Rdata
 *.log
 *.toc
 *.pdf
+*.docx
+*.lof
+*.out
 
+.Rproj.user
