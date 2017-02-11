@@ -232,6 +232,8 @@ compliance <- compliance %>%
          ## Mobilization info available?
          exer.info = !is.na(mobz.exercise.f),
          had.exer = ifelse(!exer.info, NA, mobz.exercise.f == 'Yes'),
+         ## All info for mobility protocol available?
+         exer.protocol.info = exer.safety.info & exer.info,
          ## Followed mobility protocol (safety screen; if passed, therapy)?
          exer.protocol = exer.safety.info & had.exer.safety & !is.na(mobilization.f) &
                           (mobilization.f == 'Yes: reported unsafe for mobilization' |
