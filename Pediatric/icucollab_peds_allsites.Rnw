@@ -5,7 +5,7 @@
 
 \usepackage{setspace, relsize}
 \usepackage{longtable}
-\usepackage[margin = 0.5in]{geometry}
+\usepackage[margin = 0.4in]{geometry}
 \usepackage{hyperref}
 \usepackage{float}
 \usepackage{pdflscape}
@@ -111,6 +111,10 @@ described separately.)
 Categorical variables (eg, days with pain data available) are described as frequency (percent).
 Continuous variables (eg, number of assessments with pain score $\ge$5) are described by their
 median (25th, 75th percentiles).
+
+\emph{Italicized rows} describe the availability of recorded data on a specific characteristic. For
+example, we can only describe how many days had pain assessed on days which had any pain assessment data recorded, and not all sites collected data on pain. In addition, this will allow us to quickly
+see where data which should be present still needs to be entered.
 
 <<performancetableinfo>>=
 all.months <- levels(demog$month.cat)
@@ -283,19 +287,34 @@ asmts.del <- map_chr(all.months,
 
 ## -- E: Exercise/early mobility -------------------------------------------------------------------
 ## How many days had mobility safety screen?
+days.exersafety.info <- mapSum('exer.safety.info')
+pctdays.exersafety.info <- round((days.exersafety.info / n.days)*100)
+npct.exersafety.info <- npctString(days.exersafety.info, n.days)
+
+## How many days had mobility safety screen?
 days.exersafety <- mapSum('had.exer.safety')
-pctdays.exersafety <- round((days.exersafety / n.days)*100)
-npct.exersafety <- npctString(days.exersafety, n.days)
+pctdays.exersafety <- round((days.exersafety / days.exersafety.info)*100)
+npct.exersafety <- npctString(days.exersafety, days.exersafety.info)
+
+## How many days had mobility therapy data?
+days.exer.info <- mapSum('exer.info')
+pctdays.exer.info <- round((days.exer.info / n.days)*100)
+npct.exer.info <- npctString(days.exer.info, n.days)
 
 ## How many days had mobility therapy?
 days.exer <- mapSum('had.exer')
-pctdays.exer <- round((days.exer / n.days)*100)
-npct.exer <- npctString(days.exer, n.days)
+pctdays.exer <- round((days.exer / days.exer.info)*100)
+npct.exer <- npctString(days.exer, days.exer.info)
+
+## How many days was both safety & mobility data entered?
+days.exer.protocol.info <- mapSum('exer.protocol.info')
+pctdays.exer.protocol.info <- round((days.exer.protocol.info / n.days)*100)
+npct.exer.protocol.info <- npctString(days.exer.protocol.info, n.days)
 
 ## How many days had mobility protocol followed?
 days.exer.protocol <- mapSum('exer.protocol')
-pctdays.exer.protocol <- round((days.exer.protocol / n.days)*100)
-npct.exer.protocol <- npctString(days.exer.protocol, n.days)
+pctdays.exer.protocol <- round((days.exer.protocol / days.exer.protocol.info)*100)
+npct.exer.protocol <- npctString(days.exer.protocol, days.exer.protocol.info)
 
 ## -- F: Family engagement and empowerment ---------------------------------------------------------
 ## Information on family presence available?
@@ -360,8 +379,11 @@ perf.table <- matrix(c(as.character(n.days),
                        asmts.del,
                        npct.del.present,
                        ## E
+                       italicize.this(npct.exersafety.info),
                        npct.exersafety,
+                       italicize.this(npct.exer.info),
                        npct.exer,
+                       italicize.this(npct.exer.protocol.info),
                        npct.exer.protocol,
                        ## F
                        italicize.this(npct.familypres.info),
@@ -371,40 +393,43 @@ perf.table <- matrix(c(as.character(n.days),
                      byrow = TRUE,
                      ncol = length(all.months))
 rownames(perf.table) <- c('Days recorded',
-                          '\\emph{Days with pain data}',
-                          'Days with >=1 asmt with pain >=5',
+                          '\\emph{Pain data available}',
+                          '>=1 assessment with pain >=5',
                           'Assessments with pain >=5',
-                          '\\emph{Days with sedation data}',
-                          'Days on cont./intermittent sedation',
-                          '~~~\\emph{Days with interruption data}',
-                          '~~~Days interrupted (SAT)',
-                          '~~~\\emph{Days with weaning data}',
-                          '~~~Days weaned via protocol',
-                          'Days on any sedation (inc. PRN)',
-                          '~~~\\emph{Days with deep sedation data}',
-                          '~~~Days with deep sedation*',
-                          '\\emph{Days with invasive MV data}',
-                          'Days on invasive MV',
-                          '~~~\\emph{Days with SBT safety data}',
-                          '~~~Days SBT safety screen done',
-                          '~~~\\emph{Days with SBT data}',
-                          '~~~Days SBT done',
-                          '~~~Days SBT protocol followed**',
-                          '\\emph{Days with anxiolysis data}',
-                          'Days received anxiolytics of interest',
-                          '~~~Days received benzodiazepines',
-                          '~~~Days received ketamine',
-                          '~~~Days received diphenhydramine',
-                          'Days delirium assessed',
-                          '~~~Number of assessments per day',
-                          '~~~Days delirium present',
-                          'Days mobility safety screen done',
-                          'Days mobilization performed',
-                          'Days mobility protocol followed**',
+                          '\\emph{Sedation data available}',
+                          'On continuous/intermittent sedation',
+                          '~~~\\emph{Interruption data available}',
+                          '~~~Sedation interrupted (SAT)',
+                          '~~~\\emph{Weaning data available}',
+                          '~~~Weaned via protocol',
+                          'On any sedation (including PRN)',
+                          '~~~\\emph{Deep sedation data available}',
+                          '~~~On deep sedation*',
+                          '\\emph{Invasive MV data available}',
+                          'On invasive MV',
+                          '~~~\\emph{SBT safety data available}',
+                          '~~~SBT safety screen done',
+                          '~~~\\emph{SBT data available}',
+                          '~~~SBT done',
+                          '~~~SBT protocol followed**',
+                          '\\emph{Anxiolysis data available}',
+                          'Received anxiolytics of interest',
+                          '~~~Received benzodiazepines',
+                          '~~~Received ketamine',
+                          '~~~Received diphenhydramine',
+                          'Delirium assessed',
+                          '~~~Assessments per day',
+                          '~~~Delirium present',
+                          '\\emph{Mobility safety screen data available}',
+                          'Mobility safety screen done',
+                          '\\emph{Mobility performance data available}',
+                          'Mobilization performed',
+                          '\\emph{Mobility protocol data available}',
+                          'Mobility protocol followed**',
                           '\\emph{Family presence data available}',
-                          'Days family or caregiver present',
+                          'Family or caregiver present',
                           '\\emph{Family intervention data available}',
-                          'Days family participated in nonpharm inter.')
+                          'Family participated in nonpharm inter.')
 @
 
 <<printperformancetable, results = 'asis'>>=
@@ -415,12 +440,12 @@ latex(perf.table, file = '',
       size = 'footnotesize',
       colheads = all.months,
       col.just = rep('r', ncol(perf.table)),
-      rgroup = c('', 'A: Assess, Prevent, Manage pain', 'B: Both SAT and SBT - Sedation',
-                 'B: Both SAT and SBT - ERT/Breathing', 'C: Choice of Analgesia and Sedation',
-                 'D: Delirium - Assess, Prevent, Manage***', 'E: Exercise/Early Mobility',
-                 'F: Family Engagement/Empowerment'),
-      n.rgroup = c(1, 3, 9, 7, 5, 3, 3, 4),
-      insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU; considered to be assessed if one or more of those assessment tools is available")
+      rgroup = c('', 'A: Assess, Prevent, Manage Pain', 'B: Both SAT/SBT: Sedation',
+                 'B: Both SAT/SBT: ERT/Breathing', 'C: Choice of Analgesia \\& Sedation',
+                 'D: Delirium***', 'E: Exercise/Early Mobility',
+                 'F: Family Engagement'),
+      n.rgroup = c(1, 3, 9, 7, 5, 3, 6, 4),
+      insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium assessed if one or more of those assessment tools is available; delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU")
 
 @
 
