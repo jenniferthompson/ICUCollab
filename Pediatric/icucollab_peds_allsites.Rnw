@@ -20,7 +20,7 @@
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at
 pediatric ICU Collaborative sites during a baseline period (up to 3 months) and an implementation
 period (up to 12 months). Code for all data management and analysis can be found
-\href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_v2.Rnw}{here}.
+\href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_allsites.Rnw}{here}.
 
 <<setup, message=FALSE, echo=FALSE, warning=FALSE>>=
 opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
@@ -49,13 +49,6 @@ compliance <- left_join(compliance, dplyr::select(demog, id, month.cat), by = 'i
 demog$hosp.f.latex <- demog$hosp.f
 levels(demog$hosp.f.latex) <- gsub('&', 'and', levels(demog$hosp.f), fixed = TRUE)
 
-## How many patients had no month entered and can't be considered?
-nomonth.ids <- subset(demog, is.na(month.cat))$id
-
-## Example to describe median/IQR
-quantile.example <- quantile(subset(demog, data.time == 'Baseline')$piculos,
-                             probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
-
 @
 
 \section{Entire Cohort}
@@ -73,7 +66,8 @@ For example, for PICU length of stay in the baseline cohort (see Table \ref{tabl
 \Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
 \Sexpr{quantile.example['75%']} or fewer days in the ICU.
 
-Add description of ever on mv, mv among exposed, mv among all
+Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values);
+and the number of days on MV among the entire cohort (i.e., including zero values).
 
 <<desccohort>>=
 desc.all <- summaryM(hosp.f.latex + age.f + sex.f + race.combined + english.f +
@@ -446,6 +440,60 @@ latex(perf.table, file = '',
                  'F: Family Engagement'),
       n.rgroup = c(1, 3, 9, 7, 5, 3, 6, 4),
       insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium assessed if one or more of those assessment tools is available; delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU")
+
+@
+
+\clearpage
+\section{Medication Use}
+Table \ref{table:meds} summarizes drug doses \textbf{per 24 hours} for benzodiazepines and opioids.
+
+
+Total benzodiazepines are converted to lorazepam equivalents:
+\emph{lorazepam = clonazepam = [diazepam / 0.2] = [midazolam / 0.5]}
+
+
+Total opioids are converted to morphine equivalents:
+\emph{morphine = hydromorphone / 4 = fentanyl / 10}
+
+
+All doses are scaled by weight in kilograms prior to conversion.
+
+If at least one medication in a category (benzodiazepines or opioids) had a dose recorded, all NA
+values in that category were assumed to be zero. Otherwise, doses were considered missing. For
+example, if a patient-day had a dose recorded for fentanyl but nothing recorded for morphine or
+hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 for that day. If, on
+the other hand, none of the three opioids of interest were recorded, no opioid data for that day is
+described - doses are left as missing.
+
+<<createmedstable>>=
+label(compliance$has.benzo) <- 'At least one recorded*'
+label(compliance$has.opioid) <- 'At least one recorded*'
+label(compliance$benzo.total) <- 'Total (lorazepam equiv.)'
+label(compliance$opioid.total) <- 'Total (morphine equiv.)'
+
+meds.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+                         diaz.scaled + has.opioid + opioid.total + morph.scaled +
+                         hydromorph.scaled + fent.scaled ~ month.cat,
+                       data = compliance)
+
+@
+
+<<printmedstable, results = 'asis'>>=
+latex(meds.table, file = '',
+      title = '',
+      caption = 'Daily Medication Use. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+      digits = 2,
+      prmsd = FALSE,
+      prn = FALSE,
+      prN = FALSE,
+      what = '%',
+      long = TRUE,
+      where = '!h',
+      label = 'table:meds',
+      size = 'scriptsize',
+      n.rgroup = c(12, 5),
+      rgroup = c('Benzodiazepines', 'Opioids'),
+      insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
 
 @
 
