@@ -19,8 +19,8 @@
 
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at
 pediatric ICU Collaborative sites during a baseline period (up to 3 months) and an implementation
-period (up to 12 months). Code for all data management and analysis can be found
-\href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_allsites.Rnw}{here}.
+period (up to 12 months). Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/datamgmt.R}{here} and
+\href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_allsites.Rnw}{here}, respectively.
 
 <<setup, message=FALSE, echo=FALSE, warning=FALSE>>=
 opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
@@ -48,6 +48,13 @@ compliance <- left_join(compliance, dplyr::select(demog, id, month.cat), by = 'i
 ## Ampersands make Latex do crazy things
 demog$hosp.f.latex <- demog$hosp.f
 levels(demog$hosp.f.latex) <- gsub('&', 'and', levels(demog$hosp.f), fixed = TRUE)
+
+## How many patients had no month entered and can't be considered?
+nomonth.ids <- subset(demog, is.na(month.cat))$id
+
+## Example to describe median/IQR
+quantile.example <- quantile(subset(demog, data.time == 'Baseline')$piculos,
+                             probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
 
 @
 
@@ -98,9 +105,7 @@ my.print.summaryM(desc.all,
 
 \begin{landscape}
 \section{ABCDEF Bundle Performance}
-Table \ref{table:performance} presents information on each element of the ABCDEF Bundle by month.
-(All three baseline months are described together; all months during the implementation period are
-described separately.)
+The following table presents information on each element of the ABCDEF Bundle by month. (All three baseline months are described together; all months during the implementation period are described separately.)
 
 Categorical variables (eg, days with pain data available) are described as frequency (percent).
 Continuous variables (eg, number of assessments with pain score $\ge$5) are described by their
@@ -431,7 +436,7 @@ latex(perf.table, file = '',
       title = '',
       where = '!h',
       label = 'table:performance',
-      size = 'footnotesize',
+      size = 'scriptsize',
       colheads = all.months,
       col.just = rep('r', ncol(perf.table)),
       rgroup = c('', 'A: Assess, Prevent, Manage Pain', 'B: Both SAT/SBT: Sedation',
