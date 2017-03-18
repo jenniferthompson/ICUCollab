@@ -1,0 +1,528 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.4in]{geometry}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{pdflscape}
+
+\title{ICU Collaborative: Pediatric ABCDEF Bundle Performance, \Sexpr{site}}
+\author{Society of Critical Care Medicine}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+The following tables and figures present descriptions of compliance with the ABCDEF bundle at
+\Sexpr{site} during a baseline period (up to 3 months) and an implementation period (up to 12
+months). Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_v2.Rnw}{here}.
+
+<<setup, message=FALSE, echo=FALSE, warning=FALSE>>=
+opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
+options(replace.assign = TRUE, width = 90)
+
+## How many patients had no month entered and can't be considered?
+nomonth.ids <- subset(demog.site, is.na(month.cat))$id
+
+if(length(nomonth.ids) > 0){
+  nomonth.sentence <- paste('(In addition,', length(nomonth.ids), 'patients had no ``month" entered in the database and therefore cannot be counted when comparing the two cohorts.)')
+} else{
+  nomonth.sentence <- ''
+}
+
+## Example to describe median/IQR
+quantile.example <- quantile(subset(demog.site, data.time == 'Baseline')$piculos,
+                             probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+@
+
+\section{Entire Cohort}
+\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
+Table \ref{table:descstats} describes the patients at \Sexpr{site} whose data was collected during
+the baseline and implementation data collection periods. There are \Sexpr{format(length(unique(demog.site$id)), big.mark = ',')} unique patient IDs currently recorded. \Sexpr{nomonth.sentence}
+
+For continuous variables (like days of invasive ventilation), the 25th, 50th, and 75th percentiles
+are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half
+the patients have a value above it.
+
+For example, for PICU length of stay in the baseline cohort (see Table \ref{table:descstats}),
+25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had
+\Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
+\Sexpr{quantile.example['75%']} or fewer days in the ICU.
+
+Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values);
+and the number of days on MV among the entire cohort (i.e., including zero values).
+
+<<desccohort>>=
+## At least one site doesn't have any POPC data entered; account for this case
+if(sum(!is.na(demog.site$popc.preadm)) == 0){
+  desc.all <- summaryM(age.f + sex.f + race.combined + english.f +
+                         severity.combined + fss.preadm + fss.adm + fss.dc +
+                         ever.vent + ventdays.exp + ventdays + piculos + hosplos +
+                         mortality.f ~ data.time,
+                       data = demog.site, continuous = 5)
+} else{
+  desc.all <- summaryM(age.f + sex.f + race.combined + english.f +
+                         severity.combined + fss.preadm + fss.adm + fss.dc + popc.preadm + popc.adm +
+                         popc.dc + ever.vent + ventdays.exp + ventdays + piculos + hosplos +
+                         mortality.f ~ data.time,
+                       data = demog.site, continuous = 5)
+}
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
+                  exclude1 = FALSE,
+                  size = 'small',
+                  label = 'table:descstats')
+
+@
+
+\begin{landscape}
+\section{ABCDEF Bundle Performance}
+Table \ref{table:performance} presents information on each element of the ABCDEF Bundle by month.
+(All three baseline months are described together; all months during the implementation period are
+described separately.)
+
+Categorical variables (eg, days with pain data available) are described as frequency (percent).
+Continuous variables (eg, number of assessments with pain score $\ge$5) are described by their
+median (25th, 75th percentiles).
+
+\emph{Italicized rows} describe the availability of recorded data on a specific characteristic. For
+example, we can only describe how many days had pain assessed on days which had any pain assessment data recorded, and not all sites collected data on pain. In addition, this will allow us to quickly
+see where data which should be present still needs to be entered.
+
+<<performancetableinfo>>=
+## -- Function to create string of median (IQR) for a continuous variable --------------------------
+get.mediqr <- function(x, rnddigits = 0){
+  quants.x <- quantile(x, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+  if(all(is.na(quants.x))){
+    ''
+  } else{
+    paste0(rndformat(quants.x['50%'], rnddigits), ' (',
+           rndformat(quants.x['25%'], rnddigits), ', ',
+           rndformat(quants.x['75%'], rnddigits), ')')
+  }
+}
+
+## -- Function to create N (%) string, or '' if denominator is NaN ---------------------------------
+npctString <- function(num, denom){
+  tmp <- paste0(num, ' (',
+                round((num / denom)*100), '%)')
+  tmp[denom == 0] <- ''
+  tmp
+}
+
+## -- Function to get sum of a variable for each month ---------------------------------------------
+mapSum <- function(sumvar){
+  map_int(all.months,
+          function(x){ sum(compliance.site[compliance.site$month.cat == x, sumvar], na.rm = TRUE) })
+}
+
+## -- How many days are entered for each month? ----------------------------------------------------
+n.days <- map_int(all.months, function(x){ sum(compliance.site$month.cat == x, na.rm = TRUE) })
+
+## -- A: Pain assessment, prevention and management ------------------------------------------------
+## How many days each month had pain data recorded?
+days.pain.info <- mapSum('pain.info')
+pctdays.pain.info <- round((days.pain.info / n.days)*100)
+npct.pain.info <- npctString(days.pain.info, n.days)
+
+## How many days each month had at least one pain score >= 5?
+days.pain.threshold <- mapSum('pain.threshold')
+pctdays.pain.threshold <- round((days.pain.threshold / n.days)*100)
+npct.pain.threshold <- npctString(days.pain.threshold, days.pain.info)
+
+## How many pain assessments per day had at least one pain score >= 5?
+asmts.pain.threshold <-
+  map_chr(all.months,
+          function(x){
+            get.mediqr(subset(compliance.site, month.cat == x)$pain.morethan5) })
+
+## -- B: Both SAT and SBT --------------------------------------------------------------------------
+## Sedation
+## Days sedation data available
+days.sed.info <- mapSum('sedation.info')
+pctdays.sed.info <- round((days.sed.info / n.days)*100)
+npct.sed.info <- npctString(days.sed.info, n.days)
+
+## Days patient received continuous or intermittent sedation
+days.rcvd.majorsed <- mapSum('on.majorsed')
+pctdays.rcvd.majorsed <- round((days.rcvd.majorsed / days.sed.info)*100)
+npct.rcvd.majorsed <- npctString(days.rcvd.majorsed, days.sed.info)
+
+## Of days on continuous/intermittent sedation, how many had data on sedation interruption?
+days.sat.info <- mapSum('sat.info')
+pctdays.sat.info <- round((days.sat.info / days.rcvd.majorsed)*100)
+npct.sat.info <- npctString(days.sat.info, days.rcvd.majorsed)
+
+## Of days on continuous/intermittent sedation, how many did patient have sedation interrupted?
+days.had.sat <- mapSum('had.sat')
+pctdays.had.sat <- round((days.had.sat / days.sat.info)*100)
+npct.had.sat <- npctString(days.had.sat, days.sat.info)
+
+## Of days on continuous/intermittent sedation, how many had data on sedation weaning?
+days.weaning.info <- mapSum('weaning.info')
+pctdays.weaning.info <- round((days.weaning.info / days.rcvd.majorsed)*100)
+npct.weaning.info <- npctString(days.weaning.info, days.rcvd.majorsed)
+
+## Of days on continuous/intermittent sedation, how many did patient have sedation weaned?
+days.had.weaning <- mapSum('had.weaning')
+pctdays.had.weaning <- round((days.had.weaning / days.weaning.info)*100)
+npct.had.weaning <- npctString(days.had.weaning, days.weaning.info)
+
+## Days patient had any sedation (continuous, intermittent or PRN)
+days.rcvd.anysed <- mapSum('on.anysed')
+pctdays.rcvd.anysed <- round((days.rcvd.anysed / days.sed.info)*100)
+npct.rcvd.anysed <- npctString(days.rcvd.anysed, days.sed.info)
+
+## Of days with any sedation, how many had info on deep sedation
+days.deepsed.info <- mapSum('deepsed.info')
+pctdays.deepsed.info <- round((days.deepsed.info / days.rcvd.anysed)*100)
+npct.deepsed.info <- npctString(days.deepsed.info, days.rcvd.anysed)
+
+## Of days with any sedation with information, how many had deep sedation
+days.deepsed <- mapSum('deeply.sedated')
+pctdays.deepsed <- round((days.deepsed / days.deepsed.info)*100)
+npct.deepsed <- npctString(days.deepsed, days.deepsed.info)
+
+## Breathing
+## How many days was MV data available?
+days.mv.info <- mapSum('mv.info')
+pctdays.mv.info <- round((days.mv.info / n.days)*100)
+npct.mv.info <- npctString(days.mv.info, n.days)
+
+## How many days was patient on MV?
+days.mv <- mapSum('on.mv')
+pctdays.mv <- round((days.mv / days.mv.info)*100)
+npct.mv <- npctString(days.mv, days.mv.info)
+
+## How many days on MV had info on SBT safety screen?
+days.sbtsafety.info <- mapSum('sbt.safety.info')
+pctdays.sbtsafety.info <- round((days.sbtsafety.info / days.mv)*100)
+npct.sbtsafety.info <- npctString(days.sbtsafety.info, days.mv)
+
+## How many days on MV had SBT safety screen?
+days.sbtsafety <- mapSum('had.sbt.safety')
+pctdays.sbtsafety <- round((days.sbtsafety / days.mv)*100)
+npct.sbtsafety <- npctString(days.sbtsafety, days.mv)
+
+## How many days on MV had SBT info?
+days.sbt.info <- mapSum('sbt.info')
+pctdays.sbt.info <- round((days.sbt.info / days.mv)*100)
+npct.sbt.info <- npctString(days.sbt.info, days.mv)
+
+## How many days with info had SBT?
+days.sbt <- mapSum('had.sbt')
+pctdays.sbt <- round((days.sbt / days.sbt.info)*100)
+npct.sbt <- npctString(days.sbt, days.sbt.info)
+
+## How many days on MV + safety screen data had SBT protocol followed?
+days.sbt.protocol <- mapSum('sbt.protocol')
+pctdays.sbt.protocol <- round((days.sbt.protocol / days.mv)*100)
+npct.sbt.protocol <- npctString(days.sbt.protocol, days.mv)
+
+## -- C: Choice of analgesia and sedation ----------------------------------------------------------
+## How many days had anxiolysis section filled out?
+days.anxio.info <- mapSum('anxiolysis.info')
+pctdays.anxio.info <- round((days.anxio.info / n.days)*100)
+npct.anxio.info <- npctString(days.anxio.info, n.days)
+
+## How many days had anxiolytic specified (midaz, loraz, diaz, clonaz, ketamine, diphenhydramine)
+days.anxio.spec <- mapSum('anxiolysis.specifics')
+pctdays.anxio.spec <- round((days.anxio.spec / days.anxio.info)*100)
+npct.anxio.spec <- npctString(days.anxio.spec, days.anxio.info)
+
+## How many days had each class/type of anxiolytic?
+days.benz <- mapSum('anxio.benz')
+pctdays.benz <- round((days.benz / days.anxio.info)*100)
+npct.benz <- npctString(days.benz, days.anxio.info)
+
+days.ketam <- mapSum('anxio.ketam')
+pctdays.ketam <- round((days.ketam / days.anxio.info)*100)
+npct.ketam <- npctString(days.ketam, days.anxio.info)
+
+days.diphen <- mapSum('anxio.diphen')
+pctdays.diphen <- round((days.diphen / days.anxio.info)*100)
+npct.diphen <- npctString(days.diphen, days.anxio.info)
+
+## -- D: Delirium - assess, prevent and manage -----------------------------------------------------
+days.del.assessed <- mapSum('delirium.assessed')
+pctdays.del.assessed <- round((days.del.assessed / n.days)*100)
+npct.del.assessed <- npctString(days.del.assessed, n.days)
+
+days.del.present <- mapSum('delirium.present')
+pctdays.del.present <- round((days.del.present / days.del.assessed)*100)
+npct.del.present <- npctString(days.del.present, days.del.assessed)
+
+## How many delirium assessments per day?
+asmts.del <- map_chr(all.months,
+                     function(x){
+                       get.mediqr(subset(compliance.site, month.cat == x)$delirium.assessments) })
+
+## -- E: Exercise/early mobility -------------------------------------------------------------------
+## How many days had mobility safety screen?
+days.exersafety.info <- mapSum('exer.safety.info')
+pctdays.exersafety.info <- round((days.exersafety.info / n.days)*100)
+npct.exersafety.info <- npctString(days.exersafety.info, n.days)
+
+## How many days had mobility safety screen?
+days.exersafety <- mapSum('had.exer.safety')
+pctdays.exersafety <- round((days.exersafety / days.exersafety.info)*100)
+npct.exersafety <- npctString(days.exersafety, days.exersafety.info)
+
+## How many days had mobility therapy data?
+days.exer.info <- mapSum('exer.info')
+pctdays.exer.info <- round((days.exer.info / n.days)*100)
+npct.exer.info <- npctString(days.exer.info, n.days)
+
+## How many days had mobility therapy?
+days.exer <- mapSum('had.exer')
+pctdays.exer <- round((days.exer / days.exer.info)*100)
+npct.exer <- npctString(days.exer, days.exer.info)
+
+## How many days was both safety & mobility data entered?
+days.exer.protocol.info <- mapSum('exer.protocol.info')
+pctdays.exer.protocol.info <- round((days.exer.protocol.info / n.days)*100)
+npct.exer.protocol.info <- npctString(days.exer.protocol.info, n.days)
+
+## How many days had mobility protocol followed?
+days.exer.protocol <- mapSum('exer.protocol')
+pctdays.exer.protocol <- round((days.exer.protocol / days.exer.protocol.info)*100)
+npct.exer.protocol <- npctString(days.exer.protocol, days.exer.protocol.info)
+
+## -- F: Family engagement and empowerment ---------------------------------------------------------
+## Information on family presence available?
+days.familypres.info <- mapSum('family.present.info')
+pctdays.familypres.info <- round((days.familypres.info / n.days)*100)
+npct.familypres.info <- npctString(days.familypres.info, n.days)
+
+## Was family present?
+days.familypres <- mapSum('family.present')
+pctdays.familypres <- round((days.familypres / days.familypres.info)*100)
+npct.familypres <- npctString(days.familypres, days.familypres.info)
+
+## If family present, was data available on whether they helped with nonpharm intervention?
+days.familyinter.info <- mapSum('family.inter.info')
+pctdays.familyinter.info <- round((days.familyinter.info / days.familypres)*100)
+npct.familyinter.info <- npctString(days.familyinter.info, days.familypres)
+
+## If family present and info available, did they help with nonpharm intervention
+days.familyinter <- mapSum('family.intervention')
+pctdays.familyinter <- round((days.familyinter / days.familyinter.info)*100)
+npct.familyinter <- npctString(days.familyinter, days.familyinter.info)
+
+@
+
+<<createperformancetable>>=
+## Function to italicize an entire row
+italicize.this <- function(r){
+  paste0('\\emph{', r, '}')
+}
+
+perf.table <- matrix(c(as.character(n.days),
+                       ## A
+                       italicize.this(npct.pain.info),
+                       npct.pain.threshold,
+                       asmts.pain.threshold,
+                       ## B - sedation
+                       italicize.this(npct.sed.info),
+                       npct.rcvd.majorsed,
+                       italicize.this(npct.sat.info),
+                       npct.had.sat,
+                       italicize.this(npct.weaning.info),
+                       npct.had.weaning,
+                       npct.rcvd.anysed,
+                       italicize.this(npct.deepsed.info),
+                       npct.deepsed,
+                       ## B - breathing
+                       italicize.this(npct.mv.info),
+                       npct.mv,
+                       italicize.this(npct.sbtsafety.info),
+                       npct.sbtsafety,
+                       italicize.this(npct.sbt.info),
+                       npct.sbt,
+                       npct.sbt.protocol,
+                       ## C
+                       italicize.this(npct.anxio.info),
+                       npct.anxio.spec,
+                       npct.benz,
+                       npct.ketam,
+                       npct.diphen,
+                       ## D
+                       npct.del.assessed,
+                       asmts.del,
+                       npct.del.present,
+                       ## E
+                       italicize.this(npct.exersafety.info),
+                       npct.exersafety,
+                       italicize.this(npct.exer.info),
+                       npct.exer,
+                       italicize.this(npct.exer.protocol.info),
+                       npct.exer.protocol,
+                       ## F
+                       italicize.this(npct.familypres.info),
+                       npct.familypres,
+                       italicize.this(npct.familyinter.info),
+                       npct.familyinter),
+                     byrow = TRUE,
+                     ncol = length(all.months))
+rownames(perf.table) <- c('Days recorded',
+                          '\\emph{Pain data available}',
+                          '>=1 assessment with pain >=5',
+                          'Assessments with pain >=5',
+                          '\\emph{Sedation data available}',
+                          'On continuous/intermittent sedation',
+                          '~~~\\emph{Interruption data available}',
+                          '~~~Sedation interrupted (SAT)',
+                          '~~~\\emph{Weaning data available}',
+                          '~~~Weaned via protocol',
+                          'On any sedation (including PRN)',
+                          '~~~\\emph{Deep sedation data available}',
+                          '~~~On deep sedation*',
+                          '\\emph{Invasive MV data available}',
+                          'On invasive MV',
+                          '~~~\\emph{SBT safety data available}',
+                          '~~~SBT safety screen done',
+                          '~~~\\emph{SBT data available}',
+                          '~~~SBT done',
+                          '~~~SBT protocol followed**',
+                          '\\emph{Anxiolysis data available}',
+                          'Received anxiolytics of interest',
+                          '~~~Received benzodiazepines',
+                          '~~~Received ketamine',
+                          '~~~Received diphenhydramine',
+                          'Delirium assessed',
+                          '~~~Assessments per day',
+                          '~~~Delirium present',
+                          '\\emph{Mobility safety screen data available}',
+                          'Mobility safety screen done',
+                          '\\emph{Mobility performance data available}',
+                          'Mobilization performed',
+                          '\\emph{Mobility protocol data available}',
+                          'Mobility protocol followed**',
+                          '\\emph{Family presence data available}',
+                          'Family or caregiver present',
+                          '\\emph{Family intervention data available}',
+                          'Family participated in nonpharm inter.')
+@
+
+<<printperformancetable, results = 'asis'>>=
+latex(perf.table, file = '',
+      title = '',
+      where = '!h',
+      label = 'table:performance',
+      size = 'scriptsize',
+      colheads = all.months,
+      col.just = rep('r', ncol(perf.table)),
+      rgroup = c('', 'A: Assess, Prevent, Manage Pain', 'B: Both SAT/SBT: Sedation',
+                 'B: Both SAT/SBT: ERT/Breathing', 'C: Choice of Analgesia \\& Sedation',
+                 'D: Delirium***', 'E: Exercise/Early Mobility',
+                 'F: Family Engagement'),
+      n.rgroup = c(1, 3, 9, 7, 5, 3, 6, 4),
+      insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium assessed if one or more of those assessment tools is available; delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU")
+
+@
+
+\clearpage
+\section{Medication Use}
+The following tables, if applicable, summarize drug doses \textbf{per 24 hours} for benzodiazepines and opioids.
+
+
+Total benzodiazepines are converted to lorazepam equivalents:
+\emph{lorazepam = clonazepam = [diazepam / 0.2] = [midazolam / 0.5]}
+
+
+Total opioids are converted to morphine equivalents:
+\emph{morphine = hydromorphone / 4 = fentanyl / 10}
+
+
+All doses are scaled by weight in kilograms prior to conversion.
+
+If at least one medication in a category (benzodiazepines or opioids) had a dose recorded, all NA
+values in that category were assumed to be zero. Otherwise, doses were considered missing. For
+example, if a patient-day had a dose recorded for fentanyl but nothing recorded for morphine or
+hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 for that day. If, on
+the other hand, none of the three opioids of interest were recorded, no opioid data for that day is
+described - doses are left as missing.
+
+<<createmedstable>>=
+label(compliance.site$has.benzo) <- 'At least one recorded*'
+label(compliance.site$has.opioid) <- 'At least one recorded*'
+label(compliance.site$benzo.total) <- 'Total (lorazepam equiv.)'
+label(compliance.site$opioid.total) <- 'Total (morphine equiv.)'
+
+## At least one site has no benzodiazepines or opioids included; account for all possible cases
+if(sum(compliance.site$has.benzo) > 0 & sum(compliance.site$has.opioid)){
+  benzo.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+                           diaz.scaled ~ month.cat,
+                          data = compliance.site, continuous = 5)
+  opioid.table <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+                             fent.scaled ~ month.cat,
+                           data = compliance.site, continuous = 5)
+  meds.sentence <- ''
+} else if(sum(compliance.site$has.benzo) > 0){
+  benzo.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+                            diaz.scaled ~ month.cat,
+                          data = compliance.site, continuous = 5)
+  opioid.table <- NULL
+  meds.sentence <- paste0('\\textbf{No opioid doses were recorded at ', site, '; therefore, no opioid table is provided.}')
+} else if(sum(compliance.site$has.opioid) > 0){
+  benzo.table <- NULL
+  opioid.table <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+                             fent.scaled ~ month.cat,
+                           data = compliance.site, continuous = 5)
+  meds.sentence <- paste0('\\textbf{No benzodiazepine doses were recorded at ', site, '; therefore, no benzodiazepines table is provided.}')
+} else{
+  benzo.table <- opioid.table <- NULL
+  meds.sentence <- paste0('\\textbf{No benzodiazepine or opioid doses was recorded at ', site, '; therefore, no medications table is provided.}')
+}
+
+@
+
+\Sexpr{meds.sentence}
+
+<<printmedstable, results = 'asis'>>=
+if(!is.null(benzo.table)){
+  latex(benzo.table, file = '',
+        title = '',
+        caption = 'Daily Benzodiazepine Use. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+        digits = 2,
+        prmsd = FALSE,
+        prn = FALSE,
+        prN = FALSE,
+        what = '%',
+        long = TRUE,
+        where = '!h',
+        label = 'table:benzos',
+        size = 'scriptsize',
+        insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
+}
+
+if(!is.null(opioid.table)){
+  latex(opioid.table, file = '',
+        title = '',
+        caption = 'Daily Opioid Use. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+        digits = 2,
+        prmsd = FALSE,
+        prn = FALSE,
+        prN = FALSE,
+        what = '%',
+        long = TRUE,
+        where = '!h',
+        label = 'table:opioids',
+        size = 'scriptsize',
+        insert.bottom = "\\emph{* `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
+}
+
+@
+
+\end{landscape}
+\end{document}
