@@ -5,7 +5,7 @@
 
 \usepackage{setspace, relsize}
 \usepackage{longtable}
-\usepackage[margin = 0.5in]{geometry}
+\usepackage[margin = 0.4in]{geometry}
 \usepackage{hyperref}
 \usepackage{float}
 \usepackage{pdflscape}
@@ -31,60 +31,18 @@ options(replace.assign = TRUE, width = 90)
 
 ## Load libraries
 library(Hmisc)
-library(dplyr)
-library(tidyr)
+library(JTHelpers)
+library(tidyverse)
 library(devtools)
 library(wesanderson)
 
 ## What's the last month that should be included in the report?
-last.month <- 18
+last.month <- 20
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
   latex.summaryM(file = '', where = '!h', digits = 2, prmsd = FALSE, long = TRUE,
                  npct = 'both', what = '%', ...)
-}
-
-## Function to round number to and print same number of digits
-rndformat <- function(x, ndigits = 2){
-  format(round(x, digits = ndigits), nsmall = ndigits)
-}
-
-## Function to format p-values
-formatp <- function(p){
-  ifelse(p < 0.0001, '<0.0001',
-  ifelse(p < 0.001, '<0.001',
-         rndformat(p, 3)))
-}
-
-## multiplot() function for multiple ggplot objects on one page (from Winston Chang's Cookbook for
-##  R: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/)
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  require(grid)
-
-  plots <- c(list(...), plotlist)
-
-  numPlots = length(plots)
-
-  if (is.null(layout)) {
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-
- if (numPlots==1) {
-    print(plots[[1]])
-
-  } else {
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-
-    for (i in 1:numPlots) {
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
 }
 
 ## -- Function to calculate & plot proportions of patient-days by time and, if needed, -------------
@@ -223,7 +181,14 @@ multiple.pt.ids <- subset(as.data.frame(table(demog$id)), Freq > 1)
 ## -- Remove any data collected after last.month ---------------------------------------------------
 keep.ids <- subset(demog, !is.na(month) & month <= last.month)$id
 nomonth.ids <- length(subset(demog, is.na(month))$id)
-afterlastmonth.ids <- length(subset(demog, !is.na(month) & month > last.month)$id)
+## 97, 98, 99 are no longer in use
+afterlastmonth.ids <- length(subset(demog, !is.na(month) & month > last.month & month < 97)$id)
+
+if(afterlastmonth.ids > 0){
+  afterlastmonth.sentence <- paste0("; ", afterlastmonth.ids, " patients had data collected after month ", last.month, " which will be included in a later report")
+} else{
+  afterlastmonth.sentence <- ""
+}
 
 demog <- subset(demog, id %in% keep.ids)
 compliance <- subset(compliance, id %in% keep.ids)
@@ -545,8 +510,7 @@ collected during the retrospective period (months 1-6), and
 \Sexpr{format(length(unique(subset(demog, data.time == 'Prospective')$id)), big.mark = ',')} were
 collected during the prospective period (months 7-\Sexpr{last.month}). (In addition,
 \Sexpr{nomonth.ids} patients had no ``month" entered in the database and therefore cannot be counted
-when comparing the two cohorts; \Sexpr{afterlastmonth.ids} patients had data collected after month
-\Sexpr{last.month} which will be included in a later report.)
+when comparing the two cohorts\Sexpr{afterlastmonth.sentence}.)
 
 For continuous variables (like hours of invasive ventilation), the 25th, 50th, and 75th percentiles
 are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
@@ -1251,7 +1215,7 @@ latex(compliance.table, file = '',
       caption = 'ABCDEF Bundle Protocol Compliance and Performance',
       caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance',
       label = 'table:compliance',
-      size = 'scriptsize',
+      size = 'tiny',
       rgroup = c('',
                  'A: Assess...*',
                  'B: Both...**',
@@ -1307,7 +1271,7 @@ latex(compliance.table.trans, file = '',
       caption = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
       caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
       label = 'table:compliancetrans',
-      size = 'scriptsize',
+      size = 'tiny',
       rgroup = c('',
                  # 'A: Assess...*',
                  'B: Both...*',
@@ -1395,10 +1359,11 @@ latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + ant
       where = '!h',
       what = '%',
       title = '',
+      npct = 'none',
       prn = FALSE,
       prN = FALSE,
       long = TRUE,
-      size = 'tiny',
+      size = 'scriptsize',
       caption = 'Sedatives and Analgesics in the ICU',
       caption.lot = 'Sedatives and Analgesics in the ICU',
       label = 'table:meds')
@@ -1408,11 +1373,12 @@ latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance, c
       # landscape = TRUE,
       where = '!h',
       what = '%',
+      npct = 'none',
       title = '',
       prn = FALSE,
       prN = FALSE,
       long = TRUE,
-      size = 'tiny',
+      size = 'scriptsize',
       caption = 'Early Mobility in the ICU',
       caption.lot = 'Early Mobility in the ICU',
       label = 'table:mobility')

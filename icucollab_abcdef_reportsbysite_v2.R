@@ -1,58 +1,16 @@
 ## Load libraries
 library(Hmisc)
-library(dplyr)
-library(tidyr)
+library(JTHelpers)
+library(tidyverse)
 library(devtools)
 
 ## What's the last month that should be included in the report?
-last.month <- 18
+last.month <- 20
 
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
   latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
                  npct = 'both', what = '%', ...)
-}
-
-## Function to round number to and print same number of digits
-rndformat <- function(x, ndigits = 2){
-  format(round(x, digits = ndigits), nsmall = ndigits)
-}
-
-## Function to format p-values
-formatp <- function(p){
-  ifelse(p < 0.0001, '<0.0001',
-         ifelse(p < 0.001, '<0.001',
-                rndformat(p, 3)))
-}
-
-## multiplot() function for multiple ggplot objects on one page (from Winston Chang's Cookbook for
-##  R: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/)
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  require(grid)
-
-  plots <- c(list(...), plotlist)
-
-  numPlots = length(plots)
-
-  if (is.null(layout)) {
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-
-  if (numPlots==1) {
-    print(plots[[1]])
-
-  } else {
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-
-    for (i in 1:numPlots) {
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
 }
 
 ## -- Function to calculate & plot proportions of patient-days by time and, if needed, -------------
@@ -211,7 +169,8 @@ multiple.pt.ids <- subset(as.data.frame(table(demog$id)), Freq > 1)
 ## -- Remove any data collected after last.month ---------------------------------------------------
 keep.ids <- subset(demog, !is.na(month) & month <= last.month)$id
 nomonth.ids <- length(subset(demog, is.na(month))$id)
-afterlastmonth.ids <- length(subset(demog, !is.na(month) & month > last.month)$id)
+## 97, 98, 99 are no longer in use
+afterlastmonth.ids <- length(subset(demog, !is.na(month) & month > last.month & month < 97)$id)
 
 demog <- subset(demog, id %in% keep.ids)
 compliance <- subset(compliance, id %in% keep.ids)
