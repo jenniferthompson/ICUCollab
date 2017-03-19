@@ -1290,19 +1290,22 @@ box.asmts.region.d <- plot.assessments.region(asmtvar = 'delirium.assess.icu') +
 ## -- Figures showing compliance + performance for SAT, SBT, E components (all sites) --------------
 compperf.overall <- comp.summary.overall %>%
   dplyr::select(data.month.short, pct.comp.b.sat, pct.perf.b.sat, pct.comp.b.sbt, pct.perf.b.sbt,
-                pct.comp.e, pct.perf.e) %>%
-  gather(key = element_cp, value = pct, pct.comp.b.sat:pct.perf.e) %>%
+                pct.comp.e, pct.perf.e, pct.comp.bundle, pct.perf.bundle) %>%
+  gather(key = element_cp, value = pct, pct.comp.b.sat:pct.perf.bundle) %>%
   mutate(element_cp = gsub('^pct\\.', '', gsub('\\.b\\.', '\\.', element_cp))) %>%
   separate(element_cp, into = c('cp', 'element'), sep = '\\.') %>%
   mutate(element = factor(ifelse(element == 'sat', 1,
-                          ifelse(element == 'sbt', 2, 3)),
-                          levels = 1:3, labels = c('B: SAT', 'B: SBT', 'E: Early Mobility')),
+                          ifelse(element == 'sbt', 2,
+                          ifelse(element == 'e', 3, 4))),
+                          levels = 1:4, labels = c('B: SAT', 'B: SBT',
+                                                   'E: Early Mobility', 'ABCDEF Bundle')),
          cp = factor(ifelse(cp == 'comp', 1, 2),
                      levels = 1:2,
                      labels = c('Compliance', 'Performance')))
 
 plot.compperf <-
-  ggplot(data = compperf.overall, aes(x = data.month.short, y = pct, group = cp)) +
+  ggplot(data = subset(compperf.overall, element != 'ABCDEF Bundle'),
+         aes(x = data.month.short, y = pct, group = cp)) +
     facet_wrap(~ element, nrow = 1) +
     geom_line(aes(colour = cp)) +
     geom_point(aes(colour = cp)) +
@@ -1647,4 +1650,151 @@ icu.los.plot.all
 \end{table}
 
 \end{landscape}
+
+%% -- Figures for April 2017 Meeting Presentation --------------------------------------------------
+<<complianceonly>>=
+## -- Function to plot compliance percentage over time, all sites only -----------------------------
+## Colors, using viridis package, trying to coordinate with SCCM PPT template
+comp.color <- "#003E79"
+perf.color <- "#007D51"
+
+plot.compliance.mtg <- function(compvar,
+                                ytitle,
+                                put.legend = c('bottom', 'top'),
+                                refline.size = 1.5){
+
+  put.legend <- match.arg(put.legend)
+  if(put.legend == 'top'){
+    legend.y <- 0.8
+  } else{
+    legend.y <- 0.05
+  }
+
+  ggplot(data = subset(comp.summary, hosp.type == 'All sites'),
+         aes_string(x = 'data.month.short', y = compvar, group = 1)) +
+    geom_hline(yintercept = 0.9, linetype = 'dotted', colour = comp.color) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = refline.size) +
+    geom_line(colour = comp.color) +
+    geom_point(colour = comp.color) +
+    scale_x_discrete(name = '') +
+    scale_y_continuous(name = ytitle,
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.2),
+                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+    theme(axis.ticks = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+          axis.title.y = element_text(size = 12, face = 'bold'),
+          axis.text.y = element_text(size = 7),
+          plot.title = element_text(hjust = 0, face = 'bold'))
+
+}
+
+plot.comp.a.mtg <- plot.compliance.mtg('pct.comp.a',
+                                       'Pain Assessment Compliance\nOut of All ICU Days') +
+  labs(title = 'A: Assess, prevent and manage pain')
+
+plot.comp.b.sat.mtg <- plot.compliance.mtg('pct.comp.b.sat',
+                                           'SAT Protocol Compliance\nOut of All ICU Days on Sedation') +
+    labs(title = 'B: Both SAT + SBT, SAT Portion')
+
+plot.comp.b.sbt.mtg <- plot.compliance.mtg('pct.comp.b.sbt',
+                                           'SBT Protocol Compliance\nOut of All ICU Days on MV') +
+  labs(title = 'B: Both SAT + SBT, SBT Portion')
+
+plot.comp.c.mtg <- plot.compliance.mtg('pct.comp.c',
+                                       'Sedation Assessment Compliance\nOut of All ICU Days on Sedation') +
+  labs(title = 'C: Choice of analgesia and sedation')
+
+plot.comp.d.mtg <- plot.compliance.mtg('pct.comp.d',
+                                       'Delirium Assessment Compliance\nOut of All ICU Days') +
+  labs(title = 'D: Delirium - assess, prevent and manage')
+
+plot.comp.e.mtg <- plot.compliance.mtg('pct.comp.e',
+                                       'Early Mobility Compliance\nOut of All ICU Days') +
+  labs(title = 'E: Early mobility and exercise')
+
+plot.comp.f.mtg <- plot.compliance.mtg('pct.comp.f',
+                                       'Family Engagement Compliance\nOut of All ICU Days Family Present') +
+  labs(title = 'F: Family engagement')
+
+plot.comp.bundle.mtg <- plot.compliance.mtg('pct.comp.bundle',
+                                            'Overall ABCDEF Bundle Compliance') +
+  labs(title = 'ABCDEF Bundle Compliance')
+
+## Write all compliance figures to PDFs
+comp.fig.list <- list(plot.comp.a.mtg, plot.comp.b.sat.mtg, plot.comp.b.sbt.mtg, plot.comp.c.mtg,
+                      plot.comp.d.mtg, plot.comp.e.mtg, plot.comp.f.mtg, plot.comp.bundle.mtg)
+comp.title.list <- c('comp_a', 'comp_b_sat', 'comp_b_sbt', 'comp_c', 'comp_d', 'comp_e',
+                     'comp_f', 'comp_bundle')
+
+mtg_pdfs <- function(ggobj, title){
+  pdf(file = paste0('iculib_april2017mtg_', title, '.pdf'), width = 7, height = 5)
+  print(ggobj)
+  dev.off()
+}
+
+map2(.x = comp.fig.list, .y = comp.title.list, mtg_pdfs)
+
+@
+
+<<complianceperformance>>=
+## -- Function to plot compliance + performance percentage over time, all sites --------------------
+plot.compperf.mtg <- function(el = c("B: SAT", "B: SBT", "E: Early Mobility"),
+                              ytitle,
+                              put.legend = c('bottom', 'top'),
+                              refline.size = 1.5){
+
+  put.legend <- match.arg(put.legend)
+  if(put.legend == 'top'){
+    legend.y <- 0.8
+  } else{
+    legend.y <- 0.05
+  }
+
+  ggplot(data = subset(compperf.overall, element == el),
+         aes(x = data.month.short, y = pct, group = cp, colour = cp)) +
+    geom_hline(yintercept = 0.9, linetype = 'dotted', colour = comp.color) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = refline.size) +
+    geom_line() +
+    geom_point() +
+    scale_colour_manual(values = c(comp.color, perf.color), name = NULL) +
+    scale_x_discrete(name = '') +
+    scale_y_continuous(name = ytitle,
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.2),
+                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+    theme(axis.ticks = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+          axis.title.y = element_text(size = 12, face = 'bold'),
+          axis.text.y = element_text(size = 7),
+          plot.title = element_text(hjust = 0, face = 'bold'),
+          legend.key = element_blank(),
+          legend.position = c(1, 1),
+          legend.justification = c(1, 0.9),
+          legend.background = element_blank())
+
+}
+
+plot.cp.b.sat.mtg <- plot.compperf.mtg('B: SAT', 'SAT, Out of All ICU Days on Sedation') +
+    labs(title = 'B: Both SAT + SBT, SAT Portion')
+
+plot.cp.b.sbt.mtg <- plot.compperf.mtg('B: SBT', 'SBT, Out of All ICU Days on MV') +
+  labs(title = 'B: Both SAT + SBT, SBT Portion')
+
+plot.cp.e.mtg <- plot.compperf.mtg('E: Early Mobility', 'Early Mobility, Out of All ICU Days') +
+  labs(title = 'E: Early Mobility and Exercise')
+
+plot.cp.bundle.mtg <- plot.compperf.mtg('ABCDEF Bundle',
+                                        'Entire ABCDEF Bundle, Out of All Eligible Days') +
+  labs(title = 'Entire ABCDEF Bundle')
+
+## Write all compliance + performance figures to PDFs
+cp.fig.list <- list(plot.cp.b.sat.mtg, plot.cp.b.sbt.mtg, plot.cp.e.mtg, plot.cp.bundle.mtg)
+cp.title.list <- c('cp_b_sat', 'cp_b_sbt', 'cp_e', 'cp_bundle')
+
+map2(.x = cp.fig.list, .y = cp.title.list, mtg_pdfs)
+
+@
+
+
 \end{document}
