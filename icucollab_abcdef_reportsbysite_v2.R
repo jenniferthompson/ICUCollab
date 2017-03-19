@@ -363,6 +363,25 @@ compliance <- compliance %>%
                          familyeducate.4 == 1 | familyeducate.5 == 1)) %>%
   left_join(dplyr::select(demog, id, hosp.f))
 
+## **Overall** compliance and performance on ABCDEF bundle
+## If patient on MV + sedation, all elements should be present
+## If patient not on MV, ignore SBT element
+## If patient not on sedation, ignore SAT element
+## If family not present, ignore F element
+
+element.suffixes <- c('a', 'b.sat', 'b.sbt', 'c', 'd', 'e', 'f')
+
+compliance$elements.elig <- rowSums(!is.na(compliance[,paste0('comp.', element.suffixes)]))
+compliance$elements.elig <- with(compliance, ifelse(!comp.tracked, NA, elements.elig))
+compliance$elements.comp <- rowSums(compliance[,paste0('comp.', element.suffixes)], na.rm = TRUE)
+compliance$elements.comp <- with(compliance, ifelse(!comp.tracked, NA, elements.comp))
+compliance$elements.perf <- rowSums(compliance[,c(paste0('comp.', c('a', 'c', 'd', 'f')),
+                                                  paste0('perf.', c('b.sat', 'b.sat', 'e')))],
+                                    na.rm = TRUE)
+compliance$elements.perf <- with(compliance, ifelse(!comp.tracked, NA, elements.perf))
+compliance$bundle.comp <- with(compliance, elements.comp == elements.elig)
+compliance$bundle.perf <- with(compliance, elements.perf == elements.elig)
+
 ## Relevel mobility variable for table (with all 18 months, runs off the page)
 compliance$mobility.high.shortlabs <- compliance$mobility.high.icu
 levels(compliance$mobility.high.shortlabs) <- c('Active ROM', 'Dangle', 'Stand', 'Active transfer',
@@ -398,6 +417,11 @@ label(compliance$comp.e) <- 'Early mobility protocol compliance'
 label(compliance$perf.e) <- 'Early mobility performed'
 label(compliance$family.present.icu) <- 'Days family present in ICU'
 label(compliance$comp.f) <- 'Family engagement protocol compliance'
+label(compliance$elements.elig) <- 'Number of ABCDEF bundle elements eligible for compliance and performance'
+label(compliance$elements.comp) <- 'Number of ABCDEF bundle elements which were compliant'
+label(compliance$elements.perf) <- 'Number of ABCDEF bundle elements which were performed'
+label(compliance$bundle.comp) <- 'Overall ABCDEF bundle compliance'
+label(compliance$bundle.perf) <- 'Overall ABCDEF bundle performance'
 
 ## -- Calculate days of delirium, coma per compliance form -----------------------------------------
 days.mental <- compliance %>%
@@ -476,7 +500,12 @@ comp.summary.overall <- compliance %>%
     ## F: Family engagement and empowerment
     days.family.present = sum(family.present.icu, na.rm = TRUE),
     days.comp.f = sum(comp.f, na.rm = TRUE),
-    pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+    pct.comp.f = mean(comp.f, na.rm = TRUE),
+    ## Overall bundle compliance and performance
+    days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+    pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+    days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
   mutate(hosp.type = 'All sites',
          line.alpha = 1)
@@ -526,7 +555,12 @@ comp.summary.regiontype <- compliance %>%
     ## F: Family engagement and empowerment
     days.family.present = sum(family.present.icu, na.rm = TRUE),
     days.comp.f = sum(comp.f, na.rm = TRUE),
-    pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+    pct.comp.f = mean(comp.f, na.rm = TRUE),
+    ## Overall bundle compliance and performance
+    days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+    pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+    days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region) & !is.na(hosp.type)) %>%
   mutate(line.alpha = 2)
 
