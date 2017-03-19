@@ -1119,6 +1119,14 @@ plot.comp.f <- plot.compliance('pct.comp.f',
                                refline.size = 1) +
   labs(title = 'F: Family engagement') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.bundle <- plot.compliance('pct.comp.bundle',
+                                    'Overall ABCDEF Bundle Compliance',
+                                    put.legend = 'top') +
+  labs(title = 'ABCDEF Bundle Compliance')
+plot.perf.bundle <- plot.compliance('pct.perf.bundle',
+                                    'Overall ABCDEF Bundle Performance',
+                                    put.legend = 'top') +
+  labs(title = 'ABCDEF Bundle Performance')
 
 ## -- Function to plot number of assessments over time ---------------------------------------------
 plot.assessments <- function(asmtvar){
@@ -1240,6 +1248,10 @@ plot.comp.region.f <-
                          'Family Engagement Compliance\nOut of All ICU Days Family Present',
                          refline.size = 1) +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.region.bundle <- plot.compliance.region('pct.comp.bundle',
+                                                  'ABCDEF Bundle Compliance')
+plot.perf.region.bundle <- plot.compliance.region('pct.perf.bundle',
+                                                  'ABCDEF Bundle Performance')
 
 plot.assessments.region <- function(asmtvar){
   ggplot(data = subset(compliance, comp.tracked & !is.na(data.month.short)),
@@ -1453,6 +1465,12 @@ multiplot(plot.perf.e, plot.perf.region.e,
 <<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
 multiplot(plot.comp.f, plot.comp.region.f,
           layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+<<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.region.bundle, plot.perf.region.bundle,
+          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
 
 @
 
