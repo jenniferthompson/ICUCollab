@@ -447,7 +447,6 @@ compliance <- compliance %>%
 ## If family not present, ignore F element
 
 element.suffixes <- c('a', 'b.sat', 'b.sbt', 'c', 'd', 'e', 'f')
-# element.suffixes <- c('a', 'b.sat', 'b.sbt', 'c', 'd', 'f')
 
 compliance$elements.elig <- rowSums(!is.na(compliance[,paste0('comp.', element.suffixes)]))
 compliance$elements.elig <- with(compliance, ifelse(!comp.tracked, NA, elements.elig))
@@ -688,8 +687,8 @@ comp.summary.type <- compliance %>%
             days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
             days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
             pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
-            days.perf.b.sat = sum(comp.b.sbt, na.rm = TRUE),
-            pct.perf.b.sat = mean(comp.b.sbt, na.rm = TRUE),
+            days.perf.b.sat = sum(perf.b.sat, na.rm = TRUE),
+            pct.perf.b.sat = mean(perf.b.sat, na.rm = TRUE),
             days.mv = sum(on.mv.icu, na.rm = TRUE),
             days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
             pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
