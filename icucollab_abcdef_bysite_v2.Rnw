@@ -125,7 +125,12 @@ comp.summary.site <- compliance.site %>%
     ## F: Family engagement and empowerment
     days.family.present = sum(family.present.icu, na.rm = TRUE),
     days.comp.f = sum(comp.f, na.rm = TRUE),
-    pct.comp.f = mean(comp.f, na.rm = TRUE)) %>%
+    pct.comp.f = mean(comp.f, na.rm = TRUE),
+    ## Overall bundle compliance and performance
+    days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+    pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+    days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
   mutate(hosp.type = 'This Site',
          line.alpha = 1)
@@ -174,6 +179,8 @@ results.month <- function(m){
   npct.e <- create.npct('days.comp.e', 'pct.comp.e')
   npct.perf.e <- create.npct('days.perf.e', 'pct.perf.e')
   npct.f <- create.npct('days.comp.f', 'pct.comp.f')
+  npct.bundle <- create.npct('days.comp.bundle', 'pct.comp.bundle')
+  npct.perf.bundle <- create.npct('days.perf.bundle', 'pct.perf.bundle')
 
   c(mdata['days.tracked'],
     npct.a, pain.mediqr,
@@ -183,7 +190,8 @@ results.month <- function(m){
     npct.c, sed.mediqr,
     npct.d, del.mediqr,
     npct.e, npct.perf.e,
-    mdata['days.family.present'], npct.f)
+    mdata['days.family.present'], npct.f,
+    npct.bundle, npct.perf.bundle)
 
 }
 
@@ -206,7 +214,9 @@ rownames(compliance.table) <- c('Days comp. tracked',
                                 'Early mobility comp.',
                                 'Early mobility perf.',
                                 'Days family present',
-                                'Family****** comp.')
+                                'Family****** comp.',
+                                'Overall compliance',
+                                'Overall performance')
 colnames(compliance.table) <- levels(demog.site$data.month)
 
 
@@ -343,6 +353,20 @@ plot.comp.f.ref <-
                   refline.size = 1,
                   data = comp.summary.referencedata) +
   labs(title = '')
+plot.comp.bundle <- plot.compliance('pct.comp.bundle',
+                                    'Overall ABCDEF Bundle Compliance') +
+  labs(title = 'ABCDEF Bundle Compliance')
+plot.comp.bundle.ref <- plot.compliance('pct.comp.bundle',
+                                        'Overall ABCDEF Bundle Compliance',
+                                        data = comp.summary.referencedata) +
+  labs(title = '')
+plot.perf.bundle <- plot.compliance('pct.perf.bundle',
+                                    'Overall ABCDEF Bundle Performance') +
+  labs(title = 'ABCDEF Bundle Performance')
+plot.perf.bundle.ref <- plot.compliance('pct.perf.bundle',
+                                        'Overall ABCDEF Bundle Performance',
+                                        data = comp.summary.referencedata) +
+  labs(title = '')
 
 
 ## -- Function to plot number of assessments over time ---------------------------------------------
@@ -373,6 +397,43 @@ box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu') +
   geom_hline(yintercept = 2, linetype = 'dotted', colour = refline.shade)
 
 
+## -- Figures showing compliance + performance for SAT, SBT, E components (all sites) --------------
+compperf.overall <- comp.summary.site %>%
+  dplyr::select(data.month.short, pct.comp.b.sat, pct.perf.b.sat, pct.comp.b.sbt, pct.perf.b.sbt,
+                pct.comp.e, pct.perf.e) %>%
+  gather(key = element_cp, value = pct, pct.comp.b.sat:pct.perf.e) %>%
+  mutate(element_cp = gsub('^pct\\.', '', gsub('\\.b\\.', '\\.', element_cp))) %>%
+  separate(element_cp, into = c('cp', 'element'), sep = '\\.') %>%
+  mutate(element = factor(ifelse(element == 'sat', 1,
+                          ifelse(element == 'sbt', 2, 3)),
+                          levels = 1:3, labels = c('B: SAT', 'B: SBT', 'E: Early Mobility')),
+         cp = factor(ifelse(cp == 'comp', 1, 2),
+                     levels = 1:2,
+                     labels = c('Compliance', 'Performance')))
+
+plot.compperf <-
+  ggplot(data = compperf.overall, aes(x = data.month.short, y = pct, group = cp)) +
+    facet_wrap(~ element, nrow = 1) +
+    geom_line(aes(colour = cp)) +
+    geom_point(aes(colour = cp)) +
+    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
+    scale_x_discrete(name = NULL) +
+    scale_y_continuous(name = 'Percent of Patient-Days',
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.2),
+                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+    labs(title = 'Compliance and Performance Over Time',
+         caption = "Compliance reflects whether the ABCDEF protocol was followed and documented completely: safety screen, followed by performance if safe.\nPerformance reflects whether the activity was performed, regardless of safety screen.") +
+    theme(strip.text = element_text(face = 'bold', hjust = 0, size = 12),
+          strip.background = element_blank(),
+          axis.text.x = element_text(angle = 45, size = 7, hjust = 1),
+          plot.caption = element_text(face = 'italic', size = 8),
+          legend.title = element_blank(),
+          legend.key = element_blank(),
+          legend.position = c(1, 1),
+          legend.justification = c(1, 1),
+          legend.background = element_blank())
+
 @
 
 <<printcompliancetable, results = 'asis'>>=
@@ -383,15 +444,16 @@ latex(compliance.table, file = '',
       caption = 'ABCDEF Bundle Protocol Compliance and Performance',
       caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance',
       label = 'table:compliance',
-      size = 'scriptsize',
+      size = 'tiny',
       rgroup = c('',
                  'A: Assess...*',
                  'B: Both...**',
                  'C: Choice...***',
                  'D: Delirium...****',
                  'E: Early...*****',
-                 'F: Family...******'),
-      n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
+                 'F: Family...******',
+                 'ABCDEF Bundle'),
+      n.rgroup = c(1, 2, 8, 2, 2, 2, 2, 2),
       colheads = c('Retro.', paste0('M', 7:last.month)),
       col.just = rep('r', ncol(compliance.table)),
       insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
@@ -451,6 +513,17 @@ multiplot(plot.comp.f, plot.comp.f.ref,
 
 @
 
+<<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 10.5, fig.pos = 't'>>=
+multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.bundle.ref, plot.perf.bundle.ref,
+          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
+
+@
+
+<<printcompperffigs, results = 'asis', fig.cap = 'Compliance and Performance Over Time: Elements B and E', fig.height = 5.5, fig.width = 10, fig.pos = 't', fig.align = 'center'>>=
+plot.compperf
+
+@
+
 \clearpage
 Tables \ref{table:meds}-\ref{table:mobility} describe sedative and analgesia use, as well as the
 highest level of mobility performed, on days patients were in the ICU all 24 hours.
@@ -463,10 +536,11 @@ latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + ant
       where = '!h',
       what = '%',
       title = '',
+      npct = 'none',
       prn = FALSE,
       prN = FALSE,
       long = TRUE,
-      size = 'tiny',
+      size = 'scriptsize',
       caption = 'Sedatives and Analgesics in the ICU',
       caption.lot = 'Sedatives and Analgesics in the ICU',
       label = 'table:meds')
@@ -477,10 +551,11 @@ latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance.si
       where = '!h',
       what = '%',
       title = '',
+      npct = 'none',
       prn = FALSE,
       prN = FALSE,
       long = TRUE,
-      size = 'tiny',
+      size = 'scriptsize',
       caption = 'Early Mobility in the ICU',
       caption.lot = 'Early Mobility in the ICU',
       label = 'table:mobility')
