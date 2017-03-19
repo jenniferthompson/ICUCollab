@@ -313,15 +313,36 @@ compliance <- compliance %>%
          ## On sedative: In ICU all 24h + either continuous infusion or intermittent sched sedation
          on.sedative.icu = ifelse(!comp.tracked, NA, sedative.1 == 1 | sedative.2 == 1),
          on.sedative.icu.trans = ifelse(!comp.tracked.trans, NA, sedative.1 == 1 | sedative.2 == 1),
-         ## Compliant on SAT: on sedation + SAT screen passed + SAT performed
+         ## Compliant on SAT: on sedation + SAT screen passed + SAT performed; must have enough
+         ## info present to be confirmed compliant
          comp.b.sat = ifelse(!on.sedative.icu, NA,
-                      ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
-                             satscreen.f == 'Failed' |
-                               (satscreen.f == 'Passed' & satperformed.f == 'Yes'))),
+                      ifelse(!is.na(satscreen.f) &
+                               ## If safety screen failed, SAT performance must be missing or
+                               ## something other than Yes
+                               ((satscreen.f == 'Failed' &
+                                  (is.na(satperformed.f) | !(satperformed.f == 'Yes'))) |
+                                ## If safety screen passed, SAT must have been performed
+                                (satscreen.f == 'Passed' &
+                                  !is.na(satperformed.f) & satperformed.f == 'Yes')), TRUE, FALSE)),
          comp.b.sat.trans = ifelse(!on.sedative.icu.trans, NA,
-                            ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
-                                   satscreen.f == 'Failed' |
-                                     (satscreen.f == 'Passed' & satperformed.f == 'Yes'))),
+                            ifelse(!is.na(satscreen.f) &
+                                   ## If safety screen failed, SAT performance must be missing or
+                                   ## something other than Yes
+                                  ((satscreen.f == 'Failed' &
+                                   (is.na(satperformed.f) | !(satperformed.f == 'Yes'))) |
+                                   ## If safety screen passed, SAT must have been performed
+                                   (satscreen.f == 'Passed' &
+                                    !is.na(satperformed.f) & satperformed.f == 'Yes')),
+                                  TRUE, FALSE)),
+         # comp.b.sat = ifelse(!on.sedative.icu, NA,
+         #              ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
+         #                     (satscreen.f == 'Failed' &
+         #                        (is.na(satperformed.f) | !(satperformed.f == 'Yes'))) |
+         #                       (satscreen.f == 'Passed' & satperformed.f == 'Yes'))),
+         # comp.b.sat.trans = ifelse(!on.sedative.icu.trans, NA,
+         #                    ifelse(is.na(satscreen.f) | is.na(satperformed.f), FALSE,
+         #                           satscreen.f == 'Failed' |
+         #                             (satscreen.f == 'Passed' & satperformed.f == 'Yes'))),
          ## SAT performed: on sedation + SAT performed, regardless of safety screen
          perf.b.sat = ifelse(!on.sedative.icu, NA,
                              !is.na(satperformed.f) & satperformed.f == 'Yes'),
@@ -419,6 +440,26 @@ compliance <- compliance %>%
                                  familyeducate.3 == 1 | familyeducate.4 == 1 | familyeducate.5 == 1)
   )
 
+## **Overall** compliance and performance on ABCDEF bundle
+## If patient on MV + sedation, all elements should be present
+## If patient not on MV, ignore SBT element
+## If patient not on sedation, ignore SAT element
+## If family not present, ignore F element
+
+element.suffixes <- c('a', 'b.sat', 'b.sbt', 'c', 'd', 'e', 'f')
+# element.suffixes <- c('a', 'b.sat', 'b.sbt', 'c', 'd', 'f')
+
+compliance$elements.elig <- rowSums(!is.na(compliance[,paste0('comp.', element.suffixes)]))
+compliance$elements.elig <- with(compliance, ifelse(!comp.tracked, NA, elements.elig))
+compliance$elements.comp <- rowSums(compliance[,paste0('comp.', element.suffixes)], na.rm = TRUE)
+compliance$elements.comp <- with(compliance, ifelse(!comp.tracked, NA, elements.comp))
+compliance$elements.perf <- rowSums(compliance[,c(paste0('comp.', c('a', 'c', 'd', 'f')),
+                                                  paste0('perf.', c('b.sat', 'b.sat', 'e')))],
+                                    na.rm = TRUE)
+compliance$elements.perf <- with(compliance, ifelse(!comp.tracked, NA, elements.perf))
+compliance$bundle.comp <- with(compliance, elements.comp == elements.elig)
+compliance$bundle.perf <- with(compliance, elements.perf == elements.elig)
+
 ## Relevel mobility variable for table (with all 18 months, runs off the page)
 compliance$mobility.high.shortlabs <- compliance$mobility.high.icu
 levels(compliance$mobility.high.shortlabs) <- c('Active ROM', 'Dangle', 'Stand', 'Active transfer',
@@ -466,6 +507,11 @@ label(compliance$family.present.icu) <- 'Days family present in ICU'
 label(compliance$comp.f) <- 'Family engagement protocol compliance'
 label(compliance$family.present.icu.trans) <- 'Days family present in ICU (inc. day of transfer)'
 label(compliance$comp.f.trans) <- 'Family engagement protocol compliance (inc. day of transfer)'
+label(compliance$elements.elig) <- 'Number of ABCDEF bundle elements eligible for compliance and performance'
+label(compliance$elements.comp) <- 'Number of ABCDEF bundle elements which were compliant'
+label(compliance$elements.perf) <- 'Number of ABCDEF bundle elements which were performed'
+label(compliance$bundle.comp) <- 'Overall ABCDEF bundle compliance'
+label(compliance$bundle.perf) <- 'Overall ABCDEF bundle performance'
 
 ## -- Calculate days of delirium, coma per compliance form -----------------------------------------
 days.mental <- compliance %>%
@@ -617,7 +663,12 @@ comp.summary.overall <- compliance %>%
             ## F: Family engagement and empowerment, including days of transfer
             days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
             days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
-            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE),
+            ## Overall bundle compliance and performance
+            days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+            pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+            days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
   mutate(hosp.type = 'All sites',
          line.alpha = 1)
@@ -685,7 +736,12 @@ comp.summary.type <- compliance %>%
             ## F: Family engagement and empowerment, including days of transfer
             days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
             days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
-            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE),
+            ## Overall bundle compliance and performance
+            days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+            pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+            days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.type)) %>%
   mutate(line.alpha = 2)
 
@@ -755,7 +811,12 @@ comp.summary.region <- compliance %>%
             ## F: Family engagement and empowerment, including days of transfer
             days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
             days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
-            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE),
+            ## Overall bundle compliance and performance
+            days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+            pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+            days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region)) %>%
   mutate(hosp.type = 'All types',
          line.alpha = 1)
@@ -822,7 +883,12 @@ comp.summary.regiontype <- compliance %>%
             ## F: Family engagement and empowerment, including days of transfer
             days.family.present.trans = sum(family.present.icu.trans, na.rm = TRUE),
             days.comp.f.trans = sum(comp.f.trans, na.rm = TRUE),
-            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE)) %>%
+            pct.comp.f.trans = mean(comp.f.trans, na.rm = TRUE),
+            ## Overall bundle compliance and performance
+            days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+            pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+            days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region) & !is.na(hosp.type)) %>%
   mutate(line.alpha = 2)
 
@@ -859,6 +925,8 @@ results.month <- function(m){
   npct.e <- create.npct('days.comp.e', 'pct.comp.e')
   npct.perf.e <- create.npct('days.perf.e', 'pct.perf.e')
   npct.f <- create.npct('days.comp.f', 'pct.comp.f')
+  npct.bundle <- create.npct('days.comp.bundle', 'pct.comp.bundle')
+  npct.perf.bundle <- create.npct('days.perf.bundle', 'pct.perf.bundle')
 
   c(mdata['days.tracked'],
     npct.a, pain.mediqr,
@@ -868,7 +936,8 @@ results.month <- function(m){
     npct.c, sed.mediqr,
     npct.d, del.mediqr,
     npct.e, npct.perf.e,
-    mdata['days.family.present'], npct.f)
+    mdata['days.family.present'], npct.f,
+    npct.bundle, npct.perf.bundle)
 
 }
 
@@ -891,7 +960,9 @@ rownames(compliance.table) <- c('Days comp. tracked',
                                 'Early mobility comp.',
                                 'Early mobility perf.',
                                 'Days family present',
-                                'Family****** comp.')
+                                'Family****** comp.',
+                                'Overall compliance',
+                                'Overall performance')
 colnames(compliance.table) <- levels(demog$data.month)
 
 ## Alternate definition of days to track (including days of ICU transfer), elements B and F only
@@ -1222,8 +1293,9 @@ latex(compliance.table, file = '',
                  'C: Choice...***',
                  'D: Delirium...****',
                  'E: Early...*****',
-                 'F: Family...******'),
-      n.rgroup = c(1, 2, 8, 2, 2, 2, 2),
+                 'F: Family...******',
+                 'ABCDEF Bundle'),
+      n.rgroup = c(1, 2, 8, 2, 2, 2, 2, 2),
       colheads = c('Retro.', paste0('M', 7:last.month)),
       col.just = rep('r', ncol(compliance.table)),
       insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
