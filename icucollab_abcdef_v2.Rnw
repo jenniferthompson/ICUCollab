@@ -144,6 +144,14 @@ ggplot.prop <-
   return(prop.plot)
 }
 
+## Vector of hex colors from magnifying glass in slide templates (via colorcodepicker.com)
+magglass.colors <- c("a" = "#E16725",
+                     "b" = "#FBA724",
+                     "c" = "#698C36",
+                     "d" = "#07A7B4",
+                     "e" = "#138CBD",
+                     "f" = "#293F90")
+
 @
 
 <<datamgmt>>=
@@ -1518,6 +1526,47 @@ latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance, c
       caption.lot = 'Early Mobility in the ICU',
       label = 'table:mobility')
 
+@
+
+<<drugfigure>>=
+drug.data <- compliance %>%
+  group_by(data.month.short) %>%
+  summarise(prop.benzo = mean(benzo.icu, na.rm = TRUE),
+            prop.opioid = mean(opioid.icu, na.rm = TRUE),
+            prop.propofol = mean(propofol.icu, na.rm = TRUE),
+            prop.antipsyc.typ = mean(antipsyc.typ.icu, na.rm = TRUE)) %>%
+  gather(key = drug, value = proportion, prop.benzo:prop.antipsyc.typ) %>%
+  mutate(drug.f = factor(ifelse(drug == 'prop.benzo', 1,
+                         ifelse(drug == 'prop.opioid', 2,
+                         ifelse(drug == 'prop.propofol', 3,
+                         ifelse(drug == 'prop.antipsyc.typ', 4, NA)))),
+                         levels = 1:4,
+                         labels = c('Benzodiazepines', 'Opioids', 'Propofol',
+                                    'Typical Antipsychotics')))
+
+drug.plot <- ggplot(data = drug.data,
+                    aes(x = data.month.short, y = proportion, group = drug.f, colour = drug.f)) +
+  geom_line() +
+  geom_point() +
+  scale_colour_manual(values = as.character(magglass.colors[c('e', 'f', 'c', 'b')])) +
+  scale_x_discrete(name = NULL) +
+  scale_y_continuous(name = 'Percent of Patient-Days',
+                     limits = c(0, 1),
+                     breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+  labs(title = "Sedative and Analgesic Use") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = 'bold'),
+        legend.position = c(1, 1),
+        legend.justification = c(1, 1),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        legend.background = element_rect(fill = alpha('grey95', 0.5)),
+        legend.text.align = 1)
+
+@
+
+<<printdrugplot, results = 'asis', fig.width = 8, fig.height = 6>>=
+drug.plot
 @
 
 \clearpage
