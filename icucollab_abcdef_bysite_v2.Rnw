@@ -469,10 +469,8 @@ compliance/performance, the bar is set at 90\%; for sedation and pain assessment
 per day; and for delirium assessments, at 2 assessments per day.
 
 <<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(plot.comp.a, plot.comp.a.ref, box.asmts.a,
-          layout = matrix(c(1, 1, 1, 1, 3, 3,
-                            2, 2, 2, 2, 3, 3),
-                          byrow = TRUE, nrow = 2))
+multiplot(plot.comp.a, plot.comp.a.ref,
+          layout = matrix(c(1, 2), byrow = TRUE, nrow = 2))
 
 @
 
@@ -486,18 +484,14 @@ multiplot(plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
 @
 
 <<printcompliancefigs_c, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element C', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(plot.comp.c, plot.comp.c.ref, box.asmts.c,
-          layout = matrix(c(1, 1, 3,
-                            2, 2, 3),
-                          byrow = TRUE, nrow = 2))
+multiplot(plot.comp.c, plot.comp.c.ref,
+          layout = matrix(c(1, 2), byrow = TRUE, nrow = 2))
 
 @
 
 <<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(plot.comp.d, plot.comp.d.ref, box.asmts.d,
-          layout = matrix(c(1, 1, 3,
-                            2, 2, 3),
-                          byrow = TRUE, nrow = 2))
+multiplot(plot.comp.d, plot.comp.d.ref,
+          layout = matrix(c(1, 2), byrow = TRUE, nrow = 2))
 
 @
 
