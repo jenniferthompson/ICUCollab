@@ -522,7 +522,87 @@ plot.compperf
 Tables \ref{table:meds}-\ref{table:mobility} describe sedative and analgesia use, as well as the
 highest level of mobility performed, on days patients were in the ICU all 24 hours.
 
-<<printmedmobilitytables, results = 'asis'>>=
+<<medmobilityfigure>>=
+drug.data <- compliance.site %>%
+  group_by(data.month.short) %>%
+  summarise(prop.benzo = mean(benzo.icu, na.rm = TRUE),
+            prop.opioid = mean(opioid.icu, na.rm = TRUE),
+            prop.propofol = mean(propofol.icu, na.rm = TRUE),
+            prop.antipsyc.typ = mean(antipsyc.typ.icu, na.rm = TRUE)) %>%
+  gather(key = drug, value = proportion, prop.benzo:prop.antipsyc.typ) %>%
+  mutate(drug.f = factor(ifelse(drug == 'prop.benzo', 1,
+                         ifelse(drug == 'prop.opioid', 2,
+                         ifelse(drug == 'prop.propofol', 3,
+                         ifelse(drug == 'prop.antipsyc.typ', 4, NA)))),
+                         levels = 1:4,
+                         labels = c('Benzodiazepines', 'Opioids', 'Propofol',
+                                    'Typical Antipsychotics')))
+
+drug.plot <- ggplot(data = drug.data,
+                    aes(x = data.month.short, y = proportion, group = drug.f, colour = drug.f)) +
+  geom_line() +
+  geom_point() +
+  scale_colour_manual(values = as.character(magglass.colors[c('e', 'f', 'c', 'b')])) +
+  scale_x_discrete(name = NULL) +
+  scale_y_continuous(name = 'Percent of Patient-Days',
+                     #limits = c(0, 1),
+                     breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+  labs(title = "Sedative and Analgesic Use") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = 'bold'),
+        legend.position = 'top',
+        legend.margin = margin(t = 0, r = 0, l = 0, b = 0),
+        legend.justification = c(0, 0),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 1)
+
+mobility.data <- compliance.site %>%
+  mutate(mobility.ap = factor(ifelse(!comp.tracked, NA,
+                              ifelse(is.na(mobility.high.icu) |
+                                       mobility.high.icu %in% c('Not documented /unclear',
+                                                                'Active ROM - in bed'), 1,
+                              ifelse(mobility.high.icu %in% c(#'Active ROM - in bed',
+                                                              'Dangle - side of bed',
+                                                              'Stand at side of bed'), 2,
+                              ifelse(mobility.high.icu %in%
+                                       c('Active Transfer - out of bed to chair', 'March in place',
+                                         'Walk in room', 'Walk  in hall'), 3, NA)))),
+                              levels = 1:3,
+                              labels = c('Not enough mobility recorded', 'Passive', 'Active'))) %>%
+  group_by(data.month.short) %>%
+  summarise(Passive = mean(mobility.ap == 'Passive', na.rm = TRUE),
+            Active = mean(mobility.ap == 'Active', na.rm = TRUE)) %>%
+  gather(key = mobility.type, value = proportion, Passive:Active) %>%
+  mutate(mobility.f = factor(ifelse(mobility.type == 'Passive', 'Passive - dangling, standing',
+                             ifelse(mobility.type == 'Active', 'Active - transfer, march, walk',
+                                    NA))))
+
+mobility.plot <- ggplot(data = mobility.data,
+                        aes(x = data.month.short, y = proportion,
+                            group = mobility.f, colour = mobility.f)) +
+  geom_line() +
+  geom_point() +
+  scale_colour_manual(values = as.character(magglass.colors[c('e', 'f', 'c', 'b')])) +
+  scale_x_discrete(name = NULL) +
+  scale_y_continuous(name = 'Percent of Patient-Days',
+                     limits = c(0, max(mobility.data$proportion)),
+                     breaks = seq(0, 1, 0.05), labels = paste0(seq(0, 1, 0.05)*100, '%')) +
+  labs(title = "Highest Level of Mobility Performed") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = 'bold'),
+        legend.position = 'top',
+        legend.margin = margin(t = 0, r = 0, l = 0, b = 0),
+        legend.justification = c(0, 0),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 1)
+
+@
+
+<<printmedinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
 latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + antipsyc.typ.icu +
                  antipsyc.atyp.icu + no.sedanal.icu ~ data.month,
                data = subset(compliance.site, comp.tracked)), file = '',
@@ -539,6 +619,11 @@ latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + ant
       caption.lot = 'Sedatives and Analgesics in the ICU',
       label = 'table:meds')
 
+drug.plot
+
+@
+
+<<printmobilityinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
 latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance.site, comp.tracked)),
       file = '',
       # landscape = TRUE,
@@ -553,6 +638,8 @@ latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance.si
       caption = 'Early Mobility in the ICU',
       caption.lot = 'Early Mobility in the ICU',
       label = 'table:mobility')
+
+mobility.plot
 
 @
 

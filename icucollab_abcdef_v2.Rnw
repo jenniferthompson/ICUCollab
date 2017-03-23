@@ -1609,11 +1609,12 @@ drug.plot <- ggplot(data = drug.data,
   labs(title = "Sedative and Analgesic Use") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(face = 'bold'),
-        legend.position = c(0.97, 0.85),
-        legend.justification = c(1, 1),
+        legend.position = 'top',
+        legend.margin = margin(t = 0, r = 0, l = 0, b = 0),
+        legend.justification = c(0, 0),
         legend.key = element_blank(),
         legend.title = element_blank(),
-        legend.background = element_rect(fill = alpha('grey95', 0.5)),
+        legend.text = element_text(size = 8),
         legend.text.align = 1)
 
 mobility.data <- compliance %>%
@@ -1650,11 +1651,12 @@ mobility.plot <- ggplot(data = mobility.data,
   labs(title = "Highest Level of Mobility Performed") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         plot.title = element_text(face = 'bold'),
-        legend.position = c(0.97, 0.05),
-        legend.justification = c(1, 0),
+        legend.position = 'top',
+        legend.margin = margin(t = 0, r = 0, l = 0, b = 0),
+        legend.justification = c(0, 0),
         legend.key = element_blank(),
         legend.title = element_blank(),
-        legend.background = element_rect(fill = alpha('grey95', 0.5)),
+        legend.text = element_text(size = 8),
         legend.text.align = 1)
 
 @
