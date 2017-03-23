@@ -1463,7 +1463,7 @@ at 90\%; for sedation and pain assessments, at 6 assessments per day; and for de
 at 2 assessments per day.
 
 \begin{landscape}
-<<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+<<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.a, box.asmts.a,
           plot.comp.region.a, box.asmts.region.a,
           layout = matrix(c(1, 1, 1, 1, 2, 2,
@@ -1475,7 +1475,10 @@ multiplot(plot.comp.a, box.asmts.a,
 
 @
 
-<<printcompliancefigs_b, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element B', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+\noindent \textbf{Assess, prevent and manage pain}: There was documentation that the patient received a minimum of 6 pain assessments in a 24-hour period using a PAD Guideline recommended instrument (i.e., self-report, NRS, BPS or CPOT).
+
+\clearpage
+<<printcompliancefigs_b, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element B', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
           plot.perf.region.b.sat, plot.perf.region.b.sbt, plot.perf.region.b.satsbt,
           layout = matrix(c(1, 1, 2, 2, 3, 3,
@@ -1487,7 +1490,13 @@ multiplot(plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
 
 @
 
-<<printcompliancefigs_c, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element C', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+\noindent \textbf{Both SAT and SBT}\\
+\textbf{Days on sedative}: In patients receiving continuously infused (CI) and/or scheduled intermittent sedatives/opioids, the patient passed a SAT safety screen and received a SAT in the 24 hours period.
+\textbf{Days on mechanical ventilation}: In patients receiving invasive mechanical ventilation (MV), the patient passed a SBT safety screen and received a SBT in the 24 hours period.
+In patients who received both a SAT and a SBT, the SAT was performed before a SBT in the prior 24 hours period.
+
+\clearpage
+<<printcompliancefigs_c, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element C', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.c, box.asmts.c,
           plot.comp.region.c, box.asmts.region.c,
           layout = matrix(c(1, 1, 1, 1, 2, 2,
@@ -1499,9 +1508,9 @@ multiplot(plot.comp.c, box.asmts.c,
 
 @
 
-\clearpage
-Table \ref{table:meds} describes sedative and analgesia use by month on days patients were in the ICU all 24 hours.
+\noindent \textbf{Choice of analgesia and sedation}: There was documentation that the patient received a minimum of 6 sedation/agitation assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., RASS, SAS).
 
+\clearpage
 <<printmedinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
 latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + antipsyc.typ.icu +
                  antipsyc.atyp.icu + no.sedanal.icu ~ data.month,
@@ -1523,7 +1532,8 @@ drug.plot
 
 @
 
-<<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+\clearpage
+<<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.d, box.asmts.d,
           plot.comp.region.d, box.asmts.region.d,
           layout = matrix(c(1, 1, 1, 1, 2, 2,
@@ -1535,16 +1545,18 @@ multiplot(plot.comp.d, box.asmts.d,
 
 @
 
-<<printcompliancefigs_e, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element E', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+\noindent \textbf{Delirium: assess, prevent and manage}: There was documentation that the patient received a minimum of 2 delirium assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., CAM-ICU, ICDSC).
+
+\clearpage
+<<printcompliancefigs_e, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element E', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.perf.e, plot.perf.region.e,
           layout = matrix(1:2, byrow = TRUE, nrow = 2))
 
 @
 
-\clearpage
-Table \ref{table:mobility} describes the highest level of mobility performed by month on days
-patients were in the ICU all 24 hours.
+\noindent \textbf{Early mobility and exercise}: There was documentation that the patient passed an early exercise/mobility safety screen and the patient received exercise/mobility in the prior 24 hours.
 
+\clearpage
 <<printmobilityinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
 latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance, comp.tracked)),
       file = '',
@@ -1565,12 +1577,16 @@ mobility.plot
 
 @
 
-<<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+\clearpage
+<<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.f, plot.comp.region.f,
           layout = matrix(1:2, byrow = TRUE, nrow = 2))
 
 @
 
+\noindent \textbf{Family engagement and empowerment}: Documentation at least once in a 24-hour period that a family member/significant other participated in rounds or a family conference or assisted with the plan of care or the ABCDEF Bundle Care or received education on the bundle elements.
+
+\clearpage
 <<printcompperffigs, results = 'asis', fig.cap = 'Compliance and Performance Over Time: Elements B and E, All Sites', fig.height = 5.5, fig.width = 10, fig.pos = 't', fig.align = 'center'>>=
 plot.compperf
 
@@ -1785,45 +1801,45 @@ latex(compliance.table.trans, file = '',
 
 @
 
-\clearpage
-\section{Data Definitions}
-\begin{table}[!h]
-\caption[Data Definitions]{Data Definitions\label{}}
-\begin{center}
-\begin{tabular}{lp{18cm}}
-\hline\hline
-\multicolumn{1}{l}{}&\multicolumn{1}{}{Compliance Definition}\tabularnewline
-\hline
-{\bfseries Days Compliance Was Tracked}&\tabularnewline
-~~ &Days where patient was in the ICU a full 24 hours during the 7 or 14 day period.\tabularnewline
-\hline
-{\bfseries Assess, prevent and manage pain}&\tabularnewline
-~~  &There was documentation that the patient received a minimum of 6 pain assessments in the 24 hour period using a PAD Guideline recommended instrument (i.e., self-report, NRS, BPS or CPOT).\tabularnewline\tabularnewline
-~~   &The number of pain assessments/day using self-report/NRS, BPS or CPOT that were documented in the nursing flowsheet.\tabularnewline
-\hline
-{\bfseries Both SAT and SBT}&\tabularnewline
-~~    &\textbf{Days on sedative:} In patients receiving continuously infused (CI) and/or scheduled intermittent sedatives/opioids, the patient passed a SAT safety screen and received a SAT in the 24 hours period.\tabularnewline\tabularnewline
-~~     &\textbf{Days on mechanical ventilation:} In patients receiving invasive mechanical ventilation (MV), the patient passed a SBT safety screen and received a SBT in the 24 hours period.\tabularnewline\tabularnewline
-~~      &In patients who received both a SAT and a SBT, the SAT was performed before a SBT in the prior 24 hours period.\tabularnewline
-\hline
-{\bfseries Choice of analgesia and sedation}&\tabularnewline
-~~       &There was documentation that the patient received a minimum of 6 sedation/agitation assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., RASS, SAS).\tabularnewline\tabularnewline
-~~        &The number of sedation assessments/day using the RASS or SAS that were documented in the nursing flowsheet.\tabularnewline
-\hline
-{\bfseries Delirium: assess, prevent and manage}&\tabularnewline
-~~         &There was documentation that the patient received a minimum of 2 delirium assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., CAM-ICU, ICDSC).\tabularnewline\tabularnewline
-~~          &The number of delirium assessments/day using the CAM-ICU or ICDSC that were documented in the nursing flowsheet.\tabularnewline
-\hline
-{\bfseries Early mobility and exercise}&\tabularnewline
-~~           &There was documentation that the patient passed an early exercise/mobility safety screen and the patient received exercise/mobility in the prior 24 hours.\tabularnewline\tabularnewline
-~~           &\emph{Early exercise/mobility is defined as, at a minimum, sitting assisted or unassisted at the edge of bed (i.e., active and passive range of motion, or passive bed to chair transfers not included).}\tabularnewline
-\hline
-{\bfseries Family engagement and empowerment}&\tabularnewline
-~~            &Documentation at least once in a 24-hour period that a family member/significant other participated in rounds or a family conference or assisted with the plan of care or the ABCDEF Bundle Care or received education on the bundle elements.\tabularnewline
-\hline
-\end{tabular}\end{center}
-
-\end{table}
+% \clearpage
+% \section{Data Definitions}
+% \begin{table}[!h]
+% \caption[Data Definitions]{Data Definitions\label{}}
+% \begin{center}
+% \begin{tabular}{lp{18cm}}
+% \hline\hline
+% \multicolumn{1}{l}{}&\multicolumn{1}{}{Compliance Definition}\tabularnewline
+% \hline
+% {\bfseries Days Compliance Was Tracked}&\tabularnewline
+% ~~ &Days where patient was in the ICU a full 24 hours during the 7 or 14 day period.\tabularnewline
+% \hline
+% {\bfseries Assess, prevent and manage pain}&\tabularnewline
+% ~~  &There was documentation that the patient received a minimum of 6 pain assessments in the 24 hour period using a PAD Guideline recommended instrument (i.e., self-report, NRS, BPS or CPOT).\tabularnewline\tabularnewline
+% ~~   &The number of pain assessments/day using self-report/NRS, BPS or CPOT that were documented in the nursing flowsheet.\tabularnewline
+% \hline
+% {\bfseries Both SAT and SBT}&\tabularnewline
+% ~~    &\textbf{Days on sedative:} In patients receiving continuously infused (CI) and/or scheduled intermittent sedatives/opioids, the patient passed a SAT safety screen and received a SAT in the 24 hours period.\tabularnewline\tabularnewline
+% ~~     &\textbf{Days on mechanical ventilation:} In patients receiving invasive mechanical ventilation (MV), the patient passed a SBT safety screen and received a SBT in the 24 hours period.\tabularnewline\tabularnewline
+% ~~      &In patients who received both a SAT and a SBT, the SAT was performed before a SBT in the prior 24 hours period.\tabularnewline
+% \hline
+% {\bfseries Choice of analgesia and sedation}&\tabularnewline
+% ~~       &There was documentation that the patient received a minimum of 6 sedation/agitation assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., RASS, SAS).\tabularnewline\tabularnewline
+% ~~        &The number of sedation assessments/day using the RASS or SAS that were documented in the nursing flowsheet.\tabularnewline
+% \hline
+% {\bfseries Delirium: assess, prevent and manage}&\tabularnewline
+% ~~         &There was documentation that the patient received a minimum of 2 delirium assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., CAM-ICU, ICDSC).\tabularnewline\tabularnewline
+% ~~          &The number of delirium assessments/day using the CAM-ICU or ICDSC that were documented in the nursing flowsheet.\tabularnewline
+% \hline
+% {\bfseries Early mobility and exercise}&\tabularnewline
+% ~~           &There was documentation that the patient passed an early exercise/mobility safety screen and the patient received exercise/mobility in the prior 24 hours.\tabularnewline\tabularnewline
+% ~~           &\emph{Early exercise/mobility is defined as, at a minimum, sitting assisted or unassisted at the edge of bed (i.e., active and passive range of motion, or passive bed to chair transfers not included).}\tabularnewline
+% \hline
+% {\bfseries Family engagement and empowerment}&\tabularnewline
+% ~~            &Documentation at least once in a 24-hour period that a family member/significant other participated in rounds or a family conference or assisted with the plan of care or the ABCDEF Bundle Care or received education on the bundle elements.\tabularnewline
+% \hline
+% \end{tabular}\end{center}
+%
+% \end{table}
 
 \end{landscape}
 
@@ -1831,8 +1847,8 @@ latex(compliance.table.trans, file = '',
 <<complianceonly>>=
 ## -- Function to plot compliance percentage over time, all sites only -----------------------------
 ## Colors, using viridis package, trying to coordinate with SCCM PPT template
-comp.color <- "#003E79"
-perf.color <- "#007D51"
+comp.color <- as.character(magglass.colors['f'])
+perf.color <- as.character(magglass.colors['c'])
 
 plot.compliance.mtg <- function(compvar,
                                 ytitle,

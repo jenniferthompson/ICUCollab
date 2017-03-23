@@ -623,7 +623,7 @@ iculos.summary.regiontype <- demog %>%
             q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE))
 
 ## -- Create a report for each site ----------------------------------------------------------------
-for(site in sort(unique(demog$hosp.f))[1:3]){
+for(site in sort(unique(demog$hosp.f))){
   demog.site <- subset(demog, hosp.f == site & !is.na(data.time))
   n.each.time <- table(demog.site$data.time)
 
