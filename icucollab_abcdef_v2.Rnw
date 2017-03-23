@@ -674,9 +674,14 @@ comp.summary.overall <- compliance %>%
             days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
             pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
             days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
-            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+            total.elem.elig = sum(elements.elig, na.rm = TRUE),
+            total.elem.comp = sum(elements.comp, na.rm = TRUE),
+            total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
-  mutate(hosp.type = 'All sites',
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         hosp.type = 'All sites',
          line.alpha = 1)
 
 comp.summary.type <- compliance %>%
@@ -747,9 +752,14 @@ comp.summary.type <- compliance %>%
             days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
             pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
             days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
-            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+            total.elem.elig = sum(elements.elig, na.rm = TRUE),
+            total.elem.comp = sum(elements.comp, na.rm = TRUE),
+            total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.type)) %>%
-  mutate(line.alpha = 2)
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         line.alpha = 2)
 
 comp.summary <- bind_rows(comp.summary.overall, comp.summary.type) %>%
   mutate(line.alpha.f = factor(line.alpha, levels = 1:2, labels = c('All sites', 'Site subtype')))
@@ -822,9 +832,14 @@ comp.summary.region <- compliance %>%
             days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
             pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
             days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
-            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+            total.elem.elig = sum(elements.elig, na.rm = TRUE),
+            total.elem.comp = sum(elements.comp, na.rm = TRUE),
+            total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region)) %>%
-  mutate(hosp.type = 'All types',
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         hosp.type = 'All types',
          line.alpha = 1)
 
 comp.summary.regiontype <- compliance %>%
@@ -894,9 +909,14 @@ comp.summary.regiontype <- compliance %>%
             days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
             pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
             days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
-            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
+            pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+            total.elem.elig = sum(elements.elig, na.rm = TRUE),
+            total.elem.comp = sum(elements.comp, na.rm = TRUE),
+            total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region) & !is.na(hosp.type)) %>%
-  mutate(line.alpha = 2)
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         line.alpha = 2)
 
 comp.summary.region.plot <- bind_rows(comp.summary.region, comp.summary.regiontype) %>%
   mutate(line.alpha.f = factor(line.alpha, levels = 1:2, labels = c('All sites', 'Site subtype')))
@@ -1149,6 +1169,24 @@ plot.perf.bundle <-
                                 na.rm = TRUE)),
                   ybreaks = 0.05) +
   labs(title = 'ABCDEF Bundle Performance')
+plot.comp.elements <- plot.compliance('pct.elem.comp',
+                                      'Percent of Bundle Elements Compliant',
+                                      ylims = c(0,
+                                                max(comp.summary[,c('pct.elem.comp',
+                                                                    'pct.elem.perf')],
+                                                    na.rm = TRUE)),
+                                      ybreaks = 0.05) +
+  labs(title = 'ABCDEF Bundle Element Compliance',
+       subtitle = 'Bundle elements compliant / bundle elements eligible')
+plot.perf.elements <- plot.compliance('pct.elem.perf',
+                                      'Percent of Bundle Elements Performed',
+                                      ylims = c(0,
+                                                max(comp.summary[,c('pct.elem.comp',
+                                                                    'pct.elem.perf')],
+                                                    na.rm = TRUE)),
+                                      ybreaks = 0.05) +
+  labs(title = 'ABCDEF Bundle Element Performance',
+       subtitle = 'Bundle elements performed / bundle elements eligible')
 
 ## -- Function to plot number of assessments over time ---------------------------------------------
 plot.assessments <- function(asmtvar){
@@ -1285,6 +1323,22 @@ plot.perf.region.bundle <-
                          ylims = c(0,
                                    max(comp.summary.region.plot[,c('pct.comp.bundle',
                                                                    'pct.perf.bundle')],
+                                       na.rm = TRUE)),
+                         ybreaks = 0.05)
+plot.comp.region.elements <-
+  plot.compliance.region('pct.elem.comp',
+                         'Compliant Bundle Elements',
+                         ylims = c(0,
+                                   max(comp.summary.region.plot[,c('pct.elem.comp',
+                                                                   'pct.elem.perf')],
+                                       na.rm = TRUE)),
+                         ybreaks = 0.05)
+plot.perf.region.elements <-
+  plot.compliance.region('pct.elem.perf',
+                         'Performed Bundle Elements',
+                         ylims = c(0,
+                                   max(comp.summary.region.plot[,c('pct.elem.comp',
+                                                                   'pct.elem.perf')],
                                        na.rm = TRUE)),
                          ybreaks = 0.05)
 
@@ -1507,6 +1561,13 @@ multiplot(plot.comp.f, plot.comp.region.f,
 
 <<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
 multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.region.bundle, plot.perf.region.bundle,
+          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
+
+@
+
+<<printelementfigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Elements Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.comp.elements, plot.perf.elements,
+          plot.comp.region.elements, plot.perf.region.elements,
           layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
 
 @
