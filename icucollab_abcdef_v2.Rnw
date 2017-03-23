@@ -551,53 +551,11 @@ quantile.example <- quantile(subset(demog, data.time == 'Retrospective')$icu.los
 @
 
 % \clearpage
-\section{Entire Cohort}
-\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
-Table \ref{table:descstats} describes the patients whose data was collected during the retrospective
-and prospective data collection period. There are
-\Sexpr{format(length(unique(demog$id)), big.mark = ',')} unique patient IDs with data recorded up to
-month \Sexpr{last.month}; of these,
-\Sexpr{format(length(unique(subset(demog, data.time == 'Retrospective')$id)), big.mark = ',')} were
-collected during the retrospective period (months 1-6), and
-\Sexpr{format(length(unique(subset(demog, data.time == 'Prospective')$id)), big.mark = ',')} were
-collected during the prospective period (months 7-\Sexpr{last.month}). (In addition,
-\Sexpr{nomonth.ids} patients had no ``month" entered in the database and therefore cannot be counted
-when comparing the two cohorts\Sexpr{afterlastmonth.sentence}.)
-
-For continuous variables (like hours of invasive ventilation), the 25th, 50th, and 75th percentiles
-are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
-
-For example, for ICU length of stay in the retrospective cohort (see Table \ref{table:descstats}),
-25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had
-\Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
-\Sexpr{quantile.example['75%']} or fewer days in the ICU.
-
-<<desccohort>>=
-desc.all <- summaryM(hosp.region + agecat.f + sex.f + race.f + hispanic.f + english.f +
-                       ever.invas.vent + hrs.invas.vent + ever.noninvas.vent +
-                       hrs.noninvas.vent + ever.delirious + days.delirium.ever + ever.comatose +
-                       days.coma.ever + icu.los + hosp.losv + dc.status.f ~ data.time,
-                     data = demog)
-
-@
-
-<<printdesccohort, results = 'asis'>>=
-my.print.summaryM(desc.all,
-                  caption = 'Description of Entire Cohort',
-                  caption.lot = 'Description of Entire Cohort',
-                  exclude1 = TRUE,
-                  label = 'table:descstats')
-
-@
-
-\begin{landscape}
+%\begin{landscape}
 \section{ABCDEF Bundle Compliance and Performance}
-Table \ref{table:compliance} presents compliance results by time period for all parts of the ABCDEF
-Bundle. For elements A, C, D, and E, the proportion of days compliant is out of all days where the
-patient was in the ICU the full 24 hours (row 1 in table). For element B, the proportion of SAT
-compliance is out of all days the patient was in the ICU the full 24 hours and on either continuous or intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For element F, the proportion of compliance is out of all days where a family member or significant other was present.
-
-The number of pain, sedation and delirium assessments are described using the median (25th, 75th percentiles). The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a "typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+For elements A, C, D, and E, the proportion of days compliant is out of all days where the
+patient was in the ICU the full 24 hours. For element B, the proportion of SAT compliance is out of
+all days the patient was in the ICU the full 24 hours and on either continuous or intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For element F, the proportion of compliance is out of all days where a family member or significant other was present.
 
 <<compdatamgmt>>=
 ## -- Summarize compliance for each month ----------------------------------------------------------
@@ -1417,170 +1375,7 @@ plot.compperf <-
 
 @
 
-\subsection{Compliance on Days Patient in ICU All 24 Hours}
-<<printcompliancetable, results = 'asis'>>=
-latex(compliance.table, file = '',
-      # landscape = TRUE,
-      where = '!h',
-      title = '',
-      caption = 'ABCDEF Bundle Protocol Compliance and Performance',
-      caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance',
-      label = 'table:compliance',
-      size = 'tiny',
-      rgroup = c('',
-                 'A: Assess...*',
-                 'B: Both...**',
-                 'C: Choice...***',
-                 'D: Delirium...****',
-                 'E: Early...*****',
-                 'F: Family...******',
-                 'ABCDEF Bundle'),
-      n.rgroup = c(1, 2, 8, 2, 2, 2, 2, 2),
-      colheads = c('Retro.', paste0('M', 7:last.month)),
-      col.just = rep('r', ncol(compliance.table)),
-      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
-      insert.bottom = '\\emph{* ``Assess, prevent, and manage pain"; ** ``Both SAT and SBT"; *** ``Choice of analgesia and sedation"; **** ``Delirium - assess, prevent, and manage pain"; *****``Early mobility and exercise"; ****** ``Family engagement and empowerment"}')
-
-@
-
-%' \end{landscape}
-%'
-%' <<printcompliancefigs, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance Over Time', fig.width = 7, fig.height = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-%' multiplot(plot.comp.a, box.asmts.a,
-%'           plot.comp.b.sat, plot.comp.b.sbt, plot.comp.b.satsbt,
-%'           plot.comp.c, box.asmts.c,
-%'           plot.comp.d, box.asmts.d,
-%'           plot.comp.e, plot.comp.f,
-%'           layout = matrix(c(1, 1, 1, 1, 2, 2,
-%'                             3, 3, 4, 4, 5, 5,
-%'                             6, 6, 6, 6, 7, 7,
-%'                             8, 8, 8, 8, 9, 9,
-%'                             10, 10, 10, 11, 11, 11),
-%'                           byrow = TRUE, nrow = 5))
-%'
-%' @
-
-In Figures \ref{fig:printcompliancefigs_a}-\ref{fig:printcompliancefigs_f}, the overall compliance
-data shown above is presented visually (darkest line in main panels); in addition, we present data
-specific to community and teaching hospitals nationwide, and add panels with the same information
-specific to each region (WC = West Coast; MW = Midwest; EC = East Coast). Reference lines are added
-to indicate ``compliance" for each panel: For overall compliance/performance, the bar is set at
-90\%; for sedation and pain assessments, at 6 assessments per day; and for delirium assessments, at
-2 assessments per day.
-
-\clearpage
-\subsection{Compliance on Days Patient in ICU All 24 Hours + Last ICU Day}
-Elements A, C, D and E rely on a full 24 hours of information; therefore, days of ICU transfer, when
-the patient is in the ICU less than 24 hours, cannot be included in describing compliance for those elements.
-For elements B and F, we present compliance and performance information on all days the patient was
-either in the ICU the entire 24 hours, or was transferred or died.
-
-<<printcompliancetabletrans, results = 'asis'>>=
-latex(compliance.table.trans, file = '',
-      # landscape = TRUE,
-      where = '!h',
-      title = '',
-      caption = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
-      caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
-      label = 'table:compliancetrans',
-      size = 'tiny',
-      rgroup = c('',
-                 # 'A: Assess...*',
-                 'B: Both...*',
-                 # 'C: Choice...***',
-                 # 'D: Delirium...****',
-                 # 'E: Early...*****',
-                 'F: Family...**'),
-      n.rgroup = c(1, 8, 2),
-      colheads = c('Retro.', paste0('M', 7:last.month)),
-      col.just = rep('r', ncol(compliance.table.trans)),
-      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
-      insert.bottom = '\\emph{* ``Both SAT and SBT"; ** ``Family engagement and empowerment"}')
-
-@
-
-<<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(plot.comp.a, box.asmts.a,
-          plot.comp.region.a, box.asmts.region.a,
-          layout = matrix(c(1, 1, 1, 1, 2, 2,
-                            1, 1, 1, 1, 2, 2,
-                            1, 1, 1, 1, 2, 2,
-                            3, 3, 3, 3, 4, 4,
-                            3, 3, 3, 3, 4, 4),
-                          byrow = TRUE, nrow = 5))
-
-@
-
-<<printcompliancefigs_b, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element B', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
-          plot.perf.region.b.sat, plot.perf.region.b.sbt, plot.perf.region.b.satsbt,
-          layout = matrix(c(1, 1, 2, 2, 3, 3,
-                            1, 1, 2, 2, 3, 3,
-                            1, 1, 2, 2, 3, 3,
-                            4, 4, 5, 5, 6, 6,
-                            4, 4, 5, 5, 6, 6),
-                          byrow = TRUE, nrow = 5))
-
-@
-
-<<printcompliancefigs_c, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element C', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(plot.comp.c, box.asmts.c,
-          plot.comp.region.c, box.asmts.region.c,
-          layout = matrix(c(1, 1, 1, 1, 2, 2,
-                            1, 1, 1, 1, 2, 2,
-                            1, 1, 1, 1, 2, 2,
-                            3, 3, 3, 3, 4, 4,
-                            3, 3, 3, 3, 4, 4),
-                          byrow = TRUE, nrow = 5))
-
-@
-
-<<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
-multiplot(plot.comp.d, box.asmts.d,
-          plot.comp.region.d, box.asmts.region.d,
-          layout = matrix(c(1, 1, 1, 1, 2, 2,
-                            1, 1, 1, 1, 2, 2,
-                            1, 1, 1, 1, 2, 2,
-                            3, 3, 3, 3, 4, 4,
-                            3, 3, 3, 3, 4, 4),
-                          byrow = TRUE, nrow = 5))
-
-@
-
-<<printcompliancefigs_e, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element E', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
-multiplot(plot.perf.e, plot.perf.region.e,
-          layout = matrix(1:2, byrow = TRUE, nrow = 2))
-
-@
-
-<<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
-multiplot(plot.comp.f, plot.comp.region.f,
-          layout = matrix(1:2, byrow = TRUE, nrow = 2))
-
-@
-
-<<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
-multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.region.bundle, plot.perf.region.bundle,
-          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
-
-@
-
-<<printelementfigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Elements Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
-multiplot(plot.comp.elements, plot.perf.elements,
-          plot.comp.region.elements, plot.perf.region.elements,
-          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
-
-@
-
-<<printcompperffigs, results = 'asis', fig.cap = 'Compliance and Performance Over Time: Elements B and E, All Sites', fig.height = 5.5, fig.width = 10, fig.pos = 't', fig.align = 'center'>>=
-plot.compperf
-
-@
-
-\clearpage
-Tables \ref{table:meds}-\ref{table:mobility} describe sedative and analgesia use, as well as the
-highest level of mobility performed, on days patients were in the ICU all 24 hours.
-
+%% -- Create figures for medications, mobility -----------------------------------------------------
 <<medmobilityfigure>>=
 drug.data <- compliance %>%
   group_by(data.month.short) %>%
@@ -1661,6 +1456,52 @@ mobility.plot <- ggplot(data = mobility.data,
 
 @
 
+\section{Compliance by Bundle Element}
+The following charts present data for all sites; data specific to community and teaching hospitals nationwide; data by region (WC = West Coast; MW = Midwest; EC = East Coast). Reference lines are
+added to indicate ``compliance" for each panel: For overall compliance/performance, the bar is set
+at 90\%; for sedation and pain assessments, at 6 assessments per day; and for delirium assessments,
+at 2 assessments per day.
+
+\begin{landscape}
+<<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.a, box.asmts.a,
+          plot.comp.region.a, box.asmts.region.a,
+          layout = matrix(c(1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            3, 3, 3, 3, 4, 4,
+                            3, 3, 3, 3, 4, 4),
+                          byrow = TRUE, nrow = 5))
+
+@
+
+<<printcompliancefigs_b, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element B', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
+          plot.perf.region.b.sat, plot.perf.region.b.sbt, plot.perf.region.b.satsbt,
+          layout = matrix(c(1, 1, 2, 2, 3, 3,
+                            1, 1, 2, 2, 3, 3,
+                            1, 1, 2, 2, 3, 3,
+                            4, 4, 5, 5, 6, 6,
+                            4, 4, 5, 5, 6, 6),
+                          byrow = TRUE, nrow = 5))
+
+@
+
+<<printcompliancefigs_c, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element C', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.c, box.asmts.c,
+          plot.comp.region.c, box.asmts.region.c,
+          layout = matrix(c(1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            3, 3, 3, 3, 4, 4,
+                            3, 3, 3, 3, 4, 4),
+                          byrow = TRUE, nrow = 5))
+
+@
+
+\clearpage
+Table \ref{table:meds} describes sedative and analgesia use by month on days patients were in the ICU all 24 hours.
+
 <<printmedinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
 latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + antipsyc.typ.icu +
                  antipsyc.atyp.icu + no.sedanal.icu ~ data.month,
@@ -1682,6 +1523,28 @@ drug.plot
 
 @
 
+<<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.d, box.asmts.d,
+          plot.comp.region.d, box.asmts.region.d,
+          layout = matrix(c(1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            1, 1, 1, 1, 2, 2,
+                            3, 3, 3, 3, 4, 4,
+                            3, 3, 3, 3, 4, 4),
+                          byrow = TRUE, nrow = 5))
+
+@
+
+<<printcompliancefigs_e, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element E', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.perf.e, plot.perf.region.e,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+\clearpage
+Table \ref{table:mobility} describes the highest level of mobility performed by month on days
+patients were in the ICU all 24 hours.
+
 <<printmobilityinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
 latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance, comp.tracked)),
       file = '',
@@ -1699,6 +1562,30 @@ latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance, c
       label = 'table:mobility')
 
 mobility.plot
+
+@
+
+<<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.comp.f, plot.comp.region.f,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+<<printcompperffigs, results = 'asis', fig.cap = 'Compliance and Performance Over Time: Elements B and E, All Sites', fig.height = 5.5, fig.width = 10, fig.pos = 't', fig.align = 'center'>>=
+plot.compperf
+
+@
+
+<<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.region.bundle, plot.perf.region.bundle,
+          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
+
+@
+
+<<printelementfigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Elements Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.comp.elements, plot.perf.elements,
+          plot.comp.region.elements, plot.perf.region.elements,
+          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
 
 @
 
@@ -1791,6 +1678,111 @@ icu.los.plot.all <- ggplot(data = icu.los.plot.data, aes(x = data.month)) +
 
 <<printiculos, results = 'asis', fig.cap = 'ICU Length of Stay by Month', fig.height = 4.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 icu.los.plot.all
+@
+
+\end{landscape}
+
+\section{Cohort Description}
+\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
+Table \ref{table:descstats} describes the patients whose data was collected during the retrospective
+and prospective data collection period. There are
+\Sexpr{format(length(unique(demog$id)), big.mark = ',')} unique patient IDs with data recorded up to
+month \Sexpr{last.month}; of these,
+\Sexpr{format(length(unique(subset(demog, data.time == 'Retrospective')$id)), big.mark = ',')} were
+collected during the retrospective period (months 1-6), and
+\Sexpr{format(length(unique(subset(demog, data.time == 'Prospective')$id)), big.mark = ',')} were
+collected during the prospective period (months 7-\Sexpr{last.month}). (In addition,
+\Sexpr{nomonth.ids} patients had no ``month" entered in the database and therefore cannot be counted
+when comparing the two cohorts\Sexpr{afterlastmonth.sentence}.)
+
+For continuous variables (like hours of invasive ventilation), the 25th, 50th, and 75th percentiles
+are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+
+For example, for ICU length of stay in the retrospective cohort (see Table \ref{table:descstats}),
+25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had
+\Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
+\Sexpr{quantile.example['75%']} or fewer days in the ICU.
+
+<<desccohort>>=
+desc.all <- summaryM(hosp.region + agecat.f + sex.f + race.f + hispanic.f + english.f +
+                       ever.invas.vent + hrs.invas.vent + ever.noninvas.vent +
+                       hrs.noninvas.vent + ever.delirious + days.delirium.ever + ever.comatose +
+                       days.coma.ever + icu.los + hosp.losv + dc.status.f ~ data.time,
+                     data = demog)
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
+                  exclude1 = TRUE,
+                  label = 'table:descstats')
+
+@
+
+\begin{landscape}
+\subsection{Compliance on Days Patient in ICU All 24 Hours}
+This table presents data shown in Figures \ref{fig:printcompliancefigs_a}-\ref{fig:printcompliancefigs_f} in tabular form. For elements A, C, D, and E, the proportion of days compliant is out of all
+days where the patient was in the ICU the full 24 hours (row 1 in table). For element B, the
+proportion of SAT compliance is out of all days the patient was in the ICU the full 24 hours and on either continuous or intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For element F, the proportion of compliance is out of all days where a family member or significant other was present.
+
+The number of pain, sedation and delirium assessments are described using the median (25th, 75th percentiles). The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a "typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+
+<<printcompliancetable, results = 'asis'>>=
+latex(compliance.table, file = '',
+      # landscape = TRUE,
+      where = '!h',
+      title = '',
+      caption = 'ABCDEF Bundle Protocol Compliance and Performance',
+      caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance',
+      label = 'table:compliance',
+      size = 'tiny',
+      rgroup = c('',
+                 'A: Assess...*',
+                 'B: Both...**',
+                 'C: Choice...***',
+                 'D: Delirium...****',
+                 'E: Early...*****',
+                 'F: Family...******',
+                 'ABCDEF Bundle'),
+      n.rgroup = c(1, 2, 8, 2, 2, 2, 2, 2),
+      colheads = c('Retro.', paste0('M', 7:last.month)),
+      col.just = rep('r', ncol(compliance.table)),
+      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
+      insert.bottom = '\\emph{* ``Assess, prevent, and manage pain"; ** ``Both SAT and SBT"; *** ``Choice of analgesia and sedation"; **** ``Delirium - assess, prevent, and manage pain"; *****``Early mobility and exercise"; ****** ``Family engagement and empowerment"}')
+
+@
+
+\clearpage
+\subsection{Compliance on Days Patient in ICU All 24 Hours + Last ICU Day}
+Elements A, C, D and E rely on a full 24 hours of information; therefore, days of ICU transfer, when
+the patient is in the ICU less than 24 hours, cannot be included in describing compliance for those elements.
+For elements B and F, we present compliance and performance information on all days the patient was
+either in the ICU the entire 24 hours, or was transferred or died.
+
+<<printcompliancetabletrans, results = 'asis'>>=
+latex(compliance.table.trans, file = '',
+      # landscape = TRUE,
+      where = '!h',
+      title = '',
+      caption = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
+      caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance, Including Last ICU Day',
+      label = 'table:compliancetrans',
+      size = 'tiny',
+      rgroup = c('',
+                 # 'A: Assess...*',
+                 'B: Both...*',
+                 # 'C: Choice...***',
+                 # 'D: Delirium...****',
+                 # 'E: Early...*****',
+                 'F: Family...**'),
+      n.rgroup = c(1, 8, 2),
+      colheads = c('Retro.', paste0('M', 7:last.month)),
+      col.just = rep('r', ncol(compliance.table.trans)),
+      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
+      insert.bottom = '\\emph{* ``Both SAT and SBT"; ** ``Family engagement and empowerment"}')
+
 @
 
 \clearpage
