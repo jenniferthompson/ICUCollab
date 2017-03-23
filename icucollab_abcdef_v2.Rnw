@@ -34,8 +34,6 @@ library(Hmisc)
 library(JTHelpers)
 library(tidyverse)
 library(devtools)
-library(wesanderson)
-library(viridis)
 
 ## What's the last month that should be included in the report?
 last.month <- 20
@@ -1040,9 +1038,14 @@ colnames(compliance.table.trans) <- levels(demog$data.month)
 
 ## -- Function to plot compliance percentage over time --------------------------------------------
 ## Shade for reference lines
-ref.line.shade <- '#D38482'
+ref.line.shade <- as.character(magglass.colors['f'])
 
-plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), refline.size = 1.5){
+plot.compliance <- function(compvar,
+                            ytitle,
+                            ylims = c(0, 1),
+                            ybreaks = 0.2,
+                            put.legend = c('bottom', 'top'),
+                            refline.size = 1.5){
 
   put.legend <- match.arg(put.legend)
   if(put.legend == 'top'){
@@ -1060,16 +1063,17 @@ plot.compliance <- function(compvar, ytitle, put.legend = c('bottom', 'top'), re
     geom_point() +
     scale_x_discrete(name = '') +
     scale_y_continuous(name = ytitle,
-                       limits = c(0, 1),
-                       breaks = seq(0, 1, 0.2),
-                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
-    scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '') +
-    scale_alpha_manual(values = c(1, 0.5, 0.5), guide = 'none') +
-    theme(legend.position = c(0.01, legend.y),
-          legend.justification = c(0, 0),
+                       limits = ylims,
+                       breaks = seq(0, 1, ybreaks),
+                       labels = paste0(seq(0, 1, ybreaks)*100, '%')) +
+    scale_colour_manual(values = as.character(magglass.colors[c(6, 1, 3)]), name = '') +
+    scale_alpha_manual(values = c(1, 0.75, 0.75), guide = 'none') +
+    theme(legend.position = c(0.98, legend.y),
+          legend.justification = c(1, 0),
           legend.direction = 'vertical',
           legend.title = element_blank(),
-          legend.text = element_text(size = 7),
+          legend.text = element_text(size = 8),
+          legend.text.align = 1,
           legend.background = element_blank(),
           legend.key = element_blank(),
           legend.key.size = unit(0.5, 'lines'),
@@ -1115,11 +1119,13 @@ plot.comp.d <- plot.compliance('pct.comp.d', 'Delirium Asmt Compliance Out of Al
   labs(title = 'D: Delirium - assess, prevent and manage') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Compliance Out of All ICU Days',
-                               put.legend = 'top', refline.size = 1) +
+                               #put.legend = 'top',
+                               refline.size = 1) +
   labs(title = 'E: Early mobility and exercise') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.perf.e <- plot.compliance('pct.perf.e', 'Early Mobility Performance Out of All ICU Days',
-                               put.legend = 'top', refline.size = 1) +
+                               #put.legend = 'top',
+                               refline.size = 1) +
   labs(title = 'E: Early mobility and exercise') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
 plot.comp.f <- plot.compliance('pct.comp.f',
@@ -1127,13 +1133,21 @@ plot.comp.f <- plot.compliance('pct.comp.f',
                                refline.size = 1) +
   labs(title = 'F: Family engagement') +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.bundle <- plot.compliance('pct.comp.bundle',
-                                    'Overall ABCDEF Bundle Compliance',
-                                    put.legend = 'top') +
+plot.comp.bundle <-
+  plot.compliance('pct.comp.bundle',
+                  'Overall ABCDEF Bundle Compliance',
+                  ylims = c(0,
+                            max(comp.summary[,c('pct.comp.bundle', 'pct.perf.bundle')],
+                                na.rm = TRUE)),
+                  ybreaks = 0.05) +
   labs(title = 'ABCDEF Bundle Compliance')
-plot.perf.bundle <- plot.compliance('pct.perf.bundle',
-                                    'Overall ABCDEF Bundle Performance',
-                                    put.legend = 'top') +
+plot.perf.bundle <-
+  plot.compliance('pct.perf.bundle',
+                  'Overall ABCDEF Bundle Performance',
+                  ylims = c(0,
+                            max(comp.summary[,c('pct.comp.bundle', 'pct.perf.bundle')],
+                                na.rm = TRUE)),
+                  ybreaks = 0.05) +
   labs(title = 'ABCDEF Bundle Performance')
 
 ## -- Function to plot number of assessments over time ---------------------------------------------
@@ -1141,12 +1155,11 @@ plot.assessments <- function(asmtvar){
   ggplot(data = subset(compliance, comp.tracked & !is.na(data.month.short)),
          aes_string(x = 'data.month.short', y = asmtvar)) +
     geom_vline(xintercept = 1.5, colour = 'white', size = 1) +
-    geom_boxplot(fill = wes_palette('GrandBudapest')[3],
-                 colour = wes_palette('GrandBudapest')[3],
+    geom_boxplot(fill = as.character(magglass.colors['f']),
+                 colour = as.character(magglass.colors['f']),
                  outlier.shape = NA,
                  # outlier.size = 0.5,
                  alpha = 0.4) +
-    scale_colour_manual(values = wes_palette('GrandBudapest')[c(2, 1)], guide = 'none') +
     scale_x_discrete(name = '') +
     theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1, vjust = 1),
           axis.text.y = element_text(size = 6, hjust = 1),
@@ -1171,6 +1184,8 @@ box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu') +
 ## -- Figures by region ----------------------------------------------------------------------------
 plot.compliance.region <- function(compvar,
                                    ytitle,
+                                   ylims = c(0, 1),
+                                   ybreaks = 0.2,
                                    put.legend = c('bottom', 'top'), refline.size = 0.75){
 
   put.legend <- match.arg(put.legend)
@@ -1190,10 +1205,10 @@ plot.compliance.region <- function(compvar,
     geom_point(size = 0.75) +
     scale_x_discrete(name = '') +
     scale_y_continuous(name = ytitle,
-                       limits = c(0, 1),
-                       breaks = seq(0, 1, 0.2),
-                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
-    scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], guide = 'none') +
+                       limits = ylims,
+                       breaks = seq(0, 1, ybreaks),
+                       labels = paste0(seq(0, 1, ybreaks)*100, '%')) +
+    scale_colour_manual(values = as.character(magglass.colors[c(6, 1, 3)]), guide = 'none') +
     scale_alpha_manual(values = c(1, 0.5, 0.5), guide = 'none') +
     theme(legend.position = c(0, legend.y),
           legend.justification = c(0, 0),
@@ -1256,22 +1271,33 @@ plot.comp.region.f <-
                          'Family Engagement Compliance\nOut of All ICU Days Family Present',
                          refline.size = 1) +
   theme(plot.title = element_text(hjust = 0, face = 'bold'))
-plot.comp.region.bundle <- plot.compliance.region('pct.comp.bundle',
-                                                  'ABCDEF Bundle Compliance')
-plot.perf.region.bundle <- plot.compliance.region('pct.perf.bundle',
-                                                  'ABCDEF Bundle Performance')
+plot.comp.region.bundle <-
+  plot.compliance.region('pct.comp.bundle',
+                         'ABCDEF Bundle Compliance',
+                         ylims = c(0,
+                                   max(comp.summary.region.plot[,c('pct.comp.bundle',
+                                                                   'pct.perf.bundle')],
+                                       na.rm = TRUE)),
+                         ybreaks = 0.05)
+plot.perf.region.bundle <-
+  plot.compliance.region('pct.perf.bundle',
+                         'ABCDEF Bundle Performance',
+                         ylims = c(0,
+                                   max(comp.summary.region.plot[,c('pct.comp.bundle',
+                                                                   'pct.perf.bundle')],
+                                       na.rm = TRUE)),
+                         ybreaks = 0.05)
 
 plot.assessments.region <- function(asmtvar){
   ggplot(data = subset(compliance, comp.tracked & !is.na(data.month.short)),
          aes_string(x = 'data.month.short', y = asmtvar)) +
     facet_wrap(~ hosp.region, nrow = 1) +
     geom_vline(xintercept = 1.5, colour = 'white', size = 0.6) +
-    geom_boxplot(fill = wes_palette('GrandBudapest')[3],
-                 colour = wes_palette('GrandBudapest')[3],
+    geom_boxplot(fill = as.character(magglass.colors['f']),
+                 colour = as.character(magglass.colors['f']),
                  outlier.shape = NA,
                  # outlier.size = 0.5,
                  alpha = 0.4) +
-    scale_colour_manual(values = wes_palette('GrandBudapest')[c(2, 1)], guide = 'none') +
     scale_x_discrete(name = '') +
     theme(axis.text.x = element_text(size = 4, angle = 45, hjust = 1, vjust = 1),
           axis.text.y = element_text(size = 5, hjust = 1),
@@ -1317,7 +1343,7 @@ plot.compperf <-
     facet_wrap(~ element, nrow = 1) +
     geom_line(aes(colour = cp)) +
     geom_point(aes(colour = cp)) +
-    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
+    scale_color_manual(values = as.character(magglass.colors[c('f', 'c')])) +
     scale_x_discrete(name = NULL) +
     scale_y_continuous(name = 'Percent of Patient-Days',
                        limits = c(0, 1),
@@ -1652,7 +1678,8 @@ hrs.mv.plot.all <- ggplot(data = hrs.mv.plot.data, aes(x = data.month)) +
   geom_pointrange(aes(y = med.hrs.mv, ymin = q25.hrs.mv, ymax = q75.hrs.mv, colour = hosp.type),
                   alpha = 0.4) +
   geom_point(aes(y = med.hrs.mv, colour = hosp.type)) +
-  scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '', guide = FALSE) +
+  scale_colour_manual(values = as.character(magglass.colors[c(6, 1, 3)]),
+                      name = '', guide = FALSE) +
   scale_x_discrete(name = '', labels = levels(demog$data.month.short)) +
   scale_y_continuous(name = 'Median (25th, 75th Percentiles) Hours on Mechanical Ventilation\nAmong Patients who Received MV') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
@@ -1690,7 +1717,8 @@ icu.los.plot.all <- ggplot(data = icu.los.plot.data, aes(x = data.month)) +
   geom_pointrange(aes(y = med.icu.los, ymin = q25.icu.los, ymax = q75.icu.los, colour = hosp.type),
                   alpha = 0.4) +
   geom_point(aes(y = med.icu.los, colour = hosp.type)) +
-  scale_colour_manual(values = wes_palette('GrandBudapest')[c(3, 1, 2)], name = '', guide = FALSE) +
+  scale_colour_manual(values = as.character(magglass.colors[c(6, 1, 3)]),
+                      name = '', guide = FALSE) +
   scale_x_discrete(name = '', labels = levels(demog$data.month.short)) +
   scale_y_continuous(name = 'Median (25th, 75th Percentiles) ICU Length of Stay') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
