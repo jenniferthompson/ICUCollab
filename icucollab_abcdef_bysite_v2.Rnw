@@ -576,6 +576,7 @@ drug.plot
 
 @
 
+\clearpage
 <<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.d, plot.comp.d.ref,
           layout = matrix(c(1, 2), byrow = TRUE, nrow = 2))
@@ -593,6 +594,7 @@ multiplot(plot.perf.e, plot.perf.e.ref,
 
 \noindent \textbf{Early mobility and exercise}: There was documentation that the patient passed an early exercise/mobility safety screen and the patient received exercise/mobility in the prior 24 hours.
 
+\clearpage
 <<printmobilityinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
 latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance.site, comp.tracked)),
       file = '',
@@ -613,6 +615,7 @@ mobility.plot
 
 @
 
+\clearpage
 <<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.f, plot.comp.f.ref,
           layout = matrix(1:2, byrow = TRUE, nrow = 2))
@@ -621,17 +624,20 @@ multiplot(plot.comp.f, plot.comp.f.ref,
 
 \noindent \textbf{Family engagement and empowerment}: Documentation at least once in a 24-hour period that a family member/significant other participated in rounds or a family conference or assisted with the plan of care or the ABCDEF Bundle Care or received education on the bundle elements.
 
+\clearpage
 <<printcompperffigs, results = 'asis', fig.cap = 'Compliance and Performance Over Time: Elements B and E', fig.height = 5.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 plot.compperf
 
 @
 
+\clearpage
 <<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.bundle.ref, plot.perf.bundle.ref,
           layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
 
 @
 
+\clearpage
 <<printelementfigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Elements Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
 multiplot(plot.comp.elements, plot.perf.elements,
           plot.comp.elements.ref, plot.perf.elements.ref,
