@@ -3,6 +3,7 @@ library(Hmisc)
 library(JTHelpers)
 library(tidyverse)
 library(devtools)
+library(knitr)
 
 ## What's the last month that should be included in the report?
 last.month <- 20
@@ -12,6 +13,14 @@ my.print.summaryM <- function(...){
   latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
                  npct = 'both', what = '%', ...)
 }
+
+## Vector of hex colors from magnifying glass in slide templates (via colorcodepicker.com)
+magglass.colors <- c("a" = "#E16725",
+                     "b" = "#FBA724",
+                     "c" = "#698C36",
+                     "d" = "#07A7B4",
+                     "e" = "#138CBD",
+                     "f" = "#293F90")
 
 ## -- Function to calculate & plot proportions of patient-days by time and, if needed, -------------
 ## -- faceting variable ----------------------------------------------------------------------------

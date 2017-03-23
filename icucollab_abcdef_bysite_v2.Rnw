@@ -416,7 +416,7 @@ plot.compperf <-
     facet_wrap(~ element, nrow = 1) +
     geom_line(aes(colour = cp)) +
     geom_point(aes(colour = cp)) +
-    scale_color_viridis(discrete = TRUE, begin = 0.25, end = 0.75) +
+    scale_color_manual(values = as.character(magglass.colors[c('f', 'c')])) +
     scale_x_discrete(name = NULL) +
     scale_y_continuous(name = 'Percent of Patient-Days',
                        limits = c(0, 1),
