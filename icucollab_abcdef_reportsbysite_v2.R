@@ -514,9 +514,14 @@ comp.summary.overall <- compliance %>%
     days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
     pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
     days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
-    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
+    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+    total.elem.elig = sum(elements.elig, na.rm = TRUE),
+    total.elem.comp = sum(elements.comp, na.rm = TRUE),
+    total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
-  mutate(hosp.type = 'All sites',
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         hosp.type = 'All sites',
          line.alpha = 1)
 
 ## By region, type
@@ -569,9 +574,14 @@ comp.summary.regiontype <- compliance %>%
     days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
     pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
     days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
-    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
+    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+    total.elem.elig = sum(elements.elig, na.rm = TRUE),
+    total.elem.comp = sum(elements.comp, na.rm = TRUE),
+    total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short) & !is.na(hosp.region) & !is.na(hosp.type)) %>%
-  mutate(line.alpha = 2)
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         line.alpha = 2)
 
 ## -- Create data sets for overall and by region/type hours of MV, ICU LOS -------------------------
 mv.summary.overall <- demog %>%
@@ -613,7 +623,7 @@ iculos.summary.regiontype <- demog %>%
             q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE))
 
 ## -- Create a report for each site ----------------------------------------------------------------
-for(site in sort(unique(demog$hosp.f))){
+for(site in sort(unique(demog$hosp.f))[1:3]){
   demog.site <- subset(demog, hosp.f == site & !is.na(data.time))
   n.each.time <- table(demog.site$data.time)
 

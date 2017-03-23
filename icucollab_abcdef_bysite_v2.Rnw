@@ -130,9 +130,14 @@ comp.summary.site <- compliance.site %>%
     days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
     pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
     days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
-    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE)) %>%
+    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+    total.elem.elig = sum(elements.elig, na.rm = TRUE),
+    total.elem.comp = sum(elements.comp, na.rm = TRUE),
+    total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
   filter(!is.na(data.month.short)) %>%
-  mutate(hosp.type = 'This Site',
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         hosp.type = 'This Site',
          line.alpha = 1)
 
 ## Combine overall, region/type compliance numbers for plotting
@@ -222,7 +227,12 @@ colnames(compliance.table) <- levels(demog.site$data.month)
 
 ### FIGURES: big plot for site-specific over time
 refline.shade <- 'grey50'
-plot.compliance <- function(compvar, ytitle, refline.size = 1.5, dataset = comp.summary.site){
+plot.compliance <- function(compvar,
+                            ytitle,
+                            ylims = c(0, 1),
+                            ybreaks = 0.2,
+                            refline.size = 1.5,
+                            dataset = comp.summary.site){
   ggplot(data = dataset, aes_string(x = 'data.month.short', y = compvar)) +
     facet_wrap(~ hosp.type, ncol = 2) +
     geom_hline(yintercept = 0.9, linetype = 'dotted', colour = refline.shade) +
@@ -231,9 +241,9 @@ plot.compliance <- function(compvar, ytitle, refline.size = 1.5, dataset = comp.
     geom_point(colour = 'black') +
     scale_x_discrete(name = '') +
     scale_y_continuous(name = ytitle,
-                       limits = c(0, 1),
-                       breaks = seq(0, 1, 0.2),
-                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+                       limits = ylims,
+                       breaks = seq(0, 1, ybreaks),
+                       labels = paste0(seq(0, 1, ybreaks)*100, '%')) +
     theme(axis.ticks = element_blank(),
           axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
           axis.title.y = element_text(size = 9),
@@ -367,6 +377,42 @@ plot.perf.bundle.ref <- plot.compliance('pct.perf.bundle',
                                         'Overall ABCDEF Bundle Performance',
                                         data = comp.summary.referencedata) +
   labs(title = '')
+
+plot.comp.elements <- plot.compliance('pct.elem.comp',
+                                      'Percent of Bundle Elements Compliant',
+                                      ylims = c(0,
+                                                max(comp.summary.site[,c('pct.elem.comp',
+                                                                         'pct.elem.perf')],
+                                                    na.rm = TRUE)),
+                                      ybreaks = 0.05) +
+  labs(title = 'ABCDEF Bundle Element Compliance',
+       subtitle = 'Bundle elements compliant / bundle elements eligible')
+plot.comp.elements.ref <- plot.compliance('pct.elem.comp',
+                                          'Percent of Bundle Elements Compliant',
+                                          dataset = comp.summary.referencedata,
+                                          ylims = c(0,
+                                                    max(comp.summary.referencedata[,c('pct.elem.comp',
+                                                                                      'pct.elem.perf')],
+                                                        na.rm = TRUE)),
+                                          ybreaks = 0.05)
+
+plot.perf.elements <- plot.compliance('pct.elem.perf',
+                                      'Percent of Bundle Elements Performed',
+                                      ylims = c(0,
+                                                max(comp.summary.site[,c('pct.elem.comp',
+                                                                    'pct.elem.perf')],
+                                                    na.rm = TRUE)),
+                                      ybreaks = 0.05) +
+  labs(title = 'ABCDEF Bundle Element Performance',
+       subtitle = 'Bundle elements performed / bundle elements eligible')
+plot.perf.elements.ref <- plot.compliance('pct.elem.perf',
+                                          'Percent of Bundle Elements Performed',
+                                          dataset = comp.summary.referencedata,
+                                           ylims = c(0,
+                                                     max(comp.summary.referencedata[,c('pct.elem.comp',
+                                                                                       'pct.elem.perf')],
+                                                         na.rm = TRUE)),
+                                          ybreaks = 0.05)
 
 
 ## -- Function to plot number of assessments over time ---------------------------------------------
@@ -510,6 +556,13 @@ multiplot(plot.comp.f, plot.comp.f.ref,
 <<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 10.5, fig.pos = 't'>>=
 multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.bundle.ref, plot.perf.bundle.ref,
           layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
+
+@
+
+<<printelementfigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Elements Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 9, fig.pos = 't'>>=
+multiplot(plot.comp.elements, plot.perf.elements,
+          plot.comp.elements.ref, plot.perf.elements.ref,
+          layout = matrix(c(1, 2, 3, 4), byrow = TRUE, nrow = 2))
 
 @
 
