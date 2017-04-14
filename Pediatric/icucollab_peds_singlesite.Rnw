@@ -5,7 +5,7 @@
 
 \usepackage{setspace, relsize}
 \usepackage{longtable}
-\usepackage[margin = 0.4in]{geometry}
+\usepackage[margin = 0.3in]{geometry}
 \usepackage{hyperref}
 \usepackage{float}
 \usepackage{pdflscape}
@@ -19,7 +19,7 @@
 
 The following tables and figures present descriptions of compliance with the ABCDEF bundle at
 \Sexpr{site} during a baseline period (up to 3 months) and an implementation period (up to 12
-months). Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_v2.Rnw}{here}.
+months). Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/datamgmt.R}{here} and \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_reportsbysite.R}{here}/\href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_singlesite.Rnw}{here}, respectively.
 
 <<setup, message=FALSE, echo=FALSE, warning=FALSE>>=
 opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
@@ -461,28 +461,56 @@ label(compliance.site$opioid.total) <- 'Total (morphine equiv.)'
 
 ## At least one site has no benzodiazepines or opioids included; account for all possible cases
 if(sum(compliance.site$has.benzo) > 0 & sum(compliance.site$has.opioid)){
-  benzo.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-                           diaz.scaled ~ month.cat,
-                          data = compliance.site, continuous = 5)
-  opioid.table <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+  benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+                              diaz.scaled ~ month.cat,
+                             data = subset(compliance.site,
+                                           month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+                             continuous = 5)
+  benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
+                                clonaz.scaled + diaz.scaled ~ month.cat,
+                              data = subset(compliance.site,
+                                            month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+                              continuous = 5)
+  opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
                              fent.scaled ~ month.cat,
-                           data = compliance.site, continuous = 5)
+                           data = subset(compliance.site,
+                                         month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+                                         continuous = 5)
+  opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+                                 fent.scaled ~ month.cat,
+                               data = subset(compliance.site,
+                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+                                             continuous = 5)
   meds.sentence <- ''
 } else if(sum(compliance.site$has.benzo) > 0){
-  benzo.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-                            diaz.scaled ~ month.cat,
-                          data = compliance.site, continuous = 5)
+  benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+                              diaz.scaled ~ month.cat,
+                             data = subset(compliance.site,
+                                           month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+                             continuous = 5)
+  benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
+                                clonaz.scaled + diaz.scaled ~ month.cat,
+                              data = subset(compliance.site,
+                                            month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+                              continuous = 5)
   opioid.table <- NULL
   meds.sentence <- paste0('\\textbf{No opioid doses were recorded at ', site, '; therefore, no opioid table is provided.}')
 } else if(sum(compliance.site$has.opioid) > 0){
   benzo.table <- NULL
-  opioid.table <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+  opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
                              fent.scaled ~ month.cat,
-                           data = compliance.site, continuous = 5)
+                           data = subset(compliance.site,
+                                         month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+                                         continuous = 5)
+  opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+                                 fent.scaled ~ month.cat,
+                               data = subset(compliance.site,
+                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+                                             continuous = 5)
   meds.sentence <- paste0('\\textbf{No benzodiazepine doses were recorded at ', site, '; therefore, no benzodiazepines table is provided.}')
 } else{
-  benzo.table <- opioid.table <- NULL
-  meds.sentence <- paste0('\\textbf{No benzodiazepine or opioid doses was recorded at ', site, '; therefore, no medications table is provided.}')
+  benzo.table.b6 <- benzo.table.b12 <- opioid.table.b6 <- opioid.table.b12 <- NULL
+  meds.sentence <- paste0('\\textbf{No benzodiazepine or opioid doses were recorded at ', site, '; therefore, no medications table is provided.}')
 }
 
 @
@@ -490,10 +518,10 @@ if(sum(compliance.site$has.benzo) > 0 & sum(compliance.site$has.opioid)){
 \Sexpr{meds.sentence}
 
 <<printmedstable, results = 'asis'>>=
-if(!is.null(benzo.table)){
-  latex(benzo.table, file = '',
+if(!is.null(benzo.table.b6)){
+  latex(benzo.table.b6, file = '',
         title = '',
-        caption = 'Daily Benzodiazepine Use. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+        caption = 'Daily Benzodiazepine Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
         digits = 2,
         prmsd = FALSE,
         prn = FALSE,
@@ -501,15 +529,15 @@ if(!is.null(benzo.table)){
         what = '%',
         long = TRUE,
         where = '!h',
-        label = 'table:benzos',
+        label = 'table:benzosb6',
         size = 'scriptsize',
         insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
 }
 
-if(!is.null(opioid.table)){
-  latex(opioid.table, file = '',
+if(!is.null(benzo.table.b12)){
+  latex(benzo.table.b12, file = '',
         title = '',
-        caption = 'Daily Opioid Use. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+        caption = 'Daily Benzodiazepine Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
         digits = 2,
         prmsd = FALSE,
         prn = FALSE,
@@ -517,9 +545,39 @@ if(!is.null(opioid.table)){
         what = '%',
         long = TRUE,
         where = '!h',
-        label = 'table:opioids',
+        label = 'table:benzosb12',
+        size = 'scriptsize')
+}
+
+if(!is.null(opioid.table.b6)){
+  latex(opioid.table.b6, file = '',
+        title = '',
+        caption = 'Daily Opioid Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+        digits = 2,
+        prmsd = FALSE,
+        prn = FALSE,
+        prN = FALSE,
+        what = '%',
+        long = TRUE,
+        where = '!h',
+        label = 'table:opioidsb6',
         size = 'scriptsize',
         insert.bottom = "\\emph{* `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
+}
+
+if(!is.null(opioid.table.b12)){
+  latex(opioid.table.b12, file = '',
+        title = '',
+        caption = 'Daily Opioid Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+        digits = 2,
+        prmsd = FALSE,
+        prn = FALSE,
+        prN = FALSE,
+        what = '%',
+        long = TRUE,
+        where = '!h',
+        label = 'table:opioidsb12',
+        size = 'scriptsize')
 }
 
 @
