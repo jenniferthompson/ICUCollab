@@ -5,7 +5,7 @@
 
 \usepackage{setspace, relsize}
 \usepackage{longtable}
-\usepackage[margin = 0.4in]{geometry}
+\usepackage[margin = 0.3in]{geometry}
 \usepackage{hyperref}
 \usepackage{float}
 \usepackage{pdflscape}
@@ -450,7 +450,8 @@ latex(perf.table, file = '',
 
 \clearpage
 \section{Medication Use}
-Table \ref{table:meds} summarizes drug doses \textbf{per 24 hours} for benzodiazepines and opioids.
+Tables \ref{table:medsb6} and \ref{table:medsb12} summarize drug doses \textbf{per 24 hours} for
+benzodiazepines and opioids.
 
 
 Total benzodiazepines are converted to lorazepam equivalents:
@@ -481,12 +482,24 @@ meds.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + c
                          hydromorph.scaled + fent.scaled ~ month.cat,
                        data = compliance)
 
+meds.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+                            diaz.scaled + has.opioid + opioid.total + morph.scaled +
+                            hydromorph.scaled + fent.scaled ~ month.cat,
+                          data = subset(compliance,
+                                        month.cat %in% c('Baseline', paste('Imp.', 1:6))))
+
+meds.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+                             diaz.scaled + has.opioid + opioid.total + morph.scaled +
+                             hydromorph.scaled + fent.scaled ~ month.cat,
+                           data = subset(compliance,
+                                         month.cat %in% c('Baseline', paste('Imp.', 7:12))))
+
 @
 
 <<printmedstable, results = 'asis'>>=
-latex(meds.table, file = '',
+latex(meds.table.b6, file = '',
       title = '',
-      caption = 'Daily Medication Use. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+      caption = 'Daily Medication Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
       digits = 2,
       prmsd = FALSE,
       prn = FALSE,
@@ -494,11 +507,26 @@ latex(meds.table, file = '',
       what = '%',
       long = TRUE,
       where = '!h',
-      label = 'table:meds',
+      label = 'table:medsb6',
       size = 'scriptsize',
       n.rgroup = c(12, 5),
       rgroup = c('Benzodiazepines', 'Opioids'),
       insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
+
+latex(meds.table.b12, file = '',
+      title = '',
+      caption = 'Daily Medication Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+      digits = 2,
+      prmsd = FALSE,
+      prn = FALSE,
+      prN = FALSE,
+      what = '%',
+      long = TRUE,
+      where = '!h',
+      label = 'table:medsb12',
+      size = 'scriptsize',
+      n.rgroup = c(6, 5),
+      rgroup = c('Benzodiazepines', 'Opioids'))
 
 @
 
