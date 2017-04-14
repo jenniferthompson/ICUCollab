@@ -54,8 +54,7 @@ demog$severity.checked <- rowSums(demog[,grep('^severityscale\\.[0-9]+$', names(
 
 demog <- demog %>%
   ## Rename insensibly named variables more sensibly
-  rename(hosplos = piculos2.5b7,
-         ventdays = piculos2.c4c,
+  rename(ventdays = piculos2.c4c,
          fss.preadm = ffs.score2.843,
          fss.adm = ffs.score,
          fss.dc = ffs.score2.ecb,
@@ -119,6 +118,8 @@ demog <- demog %>%
          popc.preadm = as.numeric(as.character(popc.preadm)),
          popc.adm = as.numeric(as.character(popc.adm)),
          popc.dc = as.numeric(as.character(popc.dc)),
+         ## Hospital LOS: someone entered "not discharged"
+         hosplos = as.numeric(as.character(piculos2.5b7)),
          ## Ever on MV; days on MV among patients exposed
          ever.vent = factor(ifelse(is.na(ventdays), 1,
                             ifelse(ventdays == 0, 2, 3)),
