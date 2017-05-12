@@ -1,4 +1,5 @@
 ## Load libraries
+library(knitr)
 library(Hmisc)
 library(JTHelpers)
 library(tidyverse)
