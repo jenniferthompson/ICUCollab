@@ -155,7 +155,7 @@ npct.pain.info <- npctString(days.pain.info, n.days)
 
 ## How many days each month had at least one pain score >= 5?
 days.pain.threshold <- mapSum('pain.threshold')
-pctdays.pain.threshold <- round((days.pain.threshold / n.days)*100)
+pctdays.pain.threshold <- round((days.pain.threshold / days.pain.info)*100)
 npct.pain.threshold <- npctString(days.pain.threshold, days.pain.info)
 
 ## How many pain assessments per day had at least one pain score >= 5?
@@ -446,6 +446,158 @@ latex(perf.table, file = '',
       n.rgroup = c(1, 3, 9, 7, 5, 3, 6, 4),
       insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium assessed if one or more of those assessment tools is available; delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU")
 
+@
+
+\clearpage
+<<runcharts_datamgmt>>=
+## -- Create data frame for all runcharts ----------------------------------------------------------
+all.perfpct <- list(pctdays.pain.threshold, pctdays.had.sat, pctdays.had.weaning,
+                    pctdays.sbt, pctdays.sbt.protocol, pctdays.anxio.spec, pctdays.del.present,
+                    pctdays.exer, pctdays.exer.protocol, pctdays.familyinter)
+
+all.perfdays <- list(days.pain.threshold, days.had.sat, days.had.weaning,
+                     days.sbt, days.sbt.protocol, days.anxio.spec, days.del.present,
+                     days.exer, days.exer.protocol, days.familyinter)
+
+all.infodays <- list(days.pain.info, days.sat.info, days.weaning.info,
+                     days.sbt.info, days.sbt.info, days.anxio.info, days.del.assessed,
+                     days.exer.info, days.exer.protocol.info, days.familypres.info)
+
+denom.infodays <- list(n.days, days.rcvd.majorsed, days.rcvd.majorsed,
+                       days.mv, days.mv, n.days, n.days,
+                       n.days, n.days, n.days)
+
+## List of chart titles
+perf.chart.titles <- list("A: >=1 assessment with pain >= 5",
+                          "B: Sedation interrupted (SAT)",
+                          "B: Sedation weaned via protocol",
+                          "B: SBT performed",
+                          "B: SBT protocol performed (safety screen + SBT)",
+                          "C: Received benzodiazepines, ketamine and/or diphenhydramine",
+                          "D: Delirium present",
+                          "\nE: Mobilization performed",
+                          "E: Mobilization protocol performed\n(safety screen + mobility)",
+                          "F: Family participation")
+
+perf.info.subtitles.1 <- list("Pain was assessed",
+                              "SAT was documented",
+                              "Weaning was documented",
+                              "SBT was documented",
+                              "SBT protocol documented",
+                              "Anxiolytic medications were documented",
+                              "Delirium was assessed",
+                              "Mobilization was documented",
+                              "Protocol was documented",
+                              "Family presence was documented")
+
+perf.info.subtitles.2 <- list("in the ICU",
+                              "\non continuous/intermittent sedation",
+                              "\non continuous/intermittent sedation",
+                              "\non mechanical ventilation",
+                              "\non mechanical ventilation",
+                              "in the ICU",
+                              "in the ICU",
+                              "\nin the ICU",
+                              "\nin the ICU",
+                              "in the ICU")
+
+perf.yaxes <- list("Pain Over Threshold\nout of Days Pain Assessed",
+                   "Sedation Was Interrupted\nout of Days on Sedation with Documentation",
+                   "Sedation Weaned via Protocol\nout of Days on Sedation with Documentation",
+                   "SBT Performed\nout of Days on MV with Documentation",
+                   "SBT Protocol Performed\nout of Days on MV with Documentation",
+                   "Received One or More Anxiolytic\nout of Days with Documentation",
+                   "Delirium Present\nout of Days Delirium Assessed",
+                   "Mobilization Performed\nout of Days with Documentation",
+                   "Mobilization Protocol Performed\nout of Days with Documentation",
+                   "Family Participated in Intervention\nout of Days Family Documented Present")
+
+perf.chart.data <- map_df(1:length(all.perfdays),
+                          ~ data.frame(chart.title = perf.chart.titles[[.]],
+                                       month = 1:length(all.months),
+                                       pct.perf = all.perfpct[[.]],
+                                       days.perf = all.perfdays[[.]],
+                                       days.info = all.infodays[[.]],
+                                       days.elig = denom.infodays[[.]],
+                                       sub1 = perf.info.subtitles.1[[.]],
+                                       sub2 = perf.info.subtitles.2[[.]],
+                                       yax = perf.yaxes[[.]])) %>%
+  mutate(num.denom = ifelse(is.nan(pct.perf), '',
+                     ifelse(substr(trimws(chart.title), 1, 1) %in% c('B', 'E'),
+                            paste0(days.perf, ' /\n', days.info),
+                            paste(days.perf, '/', days.info))),
+         linegroup = 1)
+
+## Function to create a runchart for a single element
+perf.runchart <- function(ctitle){
+  df <- perf.chart.data %>% filter(chart.title == ctitle)
+
+  if(substr(trimws(ctitle), 1, 1) %in% c('B', 'E')){
+    nd.size <- 2
+  } else{
+    nd.size <- 2.5
+  }
+
+  sub1 <- unique(df$sub1)
+  sub2 <- unique(df$sub2)
+  ytitle <- unique(df$yax)
+
+  info.avail <- sum(df[,'days.info'], na.rm = TRUE)
+  info.elig <- sum(df[,'days.elig'], na.rm = TRUE)
+  info.pct <- round((info.avail / info.elig)*100)
+
+  tmp <- ggplot(data = df, aes(x = month, y = pct.perf)) +
+    annotate(geom = 'rect', xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = -0.5,
+             fill = 'white', colour = NA) +
+    geom_line(aes(group = linegroup), colour = "#003D79") +
+    geom_point(colour = "#003D79") +
+    geom_text(aes(label = num.denom),
+              y = -5, size = nd.size, colour = "#003D79", fontface = 'bold') +
+    scale_x_continuous(breaks = 1:length(all.months), labels = all.months, name = NULL) +
+    scale_y_continuous(limits = c(-2, 100), breaks = seq(0, 100, 20),
+                       name = sprintf("Percent of Days %s", ytitle)) +
+    ggtitle(label = ctitle,
+            subtitle = sprintf('%s on %s out of %s patient-days (%s%%) %s.',
+                              sub1, info.avail, info.elig, info.pct, sub2)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          plot.title = element_text(face = 'bold'),
+          plot.subtitle = element_text(face = 'italic', size = 10),
+          panel.grid.minor.x = element_blank())
+
+  tmp
+}
+
+perf.charts <- map(perf.chart.titles, perf.runchart)
+
+@
+
+<<perfcharta, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[1]]
+@
+
+<<perfchartb_sat, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+multiplot(perf.charts[[2]], perf.charts[[3]], layout = matrix(1:2, nrow = 1))
+@
+
+<<perfchartb_sbt, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+multiplot(perf.charts[[4]], perf.charts[[5]], layout = matrix(1:2, nrow = 1))
+@
+
+<<perfchartc, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[6]]
+@
+
+<<perfchartd, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[7]]
+@
+
+<<perfcharte, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+multiplot(perf.charts[[8]], perf.charts[[9]], layout = matrix(1:2, nrow = 1))
+@
+
+<<perfchartf, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[10]]
 @
 
 \clearpage
