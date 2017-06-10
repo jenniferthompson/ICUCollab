@@ -52,9 +52,18 @@ max.month <- max(as.numeric(gsub('Implementation Month ', '', levels(demog$month
 demog$race.checked <- rowSums(demog[,grep('^race\\.[0-9]+$', names(demog))])
 demog$severity.checked <- rowSums(demog[,grep('^severityscale\\.[0-9]+$', names(demog))])
 
+## Character values present in PIM2 data entry; take care of these
+demog$severityscore.a3 <- as.numeric(gsub("%", "",
+                                          gsub("/", ".",
+                                               demog$severityscore.a3,
+                                               fixed = TRUE),
+                                          fixed = TRUE))
+
 demog <- demog %>%
   ## Rename insensibly named variables more sensibly
   rename(ventdays = piculos2.c4c,
+         prism3 = severityscore.a2,
+         pim2 = severityscore.a3,
          fss.preadm = ffs.score2.843,
          fss.adm = ffs.score,
          fss.dc = ffs.score2.ecb,
@@ -126,11 +135,17 @@ demog <- demog %>%
                             levels = 1:3,
                             labels = c('Unknown (no data available)',
                                        'Never on MV', '>=1 day on MV')),
+         ## Version of ever on MV for testing - drop patients with no data
+         ever.vent.test = factor(ifelse(is.na(ventdays), NA,
+                                 ifelse(ventdays == 0, 1, 2)),
+                                 levels = 1:2,
+                                 labels = c("Never on MV", ">=1 day on MV")),
          ventdays.exp = ifelse(ventdays == 0, NA, ventdays)) %>%
-  dplyr::select(id, hosp.f, data.time, month.cat, dataplan.combined, age.f, sex.f, race.combined,
-                english.f, wt, severity.combined, piculos, hosplos, ever.vent, ventdays,
-                ventdays.exp, fss.preadm, fss.adm, fss.dc, popc.preadm, popc.adm, popc.dc,
-                mortality.f)
+  dplyr::select(id, hosp.f, data.time, month.cat, dataplan.combined, age.f,
+                sex.f, race.combined, english.f, wt, severity.combined, prism3,
+                pim2, piculos, hosplos, ever.vent, ever.vent.test, ventdays,
+                ventdays.exp, fss.preadm, fss.adm, fss.dc, popc.preadm,
+                popc.adm, popc.dc, mortality.f)
 
 label(demog$hosp.f) <- 'Hospital'
 label(demog$data.time) <- 'Time period'
@@ -141,10 +156,13 @@ label(demog$sex.f) <- 'Sex'
 label(demog$race.combined) <- 'Race'
 label(demog$english.f) <- 'Language'
 label(demog$severity.combined) <- 'SOI score used'
+label(demog$prism3) <- 'PRISM III at admission'
+label(demog$pim2) <- 'PIM 2 at admission'
 label(demog$piculos) <- 'PICU length of stay'
 label(demog$hosplos) <- 'Hospital length of stay'
 label(demog$ventdays) <- 'Days on MV, all patients'
 label(demog$ever.vent) <- 'Ever on mechanical ventilation'
+label(demog$ever.vent.test) <- 'Ever on mechanical ventilation'
 label(demog$ventdays.exp) <- 'Days MV among patients ever on MV'
 label(demog$fss.preadm) <- 'FSS, pre-admission'
 label(demog$fss.adm) <- 'FSS, PICU admission'
