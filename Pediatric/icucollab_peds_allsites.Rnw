@@ -37,6 +37,14 @@ my.print.summaryM <- function(...){
                  npct = 'both', what = '%', ...)
 }
 
+## Color palette based on pediatric logo
+peds.colors = c("A" = "#887C90",
+                "B" = "#F9F68A",
+                "C" = "#C8DC9F",
+                "D" = "#9BCBBB",
+                "E" = "#5C82A0",
+                "F" = "#565978")
+
 @
 
 <<datamgmt>>=
@@ -53,34 +61,25 @@ levels(demog$hosp.f.latex) <- gsub('&', 'and', levels(demog$hosp.f), fixed = TRU
 nomonth.ids <- subset(demog, is.na(month.cat))$id
 
 ## Example to describe median/IQR
-quantile.example <- quantile(subset(demog, data.time == 'Baseline')$piculos,
+quantile.example <- quantile(subset(demog, data.time == 'Baseline')$prism3,
                              probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
 
 @
 
 \section{Entire Cohort}
-\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
-Table \ref{table:descstats} describes the patients whose data was collected during the baseline
-and implementation data collection periods. There are \Sexpr{format(length(unique(demog$id)), big.mark = ',')} unique patient IDs currently recorded. (In addition,
-\Sexpr{length(nomonth.ids)} patients had no ``month" entered in the database and therefore cannot
-be counted when comparing the two cohorts.)
+\subsection{Demographic and Baseline Characteristics}
+Table \ref{table:descstats} describes the patients whose data was collected during the baseline and implementation data collection periods. There are \Sexpr{format(length(unique(demog$id)), big.mark = ',')} unique patient IDs currently recorded. (In addition, \Sexpr{length(nomonth.ids)} patients had no ``month" entered in the database and therefore cannot be counted when comparing the two cohorts.)
 
-For continuous variables (like days of invasive ventilation), the 25th, 50th, and 75th percentiles
-are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+For continuous variables (like PRISM III or PIM 2), the 25th, 50th, and 75th percentiles are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
 
-For example, for PICU length of stay in the baseline cohort (see Table \ref{table:descstats}),
-25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had
-\Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
-\Sexpr{quantile.example['75%']} or fewer days in the ICU.
-
-Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values);
-and the number of days on MV among the entire cohort (i.e., including zero values).
+For example, for PRISM III in the baseline cohort (see Table
+\ref{table:descstats}), 25\% of patients with this score recorded had a PRISM III of \Sexpr{quantile.example['25%']} or lower; half the patients had a score of \Sexpr{quantile.example['50%']} or lower; and 75\% of patients had a score of
+\Sexpr{quantile.example['75%']} or lower.
 
 <<desccohort>>=
 desc.all <- summaryM(hosp.f.latex + age.f + sex.f + race.combined + english.f +
-                       severity.combined + fss.preadm + fss.adm + fss.dc + popc.preadm + popc.adm +
-                       popc.dc + ever.vent + ventdays.exp + ventdays + piculos + hosplos +
-                       mortality.f ~ data.time,
+                       severity.combined + prism3 + pim2 + fss.preadm +
+                       fss.adm + popc.preadm + popc.adm ~ data.time,
                      data = demog)
 
 # ## Some POPC values are causing problems - should be numeric? Get list of character values for C&V
@@ -100,6 +99,31 @@ my.print.summaryM(desc.all,
                   exclude1 = FALSE,
                   size = 'small',
                   label = 'table:descstats')
+
+@
+
+\subsection{Comparison of Outcomes}
+Table \ref{table:outcomes} describes and presents unadjusted tests of outcomes between the baseline and implementation time points.
+
+% Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values); and the number of days on MV among the entire cohort (i.e., including zero values).
+
+<<outcomes>>=
+## Don't include "among exposed" MV variable because we don't want to test that
+desc.outcomes <- summaryM(fss.dc + popc.dc + ever.vent.test + #ventdays.exp +
+                            ventdays + piculos + hosplos + mortality.f ~
+                            data.time,
+                          data = demog,
+                          test = TRUE)
+
+@
+
+<<printoutcomes, results = 'asis'>>=
+my.print.summaryM(desc.outcomes,
+                  caption = 'Comparison of Outcomes',
+                  caption.lot = 'Comparison of Outcomes',
+                  exclude1 = FALSE,
+                  size = 'small',
+                  label = 'table:outcomes')
 
 @
 
