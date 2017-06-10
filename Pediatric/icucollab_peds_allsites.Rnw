@@ -142,7 +142,7 @@ see where data which should be present still needs to be entered.
 <<performancetableinfo>>=
 all.months <- levels(demog$month.cat)
 
-## -- Function to create string of median (IQR) for a continuous variable --------------------------
+## -- Function to create string of median (IQR) for a continuous variable ------
 get.mediqr <- function(x, rnddigits = 0){
   quants.x <- quantile(x, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
   if(all(is.na(quants.x))){
@@ -154,7 +154,7 @@ get.mediqr <- function(x, rnddigits = 0){
   }
 }
 
-## -- Function to create N (%) string, or '' if denominator is NaN ---------------------------------
+## -- Function to create N (%) string, or '' if denominator is NaN -------------
 npctString <- function(num, denom){
   tmp <- paste0(num, ' (',
                 round((num / denom)*100), '%)')
@@ -162,16 +162,19 @@ npctString <- function(num, denom){
   tmp
 }
 
-## -- Function to get sum of a variable for each month ---------------------------------------------
+## -- Function to get sum of a variable for each month -------------------------
 mapSum <- function(sumvar){
   map_int(all.months,
-          function(x){ sum(compliance[compliance$month.cat == x, sumvar], na.rm = TRUE) })
+          function(x){
+            sum(compliance[compliance$month.cat == x, sumvar], na.rm = TRUE)
+          })
 }
 
-## -- How many days are entered for each month? ----------------------------------------------------
-n.days <- map_int(all.months, function(x){ sum(compliance$month.cat == x, na.rm = TRUE) })
+## -- How many days are entered for each month? --------------------------------
+n.days <- map_int(all.months,
+                  function(x){ sum(compliance$month.cat == x, na.rm = TRUE) })
 
-## -- A: Pain assessment, prevention and management ------------------------------------------------
+## -- A: Pain assessment, prevention and management ----------------------------
 ## How many days each month had pain data recorded?
 days.pain.info <- mapSum('pain.info')
 pctdays.pain.info <- round((days.pain.info / n.days)*100)
@@ -187,7 +190,7 @@ asmts.pain.threshold <- map_chr(all.months,
                                 function(x){
                                   get.mediqr(subset(compliance, month.cat == x)$pain.morethan5) })
 
-## -- B: Both SAT and SBT --------------------------------------------------------------------------
+## -- B: Both SAT and SBT ------------------------------------------------------
 ## Sedation
 ## Days sedation data available
 days.sed.info <- mapSum('sedation.info')
@@ -270,7 +273,7 @@ days.sbt.protocol <- mapSum('sbt.protocol')
 pctdays.sbt.protocol <- round((days.sbt.protocol / days.mv)*100)
 npct.sbt.protocol <- npctString(days.sbt.protocol, days.mv)
 
-## -- C: Choice of analgesia and sedation ----------------------------------------------------------
+## -- C: Choice of analgesia and sedation --------------------------------------
 ## How many days had anxiolysis section filled out?
 days.anxio.info <- mapSum('anxiolysis.info')
 pctdays.anxio.info <- round((days.anxio.info / n.days)*100)
@@ -294,7 +297,7 @@ days.diphen <- mapSum('anxio.diphen')
 pctdays.diphen <- round((days.diphen / days.anxio.info)*100)
 npct.diphen <- npctString(days.diphen, days.anxio.info)
 
-## -- D: Delirium - assess, prevent and manage -----------------------------------------------------
+## -- D: Delirium - assess, prevent and manage ---------------------------------
 days.del.assessed <- mapSum('delirium.assessed')
 pctdays.del.assessed <- round((days.del.assessed / n.days)*100)
 npct.del.assessed <- npctString(days.del.assessed, n.days)
@@ -308,7 +311,7 @@ asmts.del <- map_chr(all.months,
                      function(x){
                        get.mediqr(subset(compliance, month.cat == x)$delirium.assessments) })
 
-## -- E: Exercise/early mobility -------------------------------------------------------------------
+## -- E: Exercise/early mobility -----------------------------------------------
 ## How many days had mobility safety screen?
 days.exersafety.info <- mapSum('exer.safety.info')
 pctdays.exersafety.info <- round((days.exersafety.info / n.days)*100)
@@ -339,7 +342,7 @@ days.exer.protocol <- mapSum('exer.protocol')
 pctdays.exer.protocol <- round((days.exer.protocol / days.exer.protocol.info)*100)
 npct.exer.protocol <- npctString(days.exer.protocol, days.exer.protocol.info)
 
-## -- F: Family engagement and empowerment ---------------------------------------------------------
+## -- F: Family engagement and empowerment -------------------------------------
 ## Information on family presence available?
 days.familypres.info <- mapSum('family.present.info')
 pctdays.familypres.info <- round((days.familypres.info / n.days)*100)
@@ -355,7 +358,7 @@ days.familyinter.info <- mapSum('family.inter.info')
 pctdays.familyinter.info <- round((days.familyinter.info / days.familypres)*100)
 npct.familyinter.info <- npctString(days.familyinter.info, days.familypres)
 
-## If family present and info available, did they help with nonpharm intervention
+## If family present & info available, did they help with nonpharm intervention
 days.familyinter <- mapSum('family.intervention')
 pctdays.familyinter <- round((days.familyinter / days.familyinter.info)*100)
 npct.familyinter <- npctString(days.familyinter, days.familyinter.info)
@@ -463,9 +466,13 @@ latex(perf.table, file = '',
       size = 'scriptsize',
       colheads = all.months,
       col.just = rep('r', ncol(perf.table)),
-      rgroup = c('', 'A: Assess, Prevent, Manage Pain', 'B: Both SAT/SBT: Sedation',
-                 'B: Both SAT/SBT: ERT/Breathing', 'C: Choice of Analgesia \\& Sedation',
-                 'D: Delirium***', 'E: Exercise/Early Mobility',
+      rgroup = c('',
+                 'A: Assess, Prevent, Manage Pain',
+                 'B: Both SAT/SBT: Sedation',
+                 'B: Both SAT/SBT: ERT/Breathing',
+                 'C: Choice of Analgesia \\& Sedation',
+                 'D: Delirium***',
+                 'E: Exercise/Early Mobility',
                  'F: Family Engagement'),
       n.rgroup = c(1, 3, 9, 7, 5, 3, 6, 4),
       insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium assessed if one or more of those assessment tools is available; delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU")
@@ -474,18 +481,21 @@ latex(perf.table, file = '',
 
 \clearpage
 <<runcharts_datamgmt>>=
-## -- Create data frame for all runcharts ----------------------------------------------------------
-all.perfpct <- list(pctdays.pain.threshold, pctdays.had.sat, pctdays.had.weaning,
-                    pctdays.sbt, pctdays.sbt.protocol, pctdays.anxio.spec, pctdays.del.present,
-                    pctdays.exer, pctdays.exer.protocol, pctdays.familyinter)
+## -- Create data frame for all runcharts --------------------------------------
+all.perfpct <- list(pctdays.pain.threshold, pctdays.had.sat,
+                    pctdays.had.weaning, pctdays.sbt, pctdays.sbt.protocol,
+                    pctdays.anxio.spec, pctdays.del.present, pctdays.exer,
+                    pctdays.exer.protocol, pctdays.familyinter)
 
 all.perfdays <- list(days.pain.threshold, days.had.sat, days.had.weaning,
-                     days.sbt, days.sbt.protocol, days.anxio.spec, days.del.present,
-                     days.exer, days.exer.protocol, days.familyinter)
+                     days.sbt, days.sbt.protocol, days.anxio.spec,
+                     days.del.present, days.exer, days.exer.protocol,
+                     days.familyinter)
 
 all.infodays <- list(days.pain.info, days.sat.info, days.weaning.info,
-                     days.sbt.info, days.sbt.info, days.anxio.info, days.del.assessed,
-                     days.exer.info, days.exer.protocol.info, days.familypres.info)
+                     days.sbt.info, days.sbt.info, days.anxio.info,
+                     days.del.assessed, days.exer.info, days.exer.protocol.info,
+                     days.familypres.info)
 
 denom.infodays <- list(n.days, days.rcvd.majorsed, days.rcvd.majorsed,
                        days.mv, days.mv, n.days, n.days,
@@ -577,7 +587,9 @@ perf.runchart <- function(ctitle){
     geom_point(colour = "#003D79") +
     geom_text(aes(label = num.denom),
               y = -5, size = nd.size, colour = "#003D79", fontface = 'bold') +
-    scale_x_continuous(breaks = 1:length(all.months), labels = all.months, name = NULL) +
+    scale_x_continuous(breaks = 1:length(all.months),
+                       labels = all.months,
+                       name = NULL) +
     scale_y_continuous(limits = c(-2, 100), breaks = seq(0, 100, 20),
                        name = sprintf("Percent of Days %s", ytitle)) +
     ggtitle(label = ctitle,
@@ -626,8 +638,8 @@ perf.charts[[10]]
 
 \clearpage
 \section{Medication Use}
-Tables \ref{table:medsb6} and \ref{table:medsb12} summarize drug doses \textbf{per 24 hours} for
-benzodiazepines and opioids.
+Tables \ref{table:medsb6} and \ref{table:medsb12} summarize drug doses
+\textbf{per 24 hours} for benzodiazepines and opioids.
 
 
 Total benzodiazepines are converted to lorazepam equivalents:
@@ -640,12 +652,7 @@ Total opioids are converted to morphine equivalents:
 
 All doses are scaled by weight in kilograms prior to conversion.
 
-If at least one medication in a category (benzodiazepines or opioids) had a dose recorded, all NA
-values in that category were assumed to be zero. Otherwise, doses were considered missing. For
-example, if a patient-day had a dose recorded for fentanyl but nothing recorded for morphine or
-hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 for that day. If, on
-the other hand, none of the three opioids of interest were recorded, no opioid data for that day is
-described - doses are left as missing.
+If at least one medication in a category (benzodiazepines or opioids) had a dose recorded, all NA values in that category were assumed to be zero. Otherwise, doses were considered missing. For example, if a patient-day had a dose recorded for fentanyl but nothing recorded for morphine or hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 for that day. If, on the other hand, none of the three opioids of interest were recorded, no opioid data for that day is described - doses are left as missing.
 
 <<createmedstable>>=
 label(compliance$has.benzo) <- 'At least one recorded*'
@@ -653,22 +660,27 @@ label(compliance$has.opioid) <- 'At least one recorded*'
 label(compliance$benzo.total) <- 'Total (lorazepam equiv.)'
 label(compliance$opioid.total) <- 'Total (morphine equiv.)'
 
-meds.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-                         diaz.scaled + has.opioid + opioid.total + morph.scaled +
-                         hydromorph.scaled + fent.scaled ~ month.cat,
+meds.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
+                         clonaz.scaled + diaz.scaled + has.opioid +
+                         opioid.total + morph.scaled + hydromorph.scaled +
+                         fent.scaled ~ month.cat,
                        data = compliance)
 
-meds.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-                            diaz.scaled + has.opioid + opioid.total + morph.scaled +
+meds.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled +
+                            midaz.scaled + clonaz.scaled + diaz.scaled +
+                            has.opioid + opioid.total + morph.scaled +
                             hydromorph.scaled + fent.scaled ~ month.cat,
                           data = subset(compliance,
-                                        month.cat %in% c('Baseline', paste('Imp.', 1:6))))
+                                        month.cat %in% c('Baseline',
+                                                         paste('Imp.', 1:6))))
 
-meds.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-                             diaz.scaled + has.opioid + opioid.total + morph.scaled +
+meds.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled +
+                             midaz.scaled + clonaz.scaled + diaz.scaled +
+                             has.opioid + opioid.total + morph.scaled +
                              hydromorph.scaled + fent.scaled ~ month.cat,
                            data = subset(compliance,
-                                         month.cat %in% c('Baseline', paste('Imp.', 7:12))))
+                                         month.cat %in% c('Baseline',
+                                                          paste('Imp.', 7:12))))
 
 @
 
