@@ -76,11 +76,18 @@ For example, for PRISM III in the baseline cohort (see Table
 \ref{table:descstats}), 25\% of patients with this score recorded had a PRISM III of \Sexpr{quantile.example['25%']} or lower; half the patients had a score of \Sexpr{quantile.example['50%']} or lower; and 75\% of patients had a score of
 \Sexpr{quantile.example['75%']} or lower.
 
+Categorical variables (eg, age category) are visualized by barcharts showing the percentage of patients in each category during each data collection period. Continuous variables (eg, FSS) are visualized by boxplots, which show the median (middle line), 25th percentile (bottom of the box), and 75th percentile (top of the box). Points shown are the most extreme values (outliers).
+
 <<desccohort>>=
 desc.all <- summaryM(hosp.f.latex + age.f + sex.f + race.combined + english.f +
                        severity.combined + prism3 + pim2 + fss.preadm +
                        fss.adm + popc.preadm + popc.adm ~ data.time,
                      data = demog)
+
+desc.dx <- summaryM(dx.surgery + dx.resp + resp.rds + resp.airway +
+                      resp.asthma + resp.cld + resp.pneu + dx.gi + dx.neuro +
+                      dx.tbi + dx.burn + dx.other ~ data.time,
+                    data = demog)
 
 # ## Some POPC values are causing problems - should be numeric? Get list of character values for C&V
 # all.popc <- unique(c(demog$popc.adm, demog$popc.preadm, demog$popc.dc))
@@ -99,6 +106,233 @@ my.print.summaryM(desc.all,
                   exclude1 = FALSE,
                   size = 'small',
                   label = 'table:descstats')
+
+latex(desc.dx, file = "",
+      where = "!h",
+      caption = "Admission Diagnoses",
+      caption.lot = "Admission Diagnoses",
+      exclude1 = TRUE,
+      long = FALSE,
+      size = 'small',
+      npct = "both",
+      what = "%",
+      label = "table:admitdx")
+
+@
+
+Please see Section \ref{sec:otherdx} for a complete listing of descriptions for ``other" diagnoses.
+
+\clearpage
+<<visdesccohort_prep>>=
+## How many patients each in baseline, implementation time points?
+time_totals <- tribble(
+  ~ data.time, ~ n_total,
+  "Baseline", sum(demog$data.time == "Baseline", na.rm = TRUE),
+  "Implementation", sum(demog$data.time == "Implementation", na.rm = TRUE)
+)
+
+## Categorical variables: Show proportion in each category
+demog_categoricals <- demog %>%
+  dplyr::select(id, data.time, age.f, sex.f, race.combined, #english.f,
+                severity.combined) %>%
+  gather(key = char_type, value = char_value, age.f:severity.combined) %>%
+  group_by(data.time, char_type, char_value) %>%
+  summarise(n_value = n()) %>%
+  ungroup() %>%
+  left_join(time_totals, by = "data.time") %>%
+  mutate(prop_value = (n_value / n_total)*100,
+         data.time = factor(ifelse(data.time == "Implementation", 1, 2),
+                            levels = 1:2,
+                            labels = c("Implementation", "Baseline")),
+         char_type = factor(ifelse(char_type == "age.f", 1,
+                            ifelse(char_type == "sex.f", 2,
+                            ifelse(char_type == "race.combined", 3,
+                            ifelse(char_type == "english.f", 4,
+                            ifelse(char_type == "severity.combined", 5,
+                                   char_type))))),
+                            levels = 1:5,
+                            labels = c("Age", "Sex", "Race", "Language",
+                                       "Severity Scale")),
+         ## Manually create factor variables to get categories in right order
+         category = factor(ifelse(char_value == "0 day - 27 days", 7,
+                           ifelse(char_value == "28 days - 12 months", 6,
+                           ifelse(char_value == "13 months to 2 years", 5,
+                           ifelse(char_value == "2 years to 5 years", 4,
+                           ifelse(char_value == "6 years to 11 years", 3,
+                           ifelse(char_value == "12 years to 18 years", 2,
+                           ifelse(char_value == "18 years to 21 years", 1,
+                           ifelse(char_value == "English Speaking", 9,
+                           ifelse(char_value == "Non-English Speaking", 8,
+                           ifelse(char_value == "American Indian/Alaskan Native",
+                                  17,
+                           ifelse(char_value == "Black/African American", 16,
+                           ifelse(char_value == "White", 15,
+                           ifelse(char_value == "Asian", 14,
+                           ifelse(char_value == "Native Hawaiian/Pacific Islander",
+                                  13,
+                           ifelse(char_value == "Other/not specified", 12,
+                           ifelse(char_value == "Multiple races specified", 11,
+                           ifelse(char_value == "Unknown (no data available)",
+                                  10,
+                           ifelse(char_value == "PIM 2 only", 25,
+                           ifelse(char_value == "PIM 2 + other scale", 24,
+                           ifelse(char_value == "PRISM III + PIM 2", 23,
+                           ifelse(char_value == "PRISM III + other scale", 22,
+                           ifelse(char_value == "PRISM III only", 21,
+                           ifelse(char_value == "Other scale", 20,
+                           ifelse(char_value == "No severity scale used", 19,
+                           ifelse(char_value == "No or conflicting severity scale information",
+                                  18,
+                           ifelse(char_value == "Male", 27,
+                           ifelse(char_value == "Female", 26,
+                                  NA))))))))))))))))))))))))))),
+                           levels = 1:27,
+                           labels = c("18 years to 21 years",
+                                      "12 years to 18 years",
+                                      "6 years to 11 years",
+                                      "2 years to 5 years",
+                                      "13 months to 2 years",
+                                      "28 days - 12 months",
+                                      "0 day - 27 days",
+                                      "Non-English Speaking",
+                                      "English Speaking",
+                                      "Unknown (no data available)",
+                                      "Multiple races specified",
+                                      "Other/not specified",
+                                      "Native Hawaiian/Pacific Islander",
+                                      "Asian",
+                                      "White",
+                                      "Black/African American",
+                                      "American Indian/Alaskan Native",
+                                      "No or conflicting information",
+                                      "No severity scale used",
+                                      "Other scale",
+                                      "PRISM III only",
+                                      "PRISM III + other scale",
+                                      "PRISM III + PIM 2",
+                                      "PIM 2 + other scale",
+                                      "PIM 2 only",
+                                      "Female",
+                                      "Male"))
+         ) %>%
+  filter(!is.na(data.time) & !is.na(char_value))
+
+demog_admitdx <- demog %>%
+  filter(!is.na(data.time)) %>%
+  group_by(data.time) %>%
+  summarise_at(.funs = "mean",
+               .cols = paste0("dx.",
+                              c("surgery", "infection", "resp", "gi", "neuro",
+                                "tbi", "burn", "malig", "other"))) %>%
+  gather(key = diagnosis, value = percent, dx.surgery:dx.other) %>%
+  mutate(percent = percent * 100,
+         facet.text = "Admission Diagnoses",
+         diagnosis.f = factor(ifelse(diagnosis == "dx.surgery", 9,
+                              ifelse(diagnosis == "dx.infection", 8,
+                              ifelse(diagnosis == "dx.resp", 7,
+                              ifelse(diagnosis == "dx.gi", 6,
+                              ifelse(diagnosis == "dx.neuro", 5,
+                              ifelse(diagnosis == "dx.tbi", 4,
+                              ifelse(diagnosis == "dx.burn", 3,
+                              ifelse(diagnosis == "dx.malig", 2,
+                              ifelse(diagnosis == "dx.other", 1, NA))))))))),
+                              levels = 1:9,
+                              labels = c("Other",
+                                         "Malignancy",
+                                         "Burn",
+                                         "TBI",
+                                         "Neurologic\n(non-trauma)",
+                                         "GI bleed/\nhemorrhagic\nshock",
+                                         "Respiratory\nfailure (any)",
+                                         "Sepsis/\ninfection",
+                                         "Surgery\n(any)")))
+
+demog_continuous <- demog %>%
+  dplyr::select(id, data.time, prism3, pim2, fss.preadm, fss.adm,
+                popc.preadm, popc.adm) %>%
+  gather(key = cont_type, value = cont_value, prism3:popc.adm) %>%
+  filter(!is.na(data.time) & !is.na(cont_value)) %>%
+  mutate(cont_type = factor(ifelse(cont_type == "prism3", 1,
+                            ifelse(cont_type == "pim2", 2,
+                            ifelse(cont_type == "fss.preadm", 3,
+                            ifelse(cont_type == "fss.adm", 4,
+                            ifelse(cont_type == "popc.preadm", 5,
+                            ifelse(cont_type == "popc.adm", 6, NA)))))),
+                            levels = 1:6,
+                            labels = c("PRISM III",
+                                       "PIM 2",
+                                       "FSS, pre-admission",
+                                       "FSS, PICU admission",
+                                       "POPC, pre-admission",
+                                       "POPC, PICU admission")))
+
+@
+
+<<vis_demog_cat, results = 'asis', fig.width=7.5, fig.height=7, fig.align='center'>>=
+plot.cat <- ggplot(data = demog_categoricals,
+                   aes(x = category, y = prop_value)) +
+  facet_wrap(~ char_type, ncol = 1, scales = 'free_y') +
+  geom_bar(aes(group = data.time, fill = data.time),
+           stat = 'identity', position = 'dodge') +
+  scale_fill_manual(values = c(as.character(peds.colors["A"]),
+                               as.character(peds.colors["D"]))) +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(name = "Percent of Patients",
+                     limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = 'none',
+        legend.direction = 'horizontal',
+        legend.title = element_blank(),
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 9),
+        panel.border = element_rect(fill = NA, colour = 'grey80'))
+
+plot.admitdx <- ggplot(data = demog_admitdx,
+                       aes(x = diagnosis.f, y = percent)) +
+  facet_wrap(~ facet.text, ncol = 1) +
+  geom_bar(aes(group = data.time, fill = data.time),
+           stat = 'identity', position = 'dodge') +
+  scale_fill_manual(values = c(as.character(peds.colors["A"]),
+                               as.character(peds.colors["D"]))) +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(name = "Percent of Patients",
+                     limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = 'none',
+        legend.direction = 'horizontal',
+        legend.title = element_blank(),
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 9),
+        panel.border = element_rect(fill = NA, colour = 'grey80'))
+
+multiplot(plot.cat, plot.admitdx, layout = matrix(c(1, 1, 1, 2, 2), nrow = 1))
+
+@
+
+<<vis_demog_cont, results = 'asis', fig.width=7.5, fig.height=3.25, fig.align='center'>>=
+ggplot(data = demog_continuous, aes(x = data.time, y = cont_value)) +
+  facet_wrap(~ cont_type, scales = 'free_y') +
+  # geom_point(aes(colour = data.time),
+  #            position = position_jitter(), alpha = 0.15) +
+  geom_boxplot(aes(colour = data.time, fill = data.time),
+               alpha = 0.5, outlier.size = 0.5) +
+  scale_colour_manual(values = c(as.character(peds.colors["D"]),
+                                 as.character(peds.colors["A"]))) +
+  scale_fill_manual(values = c(as.character(peds.colors["D"]),
+                               as.character(peds.colors["A"]))) +
+  scale_x_discrete(name = NULL) +
+  scale_y_continuous(name = NULL) +
+  theme_minimal() +
+  theme(legend.position = 'bottom',
+        legend.direction = 'horizontal',
+        # legend.justification = c(0.5, 1),
+        legend.title = element_blank(),
+        # legend.text = element_text(size = 14),
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 9),
+        panel.border = element_rect(fill = NA, colour = 'grey80'))
 
 @
 
@@ -124,6 +358,103 @@ my.print.summaryM(desc.outcomes,
                   exclude1 = FALSE,
                   size = 'small',
                   label = 'table:outcomes')
+
+@
+
+<<vis_outcome_prep>>=
+outcome_cat <- demog %>%
+  dplyr::select(id, data.time, ever.vent, mortality.f) %>%
+  gather(key = char_type, value = char_value, ever.vent:mortality.f) %>%
+  group_by(data.time, char_type, char_value) %>%
+  summarise(n_value = n()) %>%
+  ungroup() %>%
+  left_join(time_totals, by = "data.time") %>%
+  mutate(prop_value = (n_value / n_total)*100,
+         data.time = factor(ifelse(data.time == "Implementation", 1, 2),
+                            levels = 1:2,
+                            labels = c("Implementation", "Baseline")),
+         char_type = factor(ifelse(char_type == "ever.vent", 1,
+                            ifelse(char_type == "mortality.f", 2, NA)),
+                            levels = 1:2,
+                            labels = c("Ever on MV", "Died in hospital")),
+         ## Manually create factor variables to get categories in right order
+         category = factor(ifelse(char_value == "Never on MV", 3,
+                           ifelse(char_value == ">=1 day on MV", 2,
+                           ifelse(char_value == "Unknown (no data available)",
+                                  1,
+                           ifelse(char_value == "Discharged alive", 5,
+                           ifelse(char_value == "Died in hospital", 4,
+                                  NA))))),
+                           levels = 1:5,
+                           labels = c("Unknown\n(no data available)",
+                                      ">=1 day on MV",
+                                      "Never on MV",
+                                      "Died in hospital",
+                                      "Discharged alive"))
+         ) %>%
+  filter(!is.na(data.time) & !is.na(char_value))
+
+plot.outcomes.cat <- ggplot(data = outcome_cat,
+                            aes(x = category, y = prop_value)) +
+  facet_wrap(~ char_type, ncol = 2, scales = 'free_y') +
+  geom_bar(aes(group = data.time, fill = data.time),
+           stat = 'identity', position = 'dodge') +
+  scale_fill_manual(values = c(as.character(peds.colors["A"]),
+                               as.character(peds.colors["D"]))) +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(name = "Percent of Patients",
+                     limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = 'none',
+        legend.direction = 'horizontal',
+        legend.title = element_blank(),
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 9),
+        panel.border = element_rect(fill = NA, colour = 'grey80'))
+
+outcomes_continuous <- demog %>%
+  dplyr::select(id, data.time, fss.dc, popc.dc, ventdays, piculos, hosplos) %>%
+  gather(key = cont_type, value = cont_value, fss.dc:hosplos) %>%
+  filter(!is.na(data.time) & !is.na(cont_value)) %>%
+  mutate(cont_type = factor(ifelse(cont_type == "fss.dc", 1,
+                            ifelse(cont_type == "popc.dc", 2,
+                            ifelse(cont_type == "ventdays", 3,
+                            ifelse(cont_type == "piculos", 4,
+                            ifelse(cont_type == "hosplos", 5, NA))))),
+                            levels = 1:5,
+                            labels = c("FSS, discharge",
+                                       "POPC, discharge",
+                                       "Days on MV",
+                                       "PICU length of stay",
+                                       "Hospital length of stay")))
+
+plot.outcomes.cont <- ggplot(data = outcomes_continuous,
+                             aes(x = data.time, y = cont_value)) +
+  facet_wrap(~ cont_type, scales = 'free_y') +
+  # geom_point(aes(colour = data.time),
+  #            position = position_jitter(), alpha = 0.15) +
+  geom_boxplot(aes(colour = data.time, fill = data.time),
+               alpha = 0.5, outlier.size = 0.5) +
+  scale_colour_manual(values = c(as.character(peds.colors["D"]),
+                                 as.character(peds.colors["A"]))) +
+  scale_fill_manual(values = c(as.character(peds.colors["D"]),
+                               as.character(peds.colors["A"]))) +
+  scale_x_discrete(name = NULL) +
+  scale_y_continuous(name = NULL) +
+  theme_minimal() +
+  theme(legend.position = 'bottom',
+        legend.direction = 'horizontal',
+        legend.title = element_blank(),
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 9),
+        panel.border = element_rect(fill = NA, colour = 'grey80'))
+
+@
+
+<<vis_outcome, results = 'asis', fig.width = 7.5, fig.height = 6.5, fig.align = 'center'>>=
+multiplot(plot.outcomes.cat, plot.outcomes.cont,
+          layout = matrix(c(1, 2, 2), ncol = 1))
 
 @
 
@@ -186,9 +517,12 @@ pctdays.pain.threshold <- round((days.pain.threshold / days.pain.info)*100)
 npct.pain.threshold <- npctString(days.pain.threshold, days.pain.info)
 
 ## How many pain assessments per day had at least one pain score >= 5?
-asmts.pain.threshold <- map_chr(all.months,
-                                function(x){
-                                  get.mediqr(subset(compliance, month.cat == x)$pain.morethan5) })
+asmts.pain.threshold <- map_chr(
+  all.months,
+  function(x){
+    get.mediqr(subset(compliance, month.cat == x)$pain.morethan5)
+  }
+)
 
 ## -- B: Both SAT and SBT ------------------------------------------------------
 ## Sedation
@@ -719,4 +1053,10 @@ latex(meds.table.b12, file = '',
 @
 
 \end{landscape}
+
+\section{Descriptions of ``Other" Diagnoses} \label{sec:otherdx}
+These descriptions are taken verbatim from the REDCap database.
+
+\noindent \Sexpr{dx.other.descrip}
+
 \end{document}
