@@ -230,7 +230,56 @@ label(demog$mortality.f) <- 'Mortality status'
 ## -- Daily information ----------------------------------------------------------------------------
 ## Indicator for whether data available for various conditions
 ## (several are checkboxes, can't be done inside mutate)
-compliance$pain.info <- !is.na(compliance$pain.morethan5)
+
+## Rename "number of assessment" variables
+names(compliance) <- gsub("^pain\\.assessments$", "pain\\.assessments\\.nrs",
+                          names(compliance))
+names(compliance) <- gsub("^pain\\.assessments2\\.4ab$",
+                          "pain\\.assessments\\.oucher",
+                          names(compliance))
+names(compliance) <- gsub("^pain\\.assessments2\\.4ab2\\.7ca$",
+                          "pain\\.assessments\\.flacc",
+                          names(compliance))
+names(compliance) <- gsub("^pain\\.assessments2\\.4ab2\\.9e2$",
+                          "pain\\.assessments\\.other",
+                          names(compliance))
+
+## Pain: changed from pain.morethan5 only to whether anything in pain section
+## is filled out, per 6/2/2017 call
+pain.vars <- paste0("pain.",
+                    c("opportunity",
+                      paste0("scale.", 1:6),
+                      "vas1", "vas2", "fps1", "fps2",
+                      "assessments.nrs", "nrs2",
+                      "assessments.oucher", "oucher2",
+                      "assessments.flacc", "flacc2",
+                      "assessments.other", "other2",
+                      "2hrlowestscore",
+                      paste0("hightreatment.", 1:9), "highother",
+                      "effective", "morethan5"))
+
+## Checkbox variables are my nemesis
+make_0_NA <- function(vname){
+  ifelse(compliance[,vname] == 0, NA, compliance[,vname])
+}
+
+compliance$pain.scale.1 <- make_0_NA("pain.scale.1")
+compliance$pain.scale.2 <- make_0_NA("pain.scale.2")
+compliance$pain.scale.3 <- make_0_NA("pain.scale.3")
+compliance$pain.scale.4 <- make_0_NA("pain.scale.4")
+compliance$pain.scale.5 <- make_0_NA("pain.scale.5")
+compliance$pain.scale.6 <- make_0_NA("pain.scale.6")
+compliance$pain.hightreatment.1 <- make_0_NA("pain.hightreatment.1")
+compliance$pain.hightreatment.2 <- make_0_NA("pain.hightreatment.2")
+compliance$pain.hightreatment.3 <- make_0_NA("pain.hightreatment.3")
+compliance$pain.hightreatment.4 <- make_0_NA("pain.hightreatment.4")
+compliance$pain.hightreatment.5 <- make_0_NA("pain.hightreatment.5")
+compliance$pain.hightreatment.6 <- make_0_NA("pain.hightreatment.6")
+compliance$pain.hightreatment.7 <- make_0_NA("pain.hightreatment.7")
+compliance$pain.hightreatment.8 <- make_0_NA("pain.hightreatment.8")
+compliance$pain.hightreatment.9 <- make_0_NA("pain.hightreatment.9")
+
+compliance$pain.info <- rowSums(!is.na(compliance[,pain.vars])) > 0
 compliance$sedation.info <- rowSums(compliance[,paste0('sedative.', 0:3)]) > 0
 compliance$mv.info <- !is.na(compliance$invasivemv.f)
 compliance$anxiolysis.info <- rowSums(compliance[,paste0('anxiolysis.', 1:4)]) > 0
