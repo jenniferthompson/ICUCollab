@@ -1,0 +1,9 @@
+*.xlsx
+*.tex
+*.log
+*.pdf
+*.synctex.gz
+*.docx
+*.csv
+*.txt
+/RawData
