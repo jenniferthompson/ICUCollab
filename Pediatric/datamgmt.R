@@ -59,6 +59,38 @@ demog$severityscore.a3 <- as.numeric(gsub("%", "",
                                                fixed = TRUE),
                                           fixed = TRUE))
 
+## Admission diagnosis: Lump as directed in 6/2/2017 call
+these_dx <- function(dxnums){
+  if(length(!is.na(dxnums)) == 1){
+    demog[,paste0('icu.dx.', dxnums)]
+  } else{
+    rowSums(demog[,paste0('icu.dx.', dxnums)]) > 0
+  }
+}
+
+demog$dx.surgery <- these_dx(c(20, 22:26))
+demog$dx.infection <- these_dx(c(1, 14))
+demog$dx.resp <- these_dx(2:6)
+demog$dx.gi <- these_dx(c(10, 12))
+demog$dx.neuro <- these_dx(c(18, 21))
+demog$dx.tbi <- these_dx(17)
+demog$dx.burn <- these_dx(27)
+demog$dx.malig <- these_dx(16)
+demog$dx.other <- these_dx(c(7:9, 11:13, 15, 19, 99))
+
+## Want to include all "other" admission diagnoses in report; need some string
+## work to head off Latex errors
+demog$icu.dx.other <- gsub("&", "and", demog$icu.dx.other, fixed = TRUE)
+
+all.dx.other <-
+  unique(subset(demog, !is.na(icu.dx.other) & icu.dx.other != "")$icu.dx.other)
+dx.other.descrip <-
+  do.call(paste,
+          lapply(1:length(all.dx.other),
+                 FUN = function(x){
+                   paste0(x, '. ', trimws(all.dx.other[x]), ' \\\\\\\\')
+                 }))
+
 demog <- demog %>%
   ## Rename insensibly named variables more sensibly
   rename(ventdays = piculos2.c4c,
@@ -127,6 +159,12 @@ demog <- demog %>%
          popc.preadm = as.numeric(as.character(popc.preadm)),
          popc.adm = as.numeric(as.character(popc.adm)),
          popc.dc = as.numeric(as.character(popc.dc)),
+         ## Individual respiratory failure diagnoses
+         resp.rds = as.logical(icu.dx.2),
+         resp.airway = as.logical(icu.dx.3),
+         resp.asthma = as.logical(icu.dx.4),
+         resp.cld = as.logical(icu.dx.5),
+         resp.pneu = as.logical(icu.dx.6),
          ## Hospital LOS: someone entered "not discharged"
          hosplos = as.numeric(as.character(piculos2.5b7)),
          ## Ever on MV; days on MV among patients exposed
@@ -143,9 +181,11 @@ demog <- demog %>%
          ventdays.exp = ifelse(ventdays == 0, NA, ventdays)) %>%
   dplyr::select(id, hosp.f, data.time, month.cat, dataplan.combined, age.f,
                 sex.f, race.combined, english.f, wt, severity.combined, prism3,
-                pim2, piculos, hosplos, ever.vent, ever.vent.test, ventdays,
-                ventdays.exp, fss.preadm, fss.adm, fss.dc, popc.preadm,
-                popc.adm, popc.dc, mortality.f)
+                pim2, dx.surgery, dx.infection, dx.resp, dx.gi, dx.neuro,
+                dx.tbi, dx.burn, dx.malig, dx.other, resp.rds, resp.airway,
+                resp.asthma, resp.cld, resp.pneu, piculos, hosplos, ever.vent,
+                ever.vent.test, ventdays, ventdays.exp, fss.preadm, fss.adm,
+                fss.dc, popc.preadm, popc.adm, popc.dc, mortality.f)
 
 label(demog$hosp.f) <- 'Hospital'
 label(demog$data.time) <- 'Time period'
@@ -158,6 +198,20 @@ label(demog$english.f) <- 'Language'
 label(demog$severity.combined) <- 'SOI score used'
 label(demog$prism3) <- 'PRISM III at admission'
 label(demog$pim2) <- 'PIM 2 at admission'
+label(demog$dx.surgery) <- "Surgery (any type)"
+label(demog$dx.infection) <- "Infection (sepsis/septic shock, pneumonia, other)"
+label(demog$dx.resp) <- "Respiratory failure (any type)"
+label(demog$dx.gi) <- "GI bleed/hemorrhagic shock"
+label(demog$dx.neuro) <- "Neurologic disease without trauma"
+label(demog$dx.tbi) <- "Traumatic brain injury"
+label(demog$dx.burn) <- "Burn"
+label(demog$dx.malig) <- "Malignancy"
+label(demog$dx.other) <- "Other"
+label(demog$resp.rds) <- "~~~RDS without infection"
+label(demog$resp.airway) <- "~~~Airway protection/obstruction"
+label(demog$resp.asthma) <- "~~~Asthma"
+label(demog$resp.cld) <- "~~~Chronic lung disease"
+label(demog$resp.pneu) <- "~~~Pneumonia"
 label(demog$piculos) <- 'PICU length of stay'
 label(demog$hosplos) <- 'Hospital length of stay'
 label(demog$ventdays) <- 'Days on MV, all patients'
@@ -392,5 +446,6 @@ label(compliance$benzo.total) <- 'Total benzodiazepines, lorazepam equivalents'
 label(compliance$opioid.total) <- 'Total opioids, morphine equivalents'
 
 ## -- Save data sets for use in aggregate and site-specific reports --------------------------------
-save(site_guidelines, demog, compliance, file = 'RawData/pediatric.Rdata')
+save(site_guidelines, demog, compliance, dx.other.descrip,
+     file = 'RawData/pediatric.Rdata')
 
