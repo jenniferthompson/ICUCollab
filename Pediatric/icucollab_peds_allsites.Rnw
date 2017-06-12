@@ -1038,7 +1038,7 @@ Tables \ref{table:medsb6} and \ref{table:medsb12} summarize drug doses
 
 
 Total benzodiazepines are converted to lorazepam equivalents:
-\emph{lorazepam = clonazepam = [diazepam / 0.2] = [midazolam / 0.5]}
+\emph{lorazepam = [midazolam / 0.5]}
 
 
 Total opioids are converted to morphine equivalents:
@@ -1054,25 +1054,35 @@ label(compliance$has.benzo) <- 'At least one recorded*'
 label(compliance$has.opioid) <- 'At least one recorded*'
 label(compliance$benzo.total) <- 'Total (lorazepam equiv.)'
 label(compliance$opioid.total) <- 'Total (morphine equiv.)'
+label(compliance$benzo.total.eo) <-
+  'Total (lorazepam equiv.)\\\\~~~~~~among exposed'
+label(compliance$opioid.total.eo) <-
+  'Total (morphine equiv.)\\\\~~~~~~among exposed'
 
-meds.table <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
-                         clonaz.scaled + diaz.scaled + has.opioid +
-                         opioid.total + morph.scaled + hydromorph.scaled +
-                         fent.scaled ~ month.cat,
+meds.table <- summaryM(has.benzo + benzo.total + benzo.total.eo + loraz.scaled +
+                         loraz.scaled.eo + midaz.scaled + midaz.scaled.eo +
+                         has.opioid + opioid.total + opioid.total.eo +
+                         morph.scaled + morph.scaled.eo + hydromorph.scaled +
+                         hydromorph.scaled.eo + fent.scaled +
+                         fent.scaled.eo ~ month.cat,
                        data = compliance)
 
-meds.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled +
-                            midaz.scaled + clonaz.scaled + diaz.scaled +
-                            has.opioid + opioid.total + morph.scaled +
-                            hydromorph.scaled + fent.scaled ~ month.cat,
+meds.table.b6 <- summaryM(has.benzo + benzo.total + benzo.total.eo +
+                            loraz.scaled + loraz.scaled.eo + midaz.scaled +
+                            midaz.scaled.eo + has.opioid + opioid.total +
+                            opioid.total.eo + morph.scaled + morph.scaled.eo +
+                            hydromorph.scaled + hydromorph.scaled.eo +
+                            fent.scaled + fent.scaled.eo ~ month.cat,
                           data = subset(compliance,
                                         month.cat %in% c('Baseline',
                                                          paste('Imp.', 1:6))))
 
-meds.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled +
-                             midaz.scaled + clonaz.scaled + diaz.scaled +
-                             has.opioid + opioid.total + morph.scaled +
-                             hydromorph.scaled + fent.scaled ~ month.cat,
+meds.table.b12 <- summaryM(has.benzo + benzo.total + benzo.total.eo +
+                             loraz.scaled + loraz.scaled.eo + midaz.scaled +
+                             midaz.scaled.eo + has.opioid + opioid.total +
+                             opioid.total.eo + morph.scaled + morph.scaled.eo +
+                             hydromorph.scaled + hydromorph.scaled.eo +
+                             fent.scaled + fent.scaled.eo ~ month.cat,
                            data = subset(compliance,
                                          month.cat %in% c('Baseline',
                                                           paste('Imp.', 7:12))))
@@ -1092,9 +1102,9 @@ latex(meds.table.b6, file = '',
       where = '!h',
       label = 'table:medsb6',
       size = 'scriptsize',
-      n.rgroup = c(12, 5),
+      n.rgroup = c(7, 9),
       rgroup = c('Benzodiazepines', 'Opioids'),
-      insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
+      insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam and/or midazolam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and/or fentanyl.}")
 
 latex(meds.table.b12, file = '',
       title = '',
@@ -1108,7 +1118,7 @@ latex(meds.table.b12, file = '',
       where = '!h',
       label = 'table:medsb12',
       size = 'scriptsize',
-      n.rgroup = c(6, 5),
+      n.rgroup = c(7, 9),
       rgroup = c('Benzodiazepines', 'Opioids'))
 
 @
