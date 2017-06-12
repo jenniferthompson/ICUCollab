@@ -1033,7 +1033,7 @@ perf.charts[[10]]
 
 \clearpage
 \section{Medication Use}
-Tables \ref{table:medsb6} and \ref{table:medsb12} summarize drug doses
+Tables \ref{table:benzob6}-\ref{table:opioidb12} summarize drug doses
 \textbf{per 24 hours} for benzodiazepines and opioids.
 
 
@@ -1047,15 +1047,14 @@ Total opioids are converted to morphine equivalents:
 
 All doses are scaled by weight in kilograms prior to conversion.
 
-If at least one medication in a category (benzodiazepines or opioids) had a dose recorded, all NA values in that category were assumed to be zero. Otherwise, doses were considered missing. For example, if a patient-day had a dose recorded for fentanyl but nothing recorded for morphine or hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 for that day. If, on the other hand, none of the three opioids of interest were recorded, no opioid data for that day is described - doses are left as missing.
+If at least one medication in a category (benzodiazepines or opioids) had a dose recorded (including zero), all NA values in that category were assumed to be zero. Otherwise, doses were considered missing and are not included in the following tables. For example, if a patient-day had a dose recorded for fentanyl but nothing recorded for morphine or hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 for that day. If, on the other hand, none of the three opioids of interest were recorded, no opioid data for that day is described - doses are left as missing and that day is not included in Tables \ref{table:opioidb6}-\ref{table:opioidb12}.
 
 <<createmedstable>>=
 label(compliance$has.benzo) <- 'At least one recorded*'
 label(compliance$has.opioid) <- 'At least one recorded*'
 label(compliance$benzo.total) <- 'Total (lorazepam equiv.)'
 label(compliance$opioid.total) <- 'Total (morphine equiv.)'
-label(compliance$benzo.total.eo) <-
-  'Total (lorazepam equiv.)\\\\~~~~~~among exposed'
+label(compliance$benzo.total.eo) <- 'Total (lorazepam equiv.) among exposed'
 label(compliance$opioid.total.eo) <-
   'Total (morphine equiv.)\\\\~~~~~~among exposed'
 
@@ -1066,6 +1065,44 @@ meds.table <- summaryM(has.benzo + benzo.total + benzo.total.eo + loraz.scaled +
                          hydromorph.scaled.eo + fent.scaled +
                          fent.scaled.eo ~ month.cat,
                        data = compliance)
+
+benzo.table.b6 <- summaryM(benzo.rcvd + benzo.total + benzo.total.eo +
+                             loraz.rcvd + loraz.scaled + loraz.scaled.eo +
+                             midaz.rcvd + midaz.scaled +
+                             midaz.scaled.eo ~ month.cat,
+                           data = subset(compliance,
+                                         month.cat %in% c('Baseline',
+                                                         paste('Imp.', 1:6)) &
+                                         has.benzo))
+
+benzo.table.b12 <- summaryM(benzo.rcvd + benzo.total + benzo.total.eo +
+                              loraz.rcvd + loraz.scaled + loraz.scaled.eo +
+                              midaz.rcvd + midaz.scaled +
+                              midaz.scaled.eo ~ month.cat,
+                            data = subset(compliance,
+                                          month.cat %in% c('Baseline',
+                                                          paste('Imp.', 7:12)) &
+                                          has.benzo))
+
+opioid.table.b6 <- summaryM(opioid.rcvd + opioid.total + opioid.total.eo +
+                              morph.rcvd + morph.scaled + morph.scaled.eo +
+                              hydromorph.rcvd + hydromorph.scaled +
+                              hydromorph.scaled.eo + fent.rcvd +
+                              fent.scaled + fent.scaled.eo ~ month.cat,
+                            data = subset(compliance,
+                                          month.cat %in% c('Baseline',
+                                                          paste('Imp.', 1:6)) &
+                                          has.opioid))
+
+opioid.table.b12 <- summaryM(opioid.rcvd + opioid.total + opioid.total.eo +
+                               morph.rcvd + morph.scaled + morph.scaled.eo +
+                               hydromorph.rcvd + hydromorph.scaled +
+                               hydromorph.scaled.eo + fent.rcvd +
+                               fent.scaled + fent.scaled.eo ~ month.cat,
+                             data = subset(compliance,
+                                           month.cat %in% c('Baseline',
+                                                           paste('Imp.', 7:12)) &
+                                           has.opioid))
 
 meds.table.b6 <- summaryM(has.benzo + benzo.total + benzo.total.eo +
                             loraz.scaled + loraz.scaled.eo + midaz.scaled +
@@ -1089,10 +1126,11 @@ meds.table.b12 <- summaryM(has.benzo + benzo.total + benzo.total.eo +
 
 @
 
-<<printmedstable, results = 'asis'>>=
-latex(meds.table.b6, file = '',
+\subsection{Benzodiazepines}
+<<printbenzotables, results = 'asis'>>=
+latex(benzo.table.b6, file = '',
       title = '',
-      caption = 'Daily Medication Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+      caption = 'Daily Benzodiazepine Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. Patient-days are included if at least one value, including 0, was recorded for lorazepam and/or midazolam',
       digits = 2,
       prmsd = FALSE,
       prn = FALSE,
@@ -1100,15 +1138,12 @@ latex(meds.table.b6, file = '',
       what = '%',
       long = TRUE,
       where = '!h',
-      label = 'table:medsb6',
-      size = 'scriptsize',
-      n.rgroup = c(7, 9),
-      rgroup = c('Benzodiazepines', 'Opioids'),
-      insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam and/or midazolam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and/or fentanyl.}")
+      label = 'table:benzob6',
+      size = 'scriptsize')
 
-latex(meds.table.b12, file = '',
+latex(benzo.table.b12, file = '',
       title = '',
-      caption = 'Daily Medication Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+      caption = 'Daily Benzodiazepine Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. Patient-days are included if at least one value, including 0, was recorded for lorazepam and/or midazolam',
       digits = 2,
       prmsd = FALSE,
       prn = FALSE,
@@ -1116,10 +1151,39 @@ latex(meds.table.b12, file = '',
       what = '%',
       long = TRUE,
       where = '!h',
-      label = 'table:medsb12',
-      size = 'scriptsize',
-      n.rgroup = c(7, 9),
-      rgroup = c('Benzodiazepines', 'Opioids'))
+      label = 'table:benzob12',
+      size = 'scriptsize')
+
+@
+
+\clearpage
+\subsection{Opioids}
+<<printopioidtables, results = 'asis'>>=
+latex(opioid.table.b6, file = '',
+      title = '',
+      caption = 'Daily Opioid Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. Patient-days are included if at least one value, including 0, was recorded for morphine, fentanyl and/or hydromorphone',
+      digits = 2,
+      prmsd = FALSE,
+      prn = FALSE,
+      prN = FALSE,
+      what = '%',
+      long = TRUE,
+      where = '!h',
+      label = 'table:opioidb6',
+      size = 'scriptsize')
+
+latex(opioid.table.b12, file = '',
+      title = '',
+      caption = 'Daily Opioid Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. Patient-days are included if at least one value, including 0, was recorded for morphine, fentanyl and/or hydromorphone',
+      digits = 2,
+      prmsd = FALSE,
+      prn = FALSE,
+      prN = FALSE,
+      what = '%',
+      long = TRUE,
+      where = '!h',
+      label = 'table:opioidb12',
+      size = 'scriptsize')
 
 @
 

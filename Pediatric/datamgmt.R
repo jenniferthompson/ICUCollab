@@ -452,6 +452,8 @@ compliance <- compliance %>%
   left_join(dplyr::select(demog, id, wt), by = 'id') %>%
   mutate(loraz.scaled = ifelse(!has.benzo | is.na(wt), NA,
                         ifelse(is.na(lorazepam.total), 0, lorazepam.total / wt)),
+         loraz.rcvd = ifelse(!has.benzo, NA,
+                             !is.na(lorazepam.total) & lorazepam.total > 0),
          loraz.scaled.eo = ifelse(is.na(loraz.scaled) | loraz.scaled == 0, NA,
                                   loraz.scaled),
          clonaz.scaled = ifelse(!has.benzo | is.na(wt), NA,
@@ -461,33 +463,51 @@ compliance <- compliance %>%
                                    clonaz.scaled),
          diaz.scaled = ifelse(!has.benzo | is.na(wt), NA,
                        ifelse(is.na(diazepam.total), 0, diazepam.total / wt)),
+         ## Clonazepam/diazepam only correct if included in benzo vars above
+         clonaz.rcvd = ifelse(!has.benzo, NA,
+                              !is.na(clonazepam.total) & clonazepam.total > 0),
+         diaz.rcvd = ifelse(!has.benzo, NA,
+                            !is.na(diazepam.total) & diazepam.total > 0),
          diaz.scaled.eo = ifelse(is.na(diaz.scaled) | diaz.scaled == 0, NA,
                                  diaz.scaled),
          midaz.scaled = ifelse(!has.benzo | is.na(wt), NA,
                                ifelse(is.na(midazolam.total), 0, midazolam.total / wt)),
+         midaz.rcvd = ifelse(!has.opioid, NA,
+                             !is.na(midazolam.total) & midazolam.total > 0),
          midaz.scaled.eo = ifelse(is.na(midaz.scaled) | midaz.scaled == 0, NA,
                                   midaz.scaled),
          morph.scaled = ifelse(!has.opioid | is.na(wt), NA,
                         ifelse(is.na(morphine.total), 0, morphine.total / wt)),
+         morph.rcvd = ifelse(!has.opioid, NA,
+                             !is.na(morphine.total) & morphine.total > 0),
          morph.scaled.eo = ifelse(is.na(morph.scaled) | morph.scaled == 0, NA,
                                   morph.scaled),
          hydromorph.scaled = ifelse(!has.opioid | is.na(wt), NA,
                              ifelse(is.na(hydromorphone.total), 0,
                                     hydromorphone.total / wt)),
+         hydromorph.rcvd = ifelse(!has.opioid, NA,
+                                  !is.na(hydromorphone.total) &
+                                    hydromorphone.total > 0),
          hydromorph.scaled.eo = ifelse(is.na(hydromorph.scaled) |
                                          hydromorph.scaled == 0, NA,
                                        hydromorph.scaled),
          fent.scaled = ifelse(!has.opioid | is.na(wt), NA,
                        ifelse(is.na(fentanyl.total), 0, fentanyl.total / wt)),
+         fent.rcvd = ifelse(!has.opioid, NA,
+                            !is.na(fentanyl.total) & fentanyl.total > 0),
          fent.scaled.eo = ifelse(is.na(fent.scaled) | fent.scaled == 0, NA,
                                  fent.scaled),
          ## Calculate total benzos (lorazepam equivalents), opioids (morphine equivalents)
          benzo.total = loraz.scaled + (midaz.scaled / 0.5),
+         benzo.rcvd = ifelse(!has.benzo, NA,
+                             !is.na(benzo.total) & benzo.total > 0),
          benzo.total.eo = ifelse(is.na(benzo.total) | benzo.total == 0, NA,
                                  benzo.total),
          opioid.total = morph.scaled +
                           (hydromorph.scaled / 4) +
                           (fent.scaled / 10),
+         opioid.rcvd = ifelse(!has.opioid, NA,
+                              !is.na(opioid.total) & opioid.total > 0),
          opioid.total.eo = ifelse(is.na(opioid.total) | opioid.total == 0, NA,
                                   opioid.total))
 
@@ -527,8 +547,10 @@ label(compliance$family.present.info) <- 'Family visit data available'
 label(compliance$family.present) <- 'Family member visited'
 label(compliance$family.inter.info) <- 'Family intervention data available'
 label(compliance$family.intervention) <- 'Family member participation in nonpharm intervention'
-label(compliance$has.benzo) <- paste('At least one dose recorded of', paste(benzo.drugs, collapse = ', '))
-label(compliance$has.opioid) <- paste('At least one dose recorded of', paste(opioid.drugs, collapse = ', '))
+label(compliance$has.benzo) <-
+  paste('At least one dose recorded of', paste(benzo.drugs, collapse = ', '))
+label(compliance$has.opioid) <-
+  paste('At least one dose recorded of', paste(opioid.drugs, collapse = ', '))
 label(compliance$lorazepam.total) <- 'Total lorazepam (mg/day)'
 label(compliance$clonazepam.total) <- 'Total clonazepam (mg/day)'
 label(compliance$diazepam.total) <- 'Total diazepam (mg/day)'
@@ -545,10 +567,19 @@ label(compliance$fent.scaled) <- 'Fentanyl (mg/kg/day)'
 label(compliance$hydromorph.scaled) <- 'Hydromorphone\\\\~~~~~~(mcg/kg/day)'
 label(compliance$benzo.total) <- 'Total benzodiazepines, lorazepam equivalents, mg/kg/day'
 label(compliance$opioid.total) <- 'Total opioids, morphine equivalents, mg/kg/day'
-label(compliance$loraz.scaled.eo) <- 'Lorazepam (mg/kg/day)\\\\~~~~~~among exposed'
-label(compliance$clonaz.scaled.eo) <- 'Clonazepam (mg/kg/day)\\\\~~~~~~among exposed'
-label(compliance$diaz.scaled.eo) <- 'Diazepam (mg/kg/day)\\\\~~~~~~among exposed'
-label(compliance$midaz.scaled.eo) <- 'Midazolam (mg/kg/day)\\\\~~~~~~among exposed'
+label(compliance$loraz.rcvd) <- 'Received lorazepam'
+label(compliance$midaz.rcvd) <- 'Received midazolam'
+label(compliance$clonaz.rcvd) <- 'Received clonazepam'
+label(compliance$diaz.rcvd) <- 'Received diazepam'
+label(compliance$morph.rcvd) <- 'Received morphine'
+label(compliance$fent.rcvd) <- 'Received fentanyl'
+label(compliance$hydromorph.rcvd) <- 'Received hydromorphone'
+label(compliance$benzo.rcvd) <- 'Received benzodiazepines'
+label(compliance$opioid.rcvd) <- 'Received opioids'
+label(compliance$loraz.scaled.eo) <- 'Lorazepam (mg/kg/day) among exposed'
+label(compliance$clonaz.scaled.eo) <- 'Clonazepam (mg/kg/day) among exposed'
+label(compliance$diaz.scaled.eo) <- 'Diazepam (mg/kg/day) among exposed'
+label(compliance$midaz.scaled.eo) <- 'Midazolam (mg/kg/day) among exposed'
 label(compliance$morph.scaled.eo) <- 'Morphine (mg/kg/day)\\\\~~~~~~among exposed'
 label(compliance$fent.scaled.eo) <- 'Fentanyl (mg/kg/day)\\\\~~~~~~among exposed'
 label(compliance$hydromorph.scaled.eo) <- 'Hydromorphone\\\\~~~~~~(mcg/kg/day)\\\\~~~~~~among exposed'
