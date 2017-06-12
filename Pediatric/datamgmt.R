@@ -231,17 +231,14 @@ label(demog$mortality.f) <- 'Mortality status'
 ## Indicator for whether data available for various conditions
 ## (several are checkboxes, can't be done inside mutate)
 
-## Rename "number of assessment" variables
-names(compliance) <- gsub("^pain\\.assessments$", "pain\\.assessments\\.nrs",
+## Rename some "number of assessments" variables to be consistent with VAS, FPS
+names(compliance) <- gsub("^pain\\.assessments$", "pain\\.nrs1",
                           names(compliance))
-names(compliance) <- gsub("^pain\\.assessments2\\.4ab$",
-                          "pain\\.assessments\\.oucher",
+names(compliance) <- gsub("^pain\\.assessments2\\.4ab$", "pain\\.oucher1",
                           names(compliance))
-names(compliance) <- gsub("^pain\\.assessments2\\.4ab2\\.7ca$",
-                          "pain\\.assessments\\.flacc",
+names(compliance) <- gsub("^pain\\.assessments2\\.4ab2\\.7ca$", "pain\\.flacc1",
                           names(compliance))
-names(compliance) <- gsub("^pain\\.assessments2\\.4ab2\\.9e2$",
-                          "pain\\.assessments\\.other",
+names(compliance) <- gsub("^pain\\.assessments2\\.4ab2\\.9e2$", "pain\\.other1",
                           names(compliance))
 
 ## Pain: changed from pain.morethan5 only to whether anything in pain section
@@ -249,12 +246,9 @@ names(compliance) <- gsub("^pain\\.assessments2\\.4ab2\\.9e2$",
 pain.vars <- paste0("pain.",
                     c("opportunity",
                       paste0("scale.", 1:6),
-                      "vas1", "vas2", "fps1", "fps2",
-                      "assessments.nrs", "nrs2",
-                      "assessments.oucher", "oucher2",
-                      "assessments.flacc", "flacc2",
-                      "assessments.other", "other2",
-                      "2hrlowestscore",
+                      "vas1", "vas2", "fps1", "fps2", "nrs1", "nrs2",
+                      "oucher1", "oucher2", "flacc1", "flacc2",
+                      "other1", "other2", "2hrlowestscore",
                       paste0("hightreatment.", 1:9), "highother",
                       "effective", "morethan5"))
 
@@ -289,9 +283,42 @@ compliance$anxiolysis.specifics <-
 
 compliance <- compliance %>%
   mutate(## A:
-         ## How many pain assessments per day had a score >= 5? variable: pain.morethan5
+         ## Out of all opportunities to assess pain, proportion actually taken?
+         ## Several different scales -> several different sets of variables
+         pain.assess.info = (!is.na(pain.opportunity) & pain.opportunity > 0) &
+                             ((!is.na(pain.scale.1) & !is.na(pain.vas1)) |
+                              (!is.na(pain.scale.2) & !is.na(pain.fps1)) |
+                              (!is.na(pain.scale.3) & !is.na(pain.nrs1)) |
+                              (!is.na(pain.scale.4) & !is.na(pain.oucher1)) |
+                              (!is.na(pain.scale.5) & !is.na(pain.flacc1)) |
+                              (!is.na(pain.scale.6) & !is.na(pain.other1))),
+         pain.prop.assessed = ifelse(!pain.assess.info, NA,
+                              ifelse(!is.na(pain.scale.1) & !is.na(pain.vas1),
+                                     pain.vas1 / pain.opportunity,
+                              ifelse(!is.na(pain.scale.2) & !is.na(pain.fps1),
+                                     pain.fps1 / pain.opportunity,
+                              ifelse(!is.na(pain.scale.3) & !is.na(pain.nrs1),
+                                     pain.nrs1 / pain.opportunity,
+                              ifelse(!is.na(pain.scale.4) & !is.na(pain.oucher1),
+                                     pain.oucher1 / pain.opportunity,
+                              ifelse(!is.na(pain.scale.5) & !is.na(pain.flacc1),
+                                     pain.flacc1 / pain.opportunity,
+                              ifelse(!is.na(pain.scale.6) & !is.na(pain.other1),
+                                     pain.other1 / pain.opportunity, NA))))))),
+         ## Cap proportion of assessments completed at 100%
+         pain.prop.assessed = ifelse(!is.na(pain.prop.assessed) &
+                                       pain.prop.assessed > 1, 100,
+                                     pain.prop.assessed*100),
+         ## Was pain score within 2 hours of highest assessment < 5?
+         pain.2hrs.info = !is.na(pain.2hrlowestscore),
+         pain.2hrs.threshold = factor(ifelse(!pain.2hrs.info, NA,
+                                      ifelse(pain.2hrlowestscore < 5, 1,
+                                      ifelse(pain.2hrlowestscore == 11, 3, 2))),
+                                      levels = 1:3,
+                                      labels = c('<5', '>=5', 'Not reassessed')),
          ## How many days had at least one assessment with a score > 5?
-         pain.threshold = ifelse(!pain.info, NA, pain.morethan5 > 0),
+         pain.threshold.info = !is.na(pain.morethan5),
+         pain.threshold = ifelse(is.na(pain.morethan5), NA, pain.morethan5 > 0),
          ## B:
          ## is patient on continuous or intermittent sedation?
          on.majorsed = ifelse(!sedation.info, NA, sedative.1 == 1 | sedative.2 == 1),

@@ -462,13 +462,9 @@ multiplot(plot.outcomes.cat, plot.outcomes.cont,
 \section{ABCDEF Bundle Performance}
 The following table presents information on each element of the ABCDEF Bundle by month. (All three baseline months are described together; all months during the implementation period are described separately.)
 
-Categorical variables (eg, days with pain data available) are described as frequency (percent).
-Continuous variables (eg, number of assessments with pain score $\ge$5) are described by their
-median (25th, 75th percentiles).
+Categorical variables are described as frequency (percent). Continuous variablesare described by their median (25th, 75th percentiles).
 
-\emph{Italicized rows} describe the availability of recorded data on a specific characteristic. For
-example, we can only describe how many days had pain assessed on days which had any pain assessment data recorded, and not all sites collected data on pain. In addition, this will allow us to quickly
-see where data which should be present still needs to be entered.
+\emph{Italicized rows} describe the availability of recorded data on a specific characteristic. For example, we can only describe sedation on days which had any sedation data recorded.
 
 <<performancetableinfo>>=
 all.months <- levels(demog$month.cat)
@@ -506,15 +502,62 @@ n.days <- map_int(all.months,
                   function(x){ sum(compliance$month.cat == x, na.rm = TRUE) })
 
 ## -- A: Pain assessment, prevention and management ----------------------------
-## How many days each month had pain data recorded?
-days.pain.info <- mapSum('pain.info')
-pctdays.pain.info <- round((days.pain.info / n.days)*100)
-npct.pain.info <- npctString(days.pain.info, n.days)
+## How many days each month had pain assessment data recorded?
+days.painassess.info <- mapSum('pain.assess.info')
+pctdays.painassess.info <- round((days.painassess.info / n.days)*100)
+npct.painassess.info <- npctString(days.painassess.info, n.days)
+
+## What proportion of eligible assessments were done per day?
+asmts.pain <- map_chr(
+  all.months,
+  function(x){
+    get.mediqr(subset(compliance, month.cat == x)$pain.prop.assessed)
+  }
+)
+
+## How many days each month had pain *re*assessment data recorded?
+days.pain2hrs.info <- mapSum('pain.2hrs.info')
+pctdays.pain2hrs.info <- round((days.pain2hrs.info / n.days)*100)
+npct.pain2hrs.info <- npctString(days.pain2hrs.info, n.days)
+
+## How many days each month had pain score < 5 when reassessed?
+mapSum_chr <- function(sumvar, value){
+  map_int(all.months,
+          function(x){
+            sum(compliance[compliance$month.cat == x, sumvar] == value,
+                na.rm = TRUE)
+          })
+}
+
+## Want to know how many days had a reassessment <5, >=5 *and* never reassessed
+days.pain2hrs.underthreshold <- mapSum_chr('pain.2hrs.threshold', "<5")
+pctdays.pain2hrs.underthreshold <-
+  round((days.pain2hrs.underthreshold / days.pain2hrs.info)*100)
+npct.pain2hrs.underthreshold <- npctString(days.pain2hrs.underthreshold,
+                                           days.pain2hrs.info)
+
+days.pain2hrs.overthreshold <- mapSum_chr('pain.2hrs.threshold', ">=5")
+pctdays.pain2hrs.overthreshold <-
+  round((days.pain2hrs.overthreshold / days.pain2hrs.info)*100)
+npct.pain2hrs.overthreshold <- npctString(days.pain2hrs.overthreshold,
+                                           days.pain2hrs.info)
+
+days.pain2hrs.notassessed <- mapSum_chr('pain.2hrs.threshold', "Not reassessed")
+pctdays.pain2hrs.notassessed <-
+  round((days.pain2hrs.notassessed / days.pain2hrs.info)*100)
+npct.pain2hrs.notassessed <- npctString(days.pain2hrs.notassessed,
+                                        days.pain2hrs.info)
+
+## How many days each month had pain threshold data recorded?
+days.painthreshold.info <- mapSum('pain.threshold.info')
+pctdays.painthreshold.info <- round((days.painthreshold.info / n.days)*100)
+npct.painthreshold.info <- npctString(days.painthreshold.info, n.days)
 
 ## How many days each month had at least one pain score >= 5?
 days.pain.threshold <- mapSum('pain.threshold')
-pctdays.pain.threshold <- round((days.pain.threshold / days.pain.info)*100)
-npct.pain.threshold <- npctString(days.pain.threshold, days.pain.info)
+pctdays.pain.threshold <-
+  round((days.pain.threshold / days.painthreshold.info)*100)
+npct.pain.threshold <- npctString(days.pain.threshold, days.painthreshold.info)
 
 ## How many pain assessments per day had at least one pain score >= 5?
 asmts.pain.threshold <- map_chr(
@@ -707,7 +750,13 @@ italicize.this <- function(r){
 
 perf.table <- matrix(c(as.character(n.days),
                        ## A
-                       italicize.this(npct.pain.info),
+                       italicize.this(npct.painassess.info),
+                       asmts.pain,
+                       italicize.this(npct.pain2hrs.info),
+                       npct.pain2hrs.underthreshold,
+                       npct.pain2hrs.overthreshold,
+                       npct.pain2hrs.notassessed,
+                       italicize.this(npct.painthreshold.info),
                        npct.pain.threshold,
                        asmts.pain.threshold,
                        ## B - sedation
@@ -753,11 +802,17 @@ perf.table <- matrix(c(as.character(n.days),
                      byrow = TRUE,
                      ncol = length(all.months))
 rownames(perf.table) <- c('Days recorded',
-                          '\\emph{Pain data available}',
+                          '\\emph{Pain assessment data available}',
+                          'Assessments done / opportunities',
+                          '\\emph{Pain \\textbf{re}assessment data available}',
+                          '2-hour reassessment < 5',
+                          '2-hour reassessment >= 5',
+                          'No 2-hour reassessment done',
+                          '\\emph{Pain threshold data available}',
                           '>=1 assessment with pain >=5',
                           'Assessments with pain >=5',
                           '\\emph{Sedation data available}',
-                          'On continuous/intermittent sedation',
+                          'On continuous/inter. sedation',
                           '~~~\\emph{Interruption data available}',
                           '~~~Sedation interrupted (SAT)',
                           '~~~\\emph{Weaning data available}',
@@ -780,11 +835,11 @@ rownames(perf.table) <- c('Days recorded',
                           'Delirium assessed',
                           '~~~Assessments per day',
                           '~~~Delirium present',
-                          '\\emph{Mobility safety screen data available}',
+                          '\\emph{Safety screen data available}',
                           'Mobility safety screen done',
-                          '\\emph{Mobility performance data available}',
+                          '\\emph{Performance data available}',
                           'Mobilization performed',
-                          '\\emph{Mobility protocol data available}',
+                          '\\emph{Protocol data available}',
                           'Mobility protocol followed**',
                           '\\emph{Family presence data available}',
                           'Family or caregiver present',
@@ -803,12 +858,12 @@ latex(perf.table, file = '',
       rgroup = c('',
                  'A: Assess, Prevent, Manage Pain',
                  'B: Both SAT/SBT: Sedation',
-                 'B: Both SAT/SBT: ERT/Breathing',
-                 'C: Choice of Analgesia \\& Sedation',
+                 'B: SAT/SBT: ERT/Breathing',
+                 'C: Choice of Sedation',
                  'D: Delirium***',
                  'E: Exercise/Early Mobility',
                  'F: Family Engagement'),
-      n.rgroup = c(1, 3, 9, 7, 5, 3, 6, 4),
+      n.rgroup = c(1, 9, 9, 7, 5, 3, 6, 4),
       insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium assessed if one or more of those assessment tools is available; delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU")
 
 @
@@ -826,7 +881,7 @@ all.perfdays <- list(days.pain.threshold, days.had.sat, days.had.weaning,
                      days.del.present, days.exer, days.exer.protocol,
                      days.familyinter)
 
-all.infodays <- list(days.pain.info, days.sat.info, days.weaning.info,
+all.infodays <- list(days.painthreshold.info, days.sat.info, days.weaning.info,
                      days.sbt.info, days.sbt.info, days.anxio.info,
                      days.del.assessed, days.exer.info, days.exer.protocol.info,
                      days.familypres.info)
