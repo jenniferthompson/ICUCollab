@@ -134,8 +134,8 @@ time_totals <- tribble(
 ## Categorical variables: Show proportion in each category
 demog_categoricals <- demog %>%
   dplyr::select(id, data.time, age.f, sex.f, race.combined, #english.f,
-                severity.combined) %>%
-  gather(key = char_type, value = char_value, age.f:severity.combined) %>%
+                severity.combined, ever.vent, mortality.f) %>%
+  gather(key = char_type, value = char_value, age.f:mortality.f) %>%
   group_by(data.time, char_type, char_value) %>%
   summarise(n_value = n()) %>%
   ungroup() %>%
@@ -144,15 +144,18 @@ demog_categoricals <- demog %>%
          data.time = factor(ifelse(data.time == "Implementation", 1, 2),
                             levels = 1:2,
                             labels = c("Implementation", "Baseline")),
-         char_type = factor(ifelse(char_type == "age.f", 1,
-                            ifelse(char_type == "sex.f", 2,
-                            ifelse(char_type == "race.combined", 3,
-                            ifelse(char_type == "english.f", 4,
-                            ifelse(char_type == "severity.combined", 5,
-                                   char_type))))),
-                            levels = 1:5,
-                            labels = c("Age", "Sex", "Race", "Language",
-                                       "Severity Scale")),
+         char_f = factor(ifelse(char_type == "age.f", 1,
+                         ifelse(char_type == "sex.f", 2,
+                         ifelse(char_type == "race.combined", 3,
+                         ifelse(char_type == "english.f", 4,
+                         ifelse(char_type == "severity.combined", 5,
+                         ifelse(char_type == "ever.vent", 6,
+                         ifelse(char_type == "mortality.f", 7,
+                                char_type))))))),
+                         levels = 1:7,
+                         labels = c("Age", "Sex", "Race", "Language",
+                                    "Severity Scale", "Ever on MV",
+                                    "Mortality")),
          ## Manually create factor variables to get categories in right order
          category = factor(ifelse(char_value == "0 day - 27 days", 7,
                            ifelse(char_value == "28 days - 12 months", 6,
@@ -185,8 +188,14 @@ demog_categoricals <- demog %>%
                                   18,
                            ifelse(char_value == "Male", 27,
                            ifelse(char_value == "Female", 26,
-                                  NA))))))))))))))))))))))))))),
-                           levels = 1:27,
+                           ifelse(char_value == ">=1 day on MV", 30,
+                           ifelse(char_value == "Never on MV", 29,
+                           ifelse(char_value == "Unknown (no data available)",
+                                  28,
+                           ifelse(char_value == "Discharged alive", 32,
+                           ifelse(char_value == "Died in hospital", 31,
+                                  NA)))))))))))))))))))))))))))))))),
+                           levels = 1:32,
                            labels = c("18 years to 21 years",
                                       "12 years to 18 years",
                                       "6 years to 11 years",
@@ -213,7 +222,12 @@ demog_categoricals <- demog %>%
                                       "PIM 2 + other scale",
                                       "PIM 2 only",
                                       "Female",
-                                      "Male"))
+                                      "Male",
+                                      "Unknown (no data)",
+                                      "Never on MV",
+                                      ">=1 day on MV",
+                                      "Died in hospital",
+                                      "Discharged alive"))
          ) %>%
   filter(!is.na(data.time) & !is.na(char_value))
 
@@ -224,8 +238,8 @@ demog_admitdx <- demog %>%
                .cols = paste0("dx.",
                               c("surgery", "infection", "resp", "gi", "neuro",
                                 "tbi", "burn", "malig", "other"))) %>%
-  gather(key = diagnosis, value = percent, dx.surgery:dx.other) %>%
-  mutate(percent = percent * 100,
+  gather(key = diagnosis, value = prop_value, dx.surgery:dx.other) %>%
+  mutate(prop_value = prop_value * 100,
          facet.text = "Admission Diagnoses",
          diagnosis.f = factor(ifelse(diagnosis == "dx.surgery", 9,
                               ifelse(diagnosis == "dx.infection", 8,
@@ -248,91 +262,102 @@ demog_admitdx <- demog %>%
                                          "Surgery\n(any)")))
 
 demog_continuous <- demog %>%
-  dplyr::select(id, data.time, prism3, pim2, fss.preadm, fss.adm,
-                popc.preadm, popc.adm) %>%
-  gather(key = cont_type, value = cont_value, prism3:popc.adm) %>%
+  dplyr::select(id, data.time, prism3, pim2, fss.preadm, fss.adm, fss.dc,
+                popc.preadm, popc.adm, popc.dc, piculos, hosplos, ventdays) %>%
+  gather(key = cont_type, value = cont_value, prism3:ventdays) %>%
   filter(!is.na(data.time) & !is.na(cont_value)) %>%
-  mutate(cont_type = factor(ifelse(cont_type == "prism3", 1,
-                            ifelse(cont_type == "pim2", 2,
-                            ifelse(cont_type == "fss.preadm", 3,
-                            ifelse(cont_type == "fss.adm", 4,
-                            ifelse(cont_type == "popc.preadm", 5,
-                            ifelse(cont_type == "popc.adm", 6, NA)))))),
-                            levels = 1:6,
-                            labels = c("PRISM III",
-                                       "PIM 2",
-                                       "FSS, pre-admission",
-                                       "FSS, PICU admission",
-                                       "POPC, pre-admission",
-                                       "POPC, PICU admission")))
+  separate(cont_type, into = c("cont_type", "time"), sep = "\\.") %>%
+  mutate(cont_f = factor(ifelse(cont_type == "prism3", 1,
+                         ifelse(cont_type == "pim2", 2,
+                         ifelse(cont_type == "fss", 3,
+                         ifelse(cont_type == "popc", 4,
+                         ifelse(cont_type == "piculos", 5,
+                         ifelse(cont_type == "hosplos", 6,
+                         ifelse(cont_type == "ventdays", 7, NA))))))),
+                         levels = 1:7,
+                         labels = c("PRISM III", "PIM 2", "FSS", "POPC",
+                                    "PICU length of stay",
+                                    "Hospital length of stay", "Days on MV")),
+         time_f = factor(ifelse(is.na(time), NA,
+                         ifelse(time == "preadm", 1,
+                         ifelse(time == "adm", 2, 3))),
+                         levels = 1:3,
+                         labels = c("Preadmission", "Admission", "Discharge")))
 
-@
+## -- Function to plot either barchart or boxplot for a single variable --------
+plot_demog_var <- function(vname){
+  plot_cols = c("Baseline" = as.character(peds.colors["D"]),
+                "Implementation" = as.character(peds.colors["A"]))
 
-<<vis_demog_cat, results = 'asis', fig.width=7.5, fig.height=7, fig.align='center'>>=
-plot.cat <- ggplot(data = demog_categoricals,
-                   aes(x = category, y = prop_value)) +
-  facet_wrap(~ char_type, ncol = 1, scales = 'free_y') +
-  geom_bar(aes(group = data.time, fill = data.time),
-           stat = 'identity', position = 'dodge') +
-  scale_fill_manual(values = c(as.character(peds.colors["A"]),
-                               as.character(peds.colors["D"]))) +
-  scale_x_discrete(name = "") +
-  scale_y_continuous(name = "Percent of Patients",
-                     limits = c(0, 100), breaks = seq(0, 100, 25)) +
-  coord_flip() +
-  theme_minimal() +
-  theme(legend.position = 'none',
-        legend.direction = 'horizontal',
-        legend.title = element_blank(),
-        axis.text = element_text(size = 7),
-        axis.title = element_text(size = 9),
-        panel.border = element_rect(fill = NA, colour = 'grey80'))
+  ## Indicators for whether plot needs to be faceted by preadm/adm/dc, and/or
+  ## variable is categorical
+  if(vname %in% names(demog)){
+    is_popc_fss <- FALSE
+    is_cat <- inherits(demog[,vname], "factor")
+  } else{
+    is_popc_fss <- vname %in% c("popc", "fss")
+    is_cat <- vname == "diagnosis.f"
+  }
 
-plot.admitdx <- ggplot(data = demog_admitdx,
-                       aes(x = diagnosis.f, y = percent)) +
-  facet_wrap(~ facet.text, ncol = 1) +
-  geom_bar(aes(group = data.time, fill = data.time),
-           stat = 'identity', position = 'dodge') +
-  scale_fill_manual(values = c(as.character(peds.colors["A"]),
-                               as.character(peds.colors["D"]))) +
-  scale_x_discrete(name = "") +
-  scale_y_continuous(name = "Percent of Patients",
-                     limits = c(0, 100), breaks = seq(0, 100, 25)) +
-  coord_flip() +
-  theme_minimal() +
-  theme(legend.position = 'none',
-        legend.direction = 'horizontal',
-        legend.title = element_blank(),
-        axis.text = element_text(size = 7),
-        axis.title = element_text(size = 9),
-        panel.border = element_rect(fill = NA, colour = 'grey80'))
+  ## Barcharts for admission diagnosis (demog_admitdx) and other categoricals
+  ## (demog_categoricals)
+  if(is_cat){
+    if(vname == "diagnosis.f"){
+      xvar <- "diagnosis.f"
+      df <- demog_admitdx
+      ptitle <- "Admission Diagnosis"
+    } else{
+      xvar <- "category"
+      df <- filter(demog_categoricals, char_type == vname)
+      ptitle <- unique(df$char_f)
+    }
 
-multiplot(plot.cat, plot.admitdx, layout = matrix(c(1, 1, 1, 2, 2), nrow = 1))
+    ## Initialize barchart
+    p <- ggplot(data = df, aes_string(x = xvar, y = "prop_value")) +
+      geom_bar(aes(fill = data.time), position = "dodge", stat = "identity") +
+      scale_x_discrete(name = "") +
+      scale_y_continuous(name = "Percent of Patients",
+                         limits = c(0, 100), breaks = seq(0, 100, 25)) +
+      coord_flip()
 
-@
+  ## Boxplots for continuous variables (demog_continuous),
+  ##  faceting by time if POPC, FSS
+  } else{
+    df <- demog_continuous %>% filter(cont_type == vname)
+    ptitle <- unique(df$cont_f)
 
-<<vis_demog_cont, results = 'asis', fig.width=7.5, fig.height=3.25, fig.align='center'>>=
-ggplot(data = demog_continuous, aes(x = data.time, y = cont_value)) +
-  facet_wrap(~ cont_type, scales = 'free_y') +
-  # geom_point(aes(colour = data.time),
-  #            position = position_jitter(), alpha = 0.15) +
-  geom_boxplot(aes(colour = data.time, fill = data.time),
-               alpha = 0.5, outlier.size = 0.5) +
-  scale_colour_manual(values = c(as.character(peds.colors["D"]),
-                                 as.character(peds.colors["A"]))) +
-  scale_fill_manual(values = c(as.character(peds.colors["D"]),
-                               as.character(peds.colors["A"]))) +
-  scale_x_discrete(name = NULL) +
-  scale_y_continuous(name = NULL) +
-  theme_minimal() +
-  theme(legend.position = 'bottom',
-        legend.direction = 'horizontal',
-        # legend.justification = c(0.5, 1),
-        legend.title = element_blank(),
-        # legend.text = element_text(size = 14),
-        axis.text = element_text(size = 7),
-        axis.title = element_text(size = 9),
-        panel.border = element_rect(fill = NA, colour = 'grey80'))
+    ## Initialize boxplots
+    p <- ggplot(data = df, aes(x = data.time, y = cont_value)) +
+      geom_boxplot(aes(colour = data.time, fill = data.time),
+                   alpha = 0.5, outlier.size = 0.5) +
+      scale_x_discrete(name = NULL) +
+      scale_y_continuous(name = NULL)
+
+    ## Facet if POPC/FSS
+    if(is_popc_fss){
+      p <- p +
+        facet_wrap(~ time_f)
+    }
+
+  }
+
+  ## Add scales, titles, legend, other tweaks; same regardless of variable type
+  p +
+    scale_fill_manual(values = plot_cols) +
+    scale_colour_manual(values = plot_cols) +
+    labs(title = ptitle) +
+    theme_minimal() +
+    theme(# legend.position = 'bottom',
+          # legend.direction = 'horizontal',
+          # legend.justification = c(0.5, 1),
+          # legend.title = element_blank(),
+          # legend.text = element_text(size = 14),
+          plot.title = element_text(face = "bold"),
+          axis.text = element_text(size = 7),
+          axis.title = element_text(size = 9),
+          panel.border = element_rect(fill = NA, colour = 'grey80'))
+
+}
 
 @
 
@@ -358,103 +383,6 @@ my.print.summaryM(desc.outcomes,
                   exclude1 = FALSE,
                   size = 'small',
                   label = 'table:outcomes')
-
-@
-
-<<vis_outcome_prep>>=
-outcome_cat <- demog %>%
-  dplyr::select(id, data.time, ever.vent, mortality.f) %>%
-  gather(key = char_type, value = char_value, ever.vent:mortality.f) %>%
-  group_by(data.time, char_type, char_value) %>%
-  summarise(n_value = n()) %>%
-  ungroup() %>%
-  left_join(time_totals, by = "data.time") %>%
-  mutate(prop_value = (n_value / n_total)*100,
-         data.time = factor(ifelse(data.time == "Implementation", 1, 2),
-                            levels = 1:2,
-                            labels = c("Implementation", "Baseline")),
-         char_type = factor(ifelse(char_type == "ever.vent", 1,
-                            ifelse(char_type == "mortality.f", 2, NA)),
-                            levels = 1:2,
-                            labels = c("Ever on MV", "Died in hospital")),
-         ## Manually create factor variables to get categories in right order
-         category = factor(ifelse(char_value == "Never on MV", 3,
-                           ifelse(char_value == ">=1 day on MV", 2,
-                           ifelse(char_value == "Unknown (no data available)",
-                                  1,
-                           ifelse(char_value == "Discharged alive", 5,
-                           ifelse(char_value == "Died in hospital", 4,
-                                  NA))))),
-                           levels = 1:5,
-                           labels = c("Unknown\n(no data available)",
-                                      ">=1 day on MV",
-                                      "Never on MV",
-                                      "Died in hospital",
-                                      "Discharged alive"))
-         ) %>%
-  filter(!is.na(data.time) & !is.na(char_value))
-
-plot.outcomes.cat <- ggplot(data = outcome_cat,
-                            aes(x = category, y = prop_value)) +
-  facet_wrap(~ char_type, ncol = 2, scales = 'free_y') +
-  geom_bar(aes(group = data.time, fill = data.time),
-           stat = 'identity', position = 'dodge') +
-  scale_fill_manual(values = c(as.character(peds.colors["A"]),
-                               as.character(peds.colors["D"]))) +
-  scale_x_discrete(name = "") +
-  scale_y_continuous(name = "Percent of Patients",
-                     limits = c(0, 100), breaks = seq(0, 100, 25)) +
-  coord_flip() +
-  theme_minimal() +
-  theme(legend.position = 'none',
-        legend.direction = 'horizontal',
-        legend.title = element_blank(),
-        axis.text = element_text(size = 7),
-        axis.title = element_text(size = 9),
-        panel.border = element_rect(fill = NA, colour = 'grey80'))
-
-outcomes_continuous <- demog %>%
-  dplyr::select(id, data.time, fss.dc, popc.dc, ventdays, piculos, hosplos) %>%
-  gather(key = cont_type, value = cont_value, fss.dc:hosplos) %>%
-  filter(!is.na(data.time) & !is.na(cont_value)) %>%
-  mutate(cont_type = factor(ifelse(cont_type == "fss.dc", 1,
-                            ifelse(cont_type == "popc.dc", 2,
-                            ifelse(cont_type == "ventdays", 3,
-                            ifelse(cont_type == "piculos", 4,
-                            ifelse(cont_type == "hosplos", 5, NA))))),
-                            levels = 1:5,
-                            labels = c("FSS, discharge",
-                                       "POPC, discharge",
-                                       "Days on MV",
-                                       "PICU length of stay",
-                                       "Hospital length of stay")))
-
-plot.outcomes.cont <- ggplot(data = outcomes_continuous,
-                             aes(x = data.time, y = cont_value)) +
-  facet_wrap(~ cont_type, scales = 'free_y') +
-  # geom_point(aes(colour = data.time),
-  #            position = position_jitter(), alpha = 0.15) +
-  geom_boxplot(aes(colour = data.time, fill = data.time),
-               alpha = 0.5, outlier.size = 0.5) +
-  scale_colour_manual(values = c(as.character(peds.colors["D"]),
-                                 as.character(peds.colors["A"]))) +
-  scale_fill_manual(values = c(as.character(peds.colors["D"]),
-                               as.character(peds.colors["A"]))) +
-  scale_x_discrete(name = NULL) +
-  scale_y_continuous(name = NULL) +
-  theme_minimal() +
-  theme(legend.position = 'bottom',
-        legend.direction = 'horizontal',
-        legend.title = element_blank(),
-        axis.text = element_text(size = 7),
-        axis.title = element_text(size = 9),
-        panel.border = element_rect(fill = NA, colour = 'grey80'))
-
-@
-
-<<vis_outcome, results = 'asis', fig.width = 7.5, fig.height = 6.5, fig.align = 'center'>>=
-multiplot(plot.outcomes.cat, plot.outcomes.cont,
-          layout = matrix(c(1, 2, 2), ncol = 1))
 
 @
 
