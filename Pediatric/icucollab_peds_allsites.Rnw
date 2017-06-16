@@ -66,63 +66,6 @@ quantile.example <- quantile(subset(demog, data.time == 'Baseline')$prism3,
 
 @
 
-\section{Entire Cohort}
-\subsection{Demographic and Baseline Characteristics}
-Table \ref{table:descstats} describes the patients whose data was collected during the baseline and implementation data collection periods. There are \Sexpr{format(length(unique(demog$id)), big.mark = ',')} unique patient IDs currently recorded. (In addition, \Sexpr{length(nomonth.ids)} patients had no ``month" entered in the database and therefore cannot be counted when comparing the two cohorts.)
-
-For continuous variables (like PRISM III or PIM 2), the 25th, 50th, and 75th percentiles are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
-
-For example, for PRISM III in the baseline cohort (see Table
-\ref{table:descstats}), 25\% of patients with this score recorded had a PRISM III of \Sexpr{quantile.example['25%']} or lower; half the patients had a score of \Sexpr{quantile.example['50%']} or lower; and 75\% of patients had a score of
-\Sexpr{quantile.example['75%']} or lower.
-
-Categorical variables (eg, age category) are visualized by barcharts showing the percentage of patients in each category during each data collection period. Continuous variables (eg, FSS) are visualized by boxplots, which show the median (middle line), 25th percentile (bottom of the box), and 75th percentile (top of the box). Points shown are the most extreme values (outliers).
-
-<<desccohort>>=
-desc.all <- summaryM(hosp.f.latex + age.f + sex.f + race.combined + english.f +
-                       severity.combined + prism3 + pim2 + fss.preadm +
-                       fss.adm + popc.preadm + popc.adm ~ data.time,
-                     data = demog)
-
-desc.dx <- summaryM(dx.surgery + dx.resp + resp.rds + resp.airway +
-                      resp.asthma + resp.cld + resp.pneu + dx.gi + dx.neuro +
-                      dx.tbi + dx.burn + dx.other ~ data.time,
-                    data = demog)
-
-# ## Some POPC values are causing problems - should be numeric? Get list of character values for C&V
-# all.popc <- unique(c(demog$popc.adm, demog$popc.preadm, demog$popc.dc))
-# all.popc.chr <- all.popc[is.na(as.numeric(all.popc)) & all.popc != '']
-#
-# subset(demog,
-#        popc.preadm %in% all.popc.chr | popc.adm %in% all.popc.chr | popc.dc %in% all.popc.chr,
-#        select = c(id, hosp.f, popc.preadm, popc.adm, popc.dc))
-
-@
-
-<<printdesccohort, results = 'asis'>>=
-my.print.summaryM(desc.all,
-                  caption = 'Description of Entire Cohort',
-                  caption.lot = 'Description of Entire Cohort',
-                  exclude1 = FALSE,
-                  size = 'small',
-                  label = 'table:descstats')
-
-latex(desc.dx, file = "",
-      where = "!h",
-      caption = "Admission Diagnoses",
-      caption.lot = "Admission Diagnoses",
-      exclude1 = TRUE,
-      long = FALSE,
-      size = 'small',
-      npct = "both",
-      what = "%",
-      label = "table:admitdx")
-
-@
-
-Please see Section \ref{sec:otherdx} for a complete listing of descriptions for ``other" diagnoses.
-
-\clearpage
 <<visdesccohort_prep>>=
 ## How many patients each in baseline, implementation time points?
 time_totals <- tribble(
@@ -239,7 +182,10 @@ demog_admitdx <- demog %>%
                               c("surgery", "infection", "resp", "gi", "neuro",
                                 "tbi", "burn", "malig", "other"))) %>%
   gather(key = diagnosis, value = prop_value, dx.surgery:dx.other) %>%
-  mutate(prop_value = prop_value * 100,
+  mutate(data.time = factor(ifelse(data.time == "Implementation", 1, 2),
+                            levels = 1:2,
+                            labels = c("Implementation", "Baseline")),
+         prop_value = prop_value * 100,
          facet.text = "Admission Diagnoses",
          diagnosis.f = factor(ifelse(diagnosis == "dx.surgery", 9,
                               ifelse(diagnosis == "dx.infection", 8,
@@ -299,6 +245,15 @@ plot_demog_var <- function(vname){
     is_cat <- vname == "diagnosis.f"
   }
 
+  ## Legend placement: Don't include for severity scales, FSS, POPC, MV, LOS
+  if(vname %in% c("pim2", "prism3", "severity.combined", "fss", "popc",
+                  "ever.vent", "ventdays", "piculos", "hosplos",
+                  "mortality.f")){
+    legendp <- "none"
+  } else{
+    legendp <- "bottom"
+  }
+
   ## Barcharts for admission diagnosis (demog_admitdx) and other categoricals
   ## (demog_categoricals)
   if(is_cat){
@@ -314,7 +269,8 @@ plot_demog_var <- function(vname){
 
     ## Initialize barchart
     p <- ggplot(data = df, aes_string(x = xvar, y = "prop_value")) +
-      geom_bar(aes(fill = data.time), position = "dodge", stat = "identity") +
+      geom_bar(aes(fill = data.time),
+               position = "dodge", stat = "identity", alpha = 0.85) +
       scale_x_discrete(name = "") +
       scale_y_continuous(name = "Percent of Patients",
                          limits = c(0, 100), breaks = seq(0, 100, 25)) +
@@ -329,7 +285,7 @@ plot_demog_var <- function(vname){
     ## Initialize boxplots
     p <- ggplot(data = df, aes(x = data.time, y = cont_value)) +
       geom_boxplot(aes(colour = data.time, fill = data.time),
-                   alpha = 0.5, outlier.size = 0.5) +
+                   alpha = 0.75, outlier.size = 0.75) +
       scale_x_discrete(name = NULL) +
       scale_y_continuous(name = NULL)
 
@@ -347,11 +303,12 @@ plot_demog_var <- function(vname){
     scale_colour_manual(values = plot_cols) +
     labs(title = ptitle) +
     theme_minimal() +
-    theme(# legend.position = 'bottom',
-          # legend.direction = 'horizontal',
+    theme(legend.position = legendp,
+          legend.direction = 'horizontal',
           # legend.justification = c(0.5, 1),
-          # legend.title = element_blank(),
-          # legend.text = element_text(size = 14),
+          legend.title = element_blank(),
+          legend.text = element_text(size = 6),
+          legend.key.size = unit(0.3, "cm"),
           plot.title = element_text(face = "bold"),
           axis.text = element_text(size = 7),
           axis.title = element_text(size = 9),
@@ -359,8 +316,77 @@ plot_demog_var <- function(vname){
 
 }
 
+## -- Generate plots of all baseline, demographic, outcome variables -----------
+plot_vars <- c("age.f", "sex.f", "race.combined", "severity.combined",
+               "prism3", "pim2", "diagnosis.f", "ever.vent", "ventdays",
+               "piculos", "hosplos", "fss", "popc", "mortality.f")
+
+desc_plots <- map(plot_vars, plot_demog_var)
+names(desc_plots) <- plot_vars
+
 @
 
+\section{Entire Cohort}
+\subsection{Demographic and Baseline Characteristics}
+Table \ref{table:descstats} describes the patients whose data was collected during the baseline and implementation data collection periods. There are \Sexpr{format(length(unique(demog$id)), big.mark = ',')} unique patient IDs currently recorded. (In addition, \Sexpr{length(nomonth.ids)} patients had no ``month" entered in the database and therefore cannot be counted when comparing the two cohorts.)
+
+For continuous variables (like PRISM III or PIM 2), the 25th, 50th, and 75th percentiles are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+
+For example, for PRISM III in the baseline cohort (see Table
+\ref{table:descstats}), 25\% of patients with this score recorded had a PRISM III of \Sexpr{quantile.example['25%']} or lower; half the patients had a score of \Sexpr{quantile.example['50%']} or lower; and 75\% of patients had a score of
+\Sexpr{quantile.example['75%']} or lower.
+
+Categorical variables (eg, age category) are visualized by barcharts showing the percentage of patients in each category during each data collection period. Continuous variables (eg, FSS) are visualized by boxplots, which show the median (middle line), 25th percentile (bottom of the box), and 75th percentile (top of the box). Points shown are the most extreme values (outliers).
+
+``Other" diagnoses are listed in a separate document to be distributed by SCCM staff.
+
+\subsection{Explanation of Boxplots}
+\href{https://en.wikipedia.org/wiki/Box_plot}{Boxplots (also known as ``box and whisker plots")} are a standard way to describe continuous quantities - for example, PRISM 2 score. The bottom of each box indicates the 25th percentile for that group - for example, 25\% of the patients in this group had a PRISM 2 score of that value or lower. The line in the middle of each box indicates the median, or 50th percentile for that group: half the patients in that group have a value lower than the median; half the patients have a value higher. This is our best description of a ``typical" patient. The top of each box indicates the 75th percentile for that group: 75\% of the patients have a value lower than that level, and 25\% of the patients have a value higher. \textbf{The values within the box represent the middle, most ``typical" half of each group.}
+
+The ``whiskers" - the lines on either side of each box - show how far beyond that middle 50\% the majority of the patients' values fall. The dots, if there are any, represent outliers - patients whose values are very different from the vast majority of the group.
+
+<<desccohort>>=
+desc.all <- summaryM(hosp.f.latex + age.f + sex.f + race.combined + english.f +
+                       dx.surgery + dx.resp + resp.rds + resp.airway +
+                       resp.asthma + resp.cld + resp.pneu + dx.gi + dx.neuro +
+                       dx.tbi + dx.burn + dx.other + severity.combined +
+                       prism3 + pim2 + fss.preadm + fss.adm + popc.preadm +
+                       popc.adm ~ data.time,
+                     data = demog)
+
+desc.dx <- summaryM(dx.surgery + dx.resp + resp.rds + resp.airway +
+                      resp.asthma + resp.cld + resp.pneu + dx.gi + dx.neuro +
+                      dx.tbi + dx.burn + dx.other ~ data.time,
+                    data = demog)
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
+                  exclude1 = TRUE,
+                  size = 'small',
+                  label = 'table:descstats')
+
+@
+
+\clearpage
+<<vis_demog_1, results = 'asis', fig.height=10, fig.width = 7.5>>=
+multiplot(desc_plots$age.f, desc_plots$race.combined, desc_plots$sex.f,
+          desc_plots$diagnosis.f,
+          layout = matrix(c(1, 1, 2, 2, 3, 4, 4, 4), ncol = 2))
+
+@
+
+\clearpage
+<<vis_demog_2, results = 'asis', fig.height=6, fig.width = 7.5>>=
+multiplot(desc_plots$severity.combined, desc_plots$prism3, desc_plots$pim2,
+          layout = matrix(c(1, 1, 2, 3), ncol = 2))
+
+@
+
+\clearpage
 \subsection{Comparison of Outcomes}
 Table \ref{table:outcomes} describes and presents unadjusted tests of outcomes between the baseline and implementation time points.
 
@@ -383,6 +409,24 @@ my.print.summaryM(desc.outcomes,
                   exclude1 = FALSE,
                   size = 'small',
                   label = 'table:outcomes')
+
+@
+
+<<vis_outcomes_1, results = 'asis', fig.height=6, fig.width = 7.5>>=
+multiplot(desc_plots$fss, desc_plots$popc,
+          layout = matrix(c(1, 2), ncol = 1))
+
+@
+
+<<vis_outcomes_2, results = 'asis', fig.height=3, fig.width = 7.5>>=
+multiplot(desc_plots$ever.vent, desc_plots$ventdays,
+          layout = matrix(c(1, 2), nrow = 1, byrow = TRUE))
+
+@
+
+<<vis_outcomes_3, results = 'asis', fig.height=3, fig.width = 7.5>>=
+multiplot(desc_plots$piculos, desc_plots$hosplos, desc_plots$mortality.f,
+          layout = matrix(1:3, nrow = 1, byrow = TRUE))
 
 @
 
