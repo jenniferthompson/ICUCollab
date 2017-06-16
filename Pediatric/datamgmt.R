@@ -396,26 +396,67 @@ compliance <- compliance %>%
                                       familyintervention.f == 'Yes')
          )
 
-## -- Calculate drug doses -------------------------------------------------------------------------
+## -- Calculate drug doses -----------------------------------------------------
+## Different sites collected different drug data. Per Christina's emails and
+##   Word documents:
+## Hopkins: which drug; how much
+## Le Bonheur: no medication data
+## Mayo: which drug; how much (but started late)
+## VCH: which drug; how much
+## Seattle: which drug; how much
+## St Louis: which drug; how much
+## UC Davis: which drug; how much
+## Cornell: which drug; NO amounts
+
+sites_drug_yn <- setdiff(levels(demog$hosp.f), "Le Bonheur Childrens Hospital")
+sites_drug_amt <- setdiff(
+  levels(demog$hosp.f),
+  c("Le Bonheur Childrens Hospital", "Weill Cornell Pediatrics")
+)
+
+## Merge site onto compliance data
+## If site didn't collect medication yes/no, replace checkbox 0 with NA
+make_yn_na <- function(x){ ifelse(!compliance$drugs_yn, NA, x) }
+
+compliance <- compliance %>%
+  left_join(dplyr::select(demog, id, hosp.f), by = "id") %>%
+  mutate(drugs_yn = !is.na(hosp.f) & hosp.f %in% sites_drug_yn,
+         drugs_amt = !is.na(hosp.f) & hosp.f %in% sites_drug_amt)
+
+compliance <- compliance %>%
+  mutate_at(vars(c(matches("^analgesia\\.med\\.[0-9]+$"),
+                   matches("^anxio\\.med\\.[0-9]+$"))),
+            "make_yn_na")
+
 ## List of all variables denoting dose types for each drug of interest
-drug_vars <- list("morphine" = c('analgesia.morphineti', 'analgesia.morphinebd'),
-                  "hydromorphone" = c('analgesia.hydromorpti', 'analgesia.hydromorpbd'),
-                  "fentanyl" = c('analgesia.fentanylti', 'analgesia.fentanylbd'),
-                  "lorazepam" = c('anxio.lorazti', 'anxio.lorazbd'),
-                  "clonazepam" = c('anxio.clonati', 'anxio.clonabd'),
-                  "diazepam" = c('anxio.diazti', 'anxio.diazbd'),
-                  "midazolam" = c('anxio.midazti', 'anxio.midazbd'))
+drug_vars <- list(
+  "morphine" = c('analgesia.morphineti', 'analgesia.morphinebd'),
+  "hydromorphone" = c('analgesia.hydromorpti', 'analgesia.hydromorpbd'),
+  "fentanyl" = c('analgesia.fentanylti', 'analgesia.fentanylbd'),
+  "lorazepam" = c('anxio.lorazti', 'anxio.lorazbd'),
+  "clonazepam" = c('anxio.clonati', 'anxio.clonabd'),
+  "diazepam" = c('anxio.diazti', 'anxio.diazbd'),
+  "midazolam" = c('anxio.midazti', 'anxio.midazbd')
+)
 
 ## Prep: Make drug values numeric; some have commas, etc
 drug_vars_all <- flatten_chr(drug_vars)
 
 for(i in 1:length(drug_vars_all)){
-  ## Regex replaces commas followed by at least three digits with nothing; replaces all other commas
-  ## with decimal points
-  compliance[,drug_vars_all[i]] <- as.numeric(gsub(',', '\\.',
-                                                   gsub(',(?=[0-9][0-9][0-9])', '',
-                                                        compliance[,drug_vars_all[i]],
-                                                        perl = TRUE)))
+  ## Regex replaces commas followed by at least three digits with nothing;
+  ## replaces all other commas with decimal points
+  compliance[,drug_vars_all[i]] <-
+    as.numeric(gsub(',', '\\.',
+                    gsub(',(?=[0-9][0-9][0-9])', '',
+                         compliance[,drug_vars_all[i]],
+                         perl = TRUE)))
+
+  ## Set amount to 0 if site collected amounts, but amount variable is NA
+  compliance[compliance$drugs_amt & is.na(compliance[,drug_vars_all[i]]),
+             drug_vars_all[i]] <- 0
+
+  ## Just in case: if site wasn't collecting drug amounts, make sure dose is NA
+  compliance[!compliance$drugs_amt, drug_vars_all[i]] <- NA
 }
 
 ## Function to total doses of a given drug (eg, infusion + bolus)
@@ -442,72 +483,55 @@ compliance <- bind_cols(compliance, drug_totals)
 benzo.drugs <- c('lorazepam', 'midazolam')
 opioid.drugs <- c('morphine', 'hydromorphone', 'fentanyl')
 
-compliance$has.benzo <-
-  rowSums(!is.na(compliance[,paste0(benzo.drugs, '.total')])) > 0
-compliance$has.opioid <-
-  rowSums(!is.na(compliance[,paste0(opioid.drugs, '.total')])) > 0
+# compliance$has.benzo <-
+#   rowSums(!is.na(compliance[,paste0(benzo.drugs, '.total')])) > 0
+# compliance$has.opioid <-
+#   rowSums(!is.na(compliance[,paste0(opioid.drugs, '.total')])) > 0
 
 ## Calculate scaled doses (eg, mg/kg) and total benzo/opioids
 compliance <- compliance %>%
   left_join(dplyr::select(demog, id, wt), by = 'id') %>%
-  mutate(loraz.scaled = ifelse(!has.benzo | is.na(wt), NA,
+  mutate(## Indicators for each drug are present if site collected drugs
+         midaz.rcvd = ifelse(!drugs_yn, NA, as.logical(anxio.med.1)),
+         loraz.rcvd = ifelse(!drugs_yn, NA, as.logical(anxio.med.2)),
+         benzo.rcvd = ifelse(!drugs_yn, NA, midaz.rcvd | loraz.rcvd),
+         fent.rcvd = ifelse(!drugs_yn, NA, as.logical(analgesia.med.1)),
+         morph.rcvd = ifelse(!drugs_yn, NA, as.logical(analgesia.med.2)),
+         hydromorph.rcvd = ifelse(!drugs_yn, NA, as.logical(analgesia.med.3)),
+         opioid.rcvd = ifelse(!drugs_yn, NA,
+                              fent.rcvd | morph.rcvd | hydromorph.rcvd),
+         ## Drug amounts can be present if site collected amounts + pt has wt
+         drugs_amt_wt = drugs_amt & !is.na(wt),
+         loraz.scaled = ifelse(!drugs_amt_wt, NA,
                         ifelse(is.na(lorazepam.total), 0, lorazepam.total / wt)),
-         loraz.rcvd = ifelse(!has.benzo, NA,
-                             !is.na(lorazepam.total) & lorazepam.total > 0),
          loraz.scaled.eo = ifelse(is.na(loraz.scaled) | loraz.scaled == 0, NA,
                                   loraz.scaled),
-         clonaz.scaled = ifelse(!has.benzo | is.na(wt), NA,
-                         ifelse(is.na(clonazepam.total), 0,
-                                clonazepam.total / wt)),
-         clonaz.scaled.eo = ifelse(is.na(clonaz.scaled) | clonaz.scaled == 0, NA,
-                                   clonaz.scaled),
-         diaz.scaled = ifelse(!has.benzo | is.na(wt), NA,
-                       ifelse(is.na(diazepam.total), 0, diazepam.total / wt)),
-         ## Clonazepam/diazepam only correct if included in benzo vars above
-         clonaz.rcvd = ifelse(!has.benzo, NA,
-                              !is.na(clonazepam.total) & clonazepam.total > 0),
-         diaz.rcvd = ifelse(!has.benzo, NA,
-                            !is.na(diazepam.total) & diazepam.total > 0),
-         diaz.scaled.eo = ifelse(is.na(diaz.scaled) | diaz.scaled == 0, NA,
-                                 diaz.scaled),
-         midaz.scaled = ifelse(!has.benzo | is.na(wt), NA,
-                               ifelse(is.na(midazolam.total), 0, midazolam.total / wt)),
-         midaz.rcvd = ifelse(!has.opioid, NA,
-                             !is.na(midazolam.total) & midazolam.total > 0),
+         midaz.scaled = ifelse(!drugs_amt_wt, NA,
+                        ifelse(is.na(midazolam.total), 0, midazolam.total / wt)),
          midaz.scaled.eo = ifelse(is.na(midaz.scaled) | midaz.scaled == 0, NA,
                                   midaz.scaled),
-         morph.scaled = ifelse(!has.opioid | is.na(wt), NA,
+         morph.scaled = ifelse(!drugs_amt_wt, NA,
                         ifelse(is.na(morphine.total), 0, morphine.total / wt)),
-         morph.rcvd = ifelse(!has.opioid, NA,
-                             !is.na(morphine.total) & morphine.total > 0),
          morph.scaled.eo = ifelse(is.na(morph.scaled) | morph.scaled == 0, NA,
                                   morph.scaled),
-         hydromorph.scaled = ifelse(!has.opioid | is.na(wt), NA,
+         hydromorph.scaled = ifelse(!drugs_amt_wt, NA,
                              ifelse(is.na(hydromorphone.total), 0,
                                     hydromorphone.total / wt)),
-         hydromorph.rcvd = ifelse(!has.opioid, NA,
-                                  !is.na(hydromorphone.total) &
-                                    hydromorphone.total > 0),
          hydromorph.scaled.eo = ifelse(is.na(hydromorph.scaled) |
                                          hydromorph.scaled == 0, NA,
                                        hydromorph.scaled),
-         fent.scaled = ifelse(!has.opioid | is.na(wt), NA,
+         fent.scaled = ifelse(!drugs_amt_wt, NA,
                        ifelse(is.na(fentanyl.total), 0, fentanyl.total / wt)),
-         fent.rcvd = ifelse(!has.opioid, NA,
-                            !is.na(fentanyl.total) & fentanyl.total > 0),
          fent.scaled.eo = ifelse(is.na(fent.scaled) | fent.scaled == 0, NA,
                                  fent.scaled),
-         ## Calculate total benzos (lorazepam equivalents), opioids (morphine equivalents)
+         ## Calculate total benzos (lorazepam equivalents),
+         ##  opioids (morphine equivalents)
          benzo.total = loraz.scaled + (midaz.scaled / 0.5),
-         benzo.rcvd = ifelse(!has.benzo, NA,
-                             !is.na(benzo.total) & benzo.total > 0),
          benzo.total.eo = ifelse(is.na(benzo.total) | benzo.total == 0, NA,
                                  benzo.total),
          opioid.total = morph.scaled +
                           (hydromorph.scaled / 4) +
                           (fent.scaled / 10),
-         opioid.rcvd = ifelse(!has.opioid, NA,
-                              !is.na(opioid.total) & opioid.total > 0),
          opioid.total.eo = ifelse(is.na(opioid.total) | opioid.total == 0, NA,
                                   opioid.total))
 
@@ -547,10 +571,6 @@ label(compliance$family.present.info) <- 'Family visit data available'
 label(compliance$family.present) <- 'Family member visited'
 label(compliance$family.inter.info) <- 'Family intervention data available'
 label(compliance$family.intervention) <- 'Family member participation in nonpharm intervention'
-label(compliance$has.benzo) <-
-  paste('At least one dose recorded of', paste(benzo.drugs, collapse = ', '))
-label(compliance$has.opioid) <-
-  paste('At least one dose recorded of', paste(opioid.drugs, collapse = ', '))
 label(compliance$lorazepam.total) <- 'Total lorazepam (mg/day)'
 label(compliance$clonazepam.total) <- 'Total clonazepam (mg/day)'
 label(compliance$diazepam.total) <- 'Total diazepam (mg/day)'
@@ -558,9 +578,6 @@ label(compliance$midazolam.total) <- 'Total midazolam (mg/day)'
 label(compliance$morphine.total) <- 'Total morphine (mg/day)'
 label(compliance$fentanyl.total) <- 'Total fentanyl (mg/day)'
 label(compliance$hydromorphone.total) <- 'Total hydromorphone (mcg/day)'
-label(compliance$loraz.scaled) <- 'Lorazepam (mg/kg/day)'
-label(compliance$clonaz.scaled) <- 'Clonazepam (mg/kg/day)'
-label(compliance$diaz.scaled) <- 'Diazepam (mg/kg/day)'
 label(compliance$midaz.scaled) <- 'Midazolam (mg/kg/day)'
 label(compliance$morph.scaled) <- 'Morphine (mg/kg/day)'
 label(compliance$fent.scaled) <- 'Fentanyl (mg/kg/day)'
@@ -569,16 +586,12 @@ label(compliance$benzo.total) <- 'Total benzodiazepines, lorazepam equivalents, 
 label(compliance$opioid.total) <- 'Total opioids, morphine equivalents, mg/kg/day'
 label(compliance$loraz.rcvd) <- 'Received lorazepam'
 label(compliance$midaz.rcvd) <- 'Received midazolam'
-label(compliance$clonaz.rcvd) <- 'Received clonazepam'
-label(compliance$diaz.rcvd) <- 'Received diazepam'
 label(compliance$morph.rcvd) <- 'Received morphine'
 label(compliance$fent.rcvd) <- 'Received fentanyl'
 label(compliance$hydromorph.rcvd) <- 'Received hydromorphone'
 label(compliance$benzo.rcvd) <- 'Received benzodiazepines'
 label(compliance$opioid.rcvd) <- 'Received opioids'
 label(compliance$loraz.scaled.eo) <- 'Lorazepam (mg/kg/day) among exposed'
-label(compliance$clonaz.scaled.eo) <- 'Clonazepam (mg/kg/day) among exposed'
-label(compliance$diaz.scaled.eo) <- 'Diazepam (mg/kg/day) among exposed'
 label(compliance$midaz.scaled.eo) <- 'Midazolam (mg/kg/day) among exposed'
 label(compliance$morph.scaled.eo) <- 'Morphine (mg/kg/day)\\\\~~~~~~among exposed'
 label(compliance$fent.scaled.eo) <- 'Fentanyl (mg/kg/day)\\\\~~~~~~among exposed'
