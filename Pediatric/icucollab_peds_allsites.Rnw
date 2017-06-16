@@ -1108,9 +1108,10 @@ latex(meds.table.doses.b12, file = '',
 
 \end{landscape}
 
-\section{Descriptions of ``Other" Diagnoses} \label{sec:otherdx}
-These descriptions are taken verbatim from the REDCap database.
+%% Knit "other" admission diagnoses to a separate document
+<<other_dx>>=
+knit2pdf("icucollab_peds_otherdx.Rnw")
 
-\noindent \Sexpr{dx.other.descrip}
+@
 
 \end{document}

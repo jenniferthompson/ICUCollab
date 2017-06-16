@@ -1,0 +1,26 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.5in]{geometry}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{pdflscape}
+
+\title{Pediatric ICU Collaborative: ``Other" Admission Diagnoses}
+\author{Society of Critical Care Medicine}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+Descriptions are taken verbatim from the REDCap database.
+
+\hrulefill
+
+\noindent \Sexpr{dx.other.descrip}
+
+\end{document}
