@@ -1106,6 +1106,170 @@ latex(meds.table.doses.b12, file = '',
 
 @
 
+<<vis_meds>>=
+## -- Runcharts for proportion of patient-days with Drug X over time -----------
+med_names <- grep("\\.rcvd", names(compliance), value = TRUE)
+med_titles <- c("Midazolam", "Lorazepam", "Benzodiazepines", "Fentanyl",
+                     "Morphine", "Hydromorphone", "Opioids")
+med_subtitles <- c(
+  NA, NA, "Lorazepam and/or midazolam", NA, NA, NA,
+  "Fentanyl, morphine and/or hydromorphone"
+)
+
+## How many days were eligible each month?
+med_elig_yn <- compliance %>%
+  filter(drugs_yn & !is.na(month.cat)) %>%
+  group_by(month.cat) %>%
+  summarise(n_days = n())
+
+med_rcvd_df <- compliance %>%
+  filter(drugs_yn & !is.na(month.cat)) %>%
+  dplyr::select(month.cat, one_of(med_names)) %>%
+  group_by(month.cat) %>%
+  summarise_all(.funs = c("mean", "sum")) %>%
+  gather(key = drug.fun, value = val, -month.cat) %>%
+  separate(drug.fun, into = c("drug", "quantity"), sep = "_") %>%
+  spread(key = quantity, value = val) %>%
+  left_join(med_elig_yn, by = "month.cat") %>%
+  mutate(num.denom = paste0(sum, "/", n_days),
+         linegroup = 1)
+
+## Function to create a runchart for a single medication
+med.runchart <- function(med, med_title, med_subtitle){
+
+  df <- med_rcvd_df %>%
+    filter(drug == med)
+
+  if(med %in% c("benzo.rcvd", "opioid.rcvd")){
+    nd.size <- 2.5
+    ysize <- 10
+    axtext.size <- 9
+  } else{
+    nd.size <- 2
+    ysize <- 8
+    axtext.size <- 6
+  }
+
+  tmp <- ggplot(data = df, aes(x = month.cat, y = mean)) +
+    annotate(geom = 'rect', xmin = -Inf, xmax = Inf, ymax = Inf, ymin = 0.96,
+             fill = 'white', colour = NA) +
+    geom_line(aes(group = linegroup), colour = "#003D79") +
+    geom_point(colour = "#003D79") +
+    geom_text(aes(label = num.denom), y = 1,
+              size = nd.size, colour = "#003D79", fontface = 'bold') +
+    scale_x_discrete(name = NULL) +
+    scale_y_continuous(
+      limits = c(0, 1),
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%"),
+      name = sprintf("Percent of Days\nReceived %s", med_title)
+    ) +
+    theme_minimal() +
+    theme(axis.text.x =
+            element_text(angle = 45, hjust = 1, vjust = 1, size = axtext.size),
+          axis.text.y = element_text(size = axtext.size),
+          axis.title = element_text(size = ysize),
+          plot.title = element_text(face = 'bold'),
+          plot.subtitle = element_text(face = 'italic', size = 10),
+          panel.grid.minor.x = element_blank())
+
+  if(!is.na(med_subtitle)){
+    tmp <- tmp +
+      ggtitle(label = med_title, subtitle = med_subtitle)
+  } else{
+    tmp <- tmp +
+      ggtitle(label = med_title)
+  }
+
+  tmp
+}
+
+med_rcvd_plots <- pmap(list("med" = med_names,
+                            "med_title" = med_titles,
+                            "med_subtitle" = med_subtitles),
+                       .f = med.runchart)
+names(med_rcvd_plots) <- med_names
+
+## -- Boxplots for amount of drug among exposed over time ----------------------
+med_amt_names <- grep(".+\\.eo$", names(compliance), value = TRUE)
+
+med_amt_df <- compliance %>%
+  filter(drugs_yn & !is.na(month.cat)) %>%
+  dplyr::select(month.cat, one_of(med_amt_names)) %>%
+  gather(key = drug, value = amt, -month.cat) %>%
+  filter(!is.na(amt)) %>%
+  mutate(is_baseline = month.cat == "Baseline")
+
+## Function to create a runchart for a single medication
+med.boxplot <- function(med, med_title, med_subtitle){
+
+  plot_cols <- c("TRUE" = as.character(peds.colors["D"]),
+                 "FALSE" = as.character(peds.colors["A"]))
+
+  df <- med_amt_df %>%
+    filter(drug == med)
+
+  if(med %in% c("benzo.total.eo", "opioid.total.eo")){
+    nd.size <- 3
+  } else{
+    nd.size <- 2
+  }
+
+  tmp <- ggplot(data = df, aes(x = month.cat, y = amt)) +
+    geom_boxplot(aes(fill = is_baseline, colour = is_baseline), alpha = 0.6) +
+    scale_x_discrete(name = NULL) +
+    scale_y_continuous(
+      name = sprintf("Amount of %s Per 24 Hours Among Those Who Received It",
+                     med_title)
+    ) +
+    scale_fill_manual(values = plot_cols) +
+    scale_colour_manual(values = plot_cols) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          plot.title = element_text(face = 'bold'),
+          plot.subtitle = element_text(face = 'italic', size = 10),
+          panel.grid.minor.x = element_blank())
+
+  if(!is.na(med_subtitle)){
+    tmp <- tmp +
+      ggtitle(label = med_title, subtitle = med_subtitle)
+  } else{
+    tmp <- tmp +
+      ggtitle(label = med_title)
+  }
+
+  tmp
+}
+
+med_amt_plots <- pmap(list("med" = med_amt_names,
+                           "med_title" = med_titles,
+                           "med_subtitle" = med_subtitles),
+                      .f = med.boxplot)
+
+
+
+@
+
+\clearpage
+<<print_benzo_runcharts, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
+benzo_rcvd_plotorder <- c( "benzo.rcvd", "loraz.rcvd", "midaz.rcvd")
+
+multiplot(plotlist = map(benzo_rcvd_plotorder, ~ med_rcvd_plots[[.]]),
+          layout = matrix(c(1, 1, 2, 3), ncol = 2))
+
+@
+
+\clearpage
+<<print_opioid_runcharts, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
+opioid_rcvd_plotorder <-
+  c("opioid.rcvd", "morph.rcvd", "hydromorph.rcvd", "fent.rcvd")
+
+multiplot(plotlist = map(opioid_rcvd_plotorder, ~ med_rcvd_plots[[.]]),
+          layout = matrix(c(1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4), ncol = 2))
+
+@
+
 \end{landscape}
 
 %% Knit "other" admission diagnoses to a separate document
