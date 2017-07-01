@@ -390,6 +390,25 @@ multiplot(desc_plots$severity.combined, desc_plots$prism3, desc_plots$pim2,
 @
 
 \clearpage
+\subsection{Adverse Events}
+
+<<aetable, results = "asis">>=
+latex(summaryM(as.formula(paste(paste(grep("^had", names(demog), value = TRUE),
+                                      collapse = " + "),
+                                "~ data.time")),
+               data = demog),
+      file = "",
+      where = "!h",
+      what = "%",
+      npct = "both",
+      title = "",
+      caption = "Adverse Events",
+      exclude1 = TRUE,
+      long = FALSE)
+
+@
+
+\clearpage
 \subsection{Comparison of Outcomes}
 Table \ref{table:outcomes} describes and presents unadjusted tests of outcomes between the baseline and implementation time points.
 

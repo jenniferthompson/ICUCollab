@@ -10,7 +10,7 @@
 \usepackage{float}
 \usepackage{pdflscape}
 
-\title{Pediatric ICU Collaborative: ``Other" Admission Diagnoses}
+\title{Pediatric ICU Collaborative: ``Other" Admission Diagnoses and Adverse Events}
 \author{Society of Critical Care Medicine}
 \date{\today}
 
@@ -21,6 +21,10 @@ Descriptions are taken verbatim from the REDCap database.
 
 \hrulefill
 
+\section{Admission Diagnoses}
 \noindent \Sexpr{dx.other.descrip}
+
+\section{Adverse Events}
+\noindent \Sexpr{ae.other.descrip}
 
 \end{document}

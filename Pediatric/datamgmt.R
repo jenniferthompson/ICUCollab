@@ -78,9 +78,10 @@ demog$dx.burn <- these_dx(27)
 demog$dx.malig <- these_dx(16)
 demog$dx.other <- these_dx(c(7:9, 11:13, 15, 19, 99))
 
-## Want to include all "other" admission diagnoses in report; need some string
-## work to head off Latex errors
+## Want to include all "other" admission diagnoses and AEs in report; need some
+## string work to head off Latex errors
 demog$icu.dx.other <- gsub("&", "and", demog$icu.dx.other, fixed = TRUE)
+demog$otheradverseevent <- gsub("&", "and", demog$otheradverseevent, fixed = TRUE)
 
 all.dx.other <-
   unique(subset(demog, !is.na(icu.dx.other) & icu.dx.other != "")$icu.dx.other)
@@ -91,8 +92,20 @@ dx.other.descrip <-
                    paste0(x, '. ', trimws(all.dx.other[x]), ' \\\\\\\\')
                  }))
 
+all.ae.other <-
+  unique(subset(demog,
+                !is.na(otheradverseevent) &
+                  otheradverseevent != "")$otheradverseevent)
+ae.other.descrip <-
+  do.call(paste,
+          lapply(1:length(all.ae.other),
+                 FUN = function(x){
+                   paste0(x, '. ', trimws(all.ae.other[x]), ' \\\\\\\\')
+                 }))
+
 demog <- demog %>%
-  ## Rename insensibly named variables more sensibly
+  ## Rename insensibly named variables more sensibly; rename AE variables to
+  ## be more meaningful
   rename(ventdays = piculos2.c4c,
          prism3 = severityscore.a2,
          pim2 = severityscore.a3,
@@ -101,7 +114,16 @@ demog <- demog %>%
          fss.dc = ffs.score2.ecb,
          popc.preadm = popc.baseline2.4dd,
          popc.adm = popc.baseline,
-         popc.dc = popc.baseline2.952) %>%
+         popc.dc = popc.baseline2.952,
+         had.vae = adversevents.1,
+         had.cauti = adversevents.2,
+         had.clabsi = adversevents.3,
+         had.fall = adversevents.4,
+         had.selfext.noreint = adversevents.5,
+         had.selfext.reint = adversevents.6,
+         had.pressulcer = adversevents.7,
+         had.mederror = adversevents.8,
+         had.otherae = adversevents.99) %>%
   mutate(## Combine baseline months, keep implementation months separate
          month.cat = factor(ifelse(is.na(month.f), NA,
                             ifelse(gsub(' .*$', '', month.f) == 'Baseline', 0,
@@ -183,9 +205,10 @@ demog <- demog %>%
                 sex.f, race.combined, english.f, wt, severity.combined, prism3,
                 pim2, dx.surgery, dx.infection, dx.resp, dx.gi, dx.neuro,
                 dx.tbi, dx.burn, dx.malig, dx.other, resp.rds, resp.airway,
-                resp.asthma, resp.cld, resp.pneu, piculos, hosplos, ever.vent,
-                ever.vent.test, ventdays, ventdays.exp, fss.preadm, fss.adm,
-                fss.dc, popc.preadm, popc.adm, popc.dc, mortality.f)
+                resp.asthma, resp.cld, resp.pneu, matches("^had"),
+                piculos, hosplos, ever.vent, ever.vent.test, ventdays,
+                ventdays.exp, fss.preadm, fss.adm, fss.dc, popc.preadm,
+                popc.adm, popc.dc, mortality.f)
 
 label(demog$hosp.f) <- 'Hospital'
 label(demog$data.time) <- 'Time period'
@@ -212,6 +235,15 @@ label(demog$resp.airway) <- "~~~Airway protection/obstruction"
 label(demog$resp.asthma) <- "~~~Asthma"
 label(demog$resp.cld) <- "~~~Chronic lung disease"
 label(demog$resp.pneu) <- "~~~Pneumonia"
+label(demog$had.vae) <- "VAE"
+label(demog$had.cauti) <- "CAUTI"
+label(demog$had.clabsi) <- "CLABSI"
+label(demog$had.fall) <- "Fall"
+label(demog$had.selfext.noreint) <- "Self-extubation, no reintubation"
+label(demog$had.selfext.reint) <- "Self-extubation, req. reintubation"
+label(demog$had.pressulcer) <- "Pressure ulcer"
+label(demog$had.mederror) <- "Medication error"
+label(demog$had.otherae) <- "Other adverse event"
 label(demog$piculos) <- 'PICU length of stay'
 label(demog$hosplos) <- 'Hospital length of stay'
 label(demog$ventdays) <- 'Days on MV, all patients'
@@ -591,8 +623,8 @@ label(compliance$fent.rcvd) <- 'Received fentanyl'
 label(compliance$hydromorph.rcvd) <- 'Received hydromorphone'
 label(compliance$benzo.rcvd) <- 'Received benzodiazepines'
 label(compliance$opioid.rcvd) <- 'Received opioids'
-label(compliance$loraz.scaled.eo) <- 'Lorazepam (mg/kg/day) among exposed'
-label(compliance$midaz.scaled.eo) <- 'Midazolam (mg/kg/day) among exposed'
+label(compliance$loraz.scaled.eo) <- 'Lorazepam\\\\~~~~~~(mg/kg/day)\\\\~~~~~~among exposed'
+label(compliance$midaz.scaled.eo) <- 'Midazolam\\\\~~~~~~(mg/kg/day)\\\\~~~~~~among exposed'
 label(compliance$morph.scaled.eo) <- 'Morphine (mg/kg/day)\\\\~~~~~~among exposed'
 label(compliance$fent.scaled.eo) <- 'Fentanyl (mg/kg/day)\\\\~~~~~~among exposed'
 label(compliance$hydromorph.scaled.eo) <- 'Hydromorphone\\\\~~~~~~(mcg/kg/day)\\\\~~~~~~among exposed'
@@ -600,6 +632,6 @@ label(compliance$benzo.total.eo) <- 'Total benzodiazepines, lorazepam equivalent
 label(compliance$opioid.total.eo) <- 'Total opioids, morphine equivalents, mg/kg/day, among exposed'
 
 ## -- Save data sets for use in aggregate and site-specific reports --------------------------------
-save(site_guidelines, demog, compliance, dx.other.descrip,
+save(site_guidelines, demog, compliance, dx.other.descrip, ae.other.descrip,
      file = 'RawData/pediatric.Rdata')
 
