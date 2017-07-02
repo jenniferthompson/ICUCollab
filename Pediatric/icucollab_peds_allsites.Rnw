@@ -17,9 +17,9 @@
 \begin{document}
 \maketitle
 
-The following tables and figures present descriptions of compliance with the ABCDEF bundle at
-pediatric ICU Collaborative sites during a baseline period (up to 3 months) and an implementation
-period (up to 12 months). Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/datamgmt.R}{here} and
+The following tables and figures present descriptions of compliance with the ABCDEF bundle at pediatric ICU Collaborative sites during a baseline period (up to 3 months) and an implementation period (up to 8 months). Months after implementation month 8 are not included at this time; not enough data is available to draw reliable conclusions.
+
+Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/datamgmt.R}{here} and
 \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_allsites.Rnw}{here}, respectively.
 
 <<setup, message=FALSE, echo=FALSE, warning=FALSE>>=
@@ -50,12 +50,19 @@ peds.colors = c("A" = "#887C90",
 <<datamgmt>>=
 load('RawData/pediatric.Rdata')
 
+## Restrict both data sets to baseline and implementation months 1-8;
+## not enough data entered after month 8 to draw reliable conclusions
+demog <- demog %>%
+  filter(month.cat %in% c("Baseline", paste("Imp.", 1:8)))
+
 ## Merge month onto compliance data
-compliance <- left_join(compliance, dplyr::select(demog, id, month.cat), by = 'id')
+compliance <-
+  right_join(compliance, dplyr::select(demog, id, month.cat), by = 'id')
 
 ## Ampersands make Latex do crazy things
 demog$hosp.f.latex <- demog$hosp.f
-levels(demog$hosp.f.latex) <- gsub('&', 'and', levels(demog$hosp.f), fixed = TRUE)
+levels(demog$hosp.f.latex) <-
+  gsub('&', 'and', levels(demog$hosp.f), fixed = TRUE)
 
 ## How many patients had no month entered and can't be considered?
 nomonth.ids <- subset(demog, is.na(month.cat))$id
@@ -461,7 +468,7 @@ Categorical variables are described as frequency (percent). Continuous variables
 \emph{Italicized rows} describe the availability of recorded data on a specific characteristic. For example, we can only describe sedation on days which had any sedation data recorded.
 
 <<performancetableinfo>>=
-all.months <- levels(demog$month.cat)
+all.months <- c("Baseline", paste("Imp.", 1:8))
 
 ## -- Function to create string of median (IQR) for a continuous variable ------
 get.mediqr <- function(x, rnddigits = 0){
@@ -846,7 +853,7 @@ latex(perf.table, file = '',
       title = '',
       where = '!h',
       label = 'table:performance',
-      size = 'scriptsize',
+      size = 'footnotesize',
       colheads = all.months,
       col.just = rep('r', ncol(perf.table)),
       rgroup = c('',
@@ -1110,7 +1117,7 @@ latex(meds.table.doses.b6, file = '',
 
 latex(meds.table.doses.b12, file = '',
       title = '',
-      caption = 'Daily Medication Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. All sites are included except Le Bonheur and Cornell; \\textbf{if no dose is entered in the database, that dose is assumed to be 0}',
+      caption = 'Daily Medication Use, Baseline + Implementation Months 7-8. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. All sites are included except Le Bonheur and Cornell; \\textbf{if no dose is entered in the database, that dose is assumed to be 0}',
       digits = 2,
       prmsd = FALSE,
       prn = FALSE,
