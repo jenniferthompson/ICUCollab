@@ -17,9 +17,7 @@
 \begin{document}
 \maketitle
 
-The following tables and figures present descriptions of compliance with the ABCDEF bundle at
-\Sexpr{site} during a baseline period (up to 3 months) and an implementation period (up to 12
-months). Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/datamgmt.R}{here} and \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_reportsbysite.R}{here}/\href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_singlesite.Rnw}{here}, respectively.
+The following tables and figures present descriptions of compliance with the ABCDEF bundle at \Sexpr{site} during a baseline period (up to 3 months) and an implementation period (up to 8 months). Code for all data management and analysis can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/datamgmt.R}{here} and \href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_reportsbysite.R}{here}/\href{https://github.com/jenniferthompson/ICUCollab/blob/master/Pediatric/icucollab_peds_singlesite.Rnw}{here}, respectively.
 
 <<setup, message=FALSE, echo=FALSE, warning=FALSE>>=
 opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
@@ -42,36 +40,46 @@ quantile.example <- quantile(subset(demog.site, data.time == 'Baseline')$piculos
 
 \section{Entire Cohort}
 \subsection{Demographic, Baseline, and Hospital Stay Characteristics}
-Table \ref{table:descstats} describes the patients at \Sexpr{site} whose data was collected during
-the baseline and implementation data collection periods. There are \Sexpr{format(length(unique(demog.site$id)), big.mark = ',')} unique patient IDs currently recorded. \Sexpr{nomonth.sentence}
+Table \ref{table:descstats} describes the patients at \Sexpr{site} whose data was collected during the baseline and implementation data collection periods. There are \Sexpr{format(length(unique(demog.site$id)), big.mark = ',')} unique patient IDs currently recorded. \Sexpr{nomonth.sentence}
 
-For continuous variables (like days of invasive ventilation), the 25th, 50th, and 75th percentiles
-are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half
-the patients have a value above it.
+For continuous variables (like days of invasive ventilation), the 25th, 50th, and 75th percentiles are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
 
-For example, for PICU length of stay in the baseline cohort (see Table \ref{table:descstats}),
-25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had
-\Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
-\Sexpr{quantile.example['75%']} or fewer days in the ICU.
+For example, for PICU length of stay in the baseline cohort (see Table \ref{table:descstats}), 25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had \Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had \Sexpr{quantile.example['75%']} or fewer days in the ICU.
 
-Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values);
-and the number of days on MV among the entire cohort (i.e., including zero values).
+Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values); and the number of days on MV among the entire cohort (i.e., including zero values).
+
+Categorical variables (eg, age category) are visualized by barcharts showing the percentage of patients in each category during each data collection period. Continuous variables (eg, FSS) are visualized by boxplots, which show the median (middle line), 25th percentile (bottom of the box), and 75th percentile (top of the box). Points shown are the most extreme values (outliers).
+
+\subsection{Explanation of Boxplots}
+\href{https://en.wikipedia.org/wiki/Box_plot}{Boxplots (also known as ``box and whisker plots")} are a standard way to describe continuous quantities - for example, PRISM 2 score. The bottom of each box indicates the 25th percentile for that group - for example, 25\% of the patients in this group had a PRISM 2 score of that value or lower. The line in the middle of each box indicates the median, or 50th percentile for that group: half the patients in that group have a value lower than the median; half the patients have a value higher. This is our best description of a ``typical" patient. The top of each box indicates the 75th percentile for that group: 75\% of the patients have a value lower than that level, and 25\% of the patients have a value higher. \textbf{The values within the box represent the middle, most ``typical" half of each group.}
+
+The ``whiskers" - the lines on either side of each box - show how far beyond that middle 50\% the majority of the patients' values fall. The dots, if there are any, represent outliers - patients whose values are very different from the vast majority of the group.
 
 <<desccohort>>=
 ## At least one site doesn't have any POPC data entered; account for this case
 if(sum(!is.na(demog.site$popc.preadm)) == 0){
-  desc.all <- summaryM(age.f + sex.f + race.combined + english.f +
-                         severity.combined + fss.preadm + fss.adm + fss.dc +
-                         ever.vent + ventdays.exp + ventdays + piculos + hosplos +
-                         mortality.f ~ data.time,
-                       data = demog.site, continuous = 5)
+  desc_formula <- gsub(" + popc.preadm", "", base_desc_formula, fixed = TRUE)
 } else{
-  desc.all <- summaryM(age.f + sex.f + race.combined + english.f +
-                         severity.combined + fss.preadm + fss.adm + fss.dc + popc.preadm + popc.adm +
-                         popc.dc + ever.vent + ventdays.exp + ventdays + piculos + hosplos +
-                         mortality.f ~ data.time,
-                       data = demog.site, continuous = 5)
+  desc_formula <- base_desc_formula
 }
+
+## Also account for whether site collected PRISM3 and/or PIM2
+if(sum(!is.na(demog.site$prism3)) == 0){
+  desc_formula <- gsub(" + prism3", "", desc_formula, fixed = TRUE)
+}
+
+if(sum(!is.na(demog.site$pim2)) == 0){
+  desc_formula <- gsub(" + pim2", "", desc_formula, fixed = TRUE)
+}
+
+## Create descriptives table
+desc.all <- summaryM(as.formula(desc_formula), data = demog.site, continuous = 5)
+
+## Create table of admission diagnoses
+desc.dx <- summaryM(dx.surgery + dx.resp + resp.rds + resp.airway +
+                      resp.asthma + resp.cld + resp.pneu + dx.gi + dx.neuro +
+                      dx.tbi + dx.burn + dx.other ~ data.time,
+                    data = demog.site)
 
 @
 
@@ -82,6 +90,77 @@ my.print.summaryM(desc.all,
                   exclude1 = FALSE,
                   size = 'small',
                   label = 'table:descstats')
+
+my.print.summaryM(desc.dx,
+                  caption = 'Admission Diagnoses',
+                  caption.lot = 'Admission Diagnoses',
+                  exclude1 = TRUE,
+                  size = 'small',
+                  label = 'table:admitdx',
+                  insert.bottom = "Note: FALSE indicates that no patients at this site had this diagnosis recorded.")
+
+@
+
+<<vis_desccohort_prep>>=
+## -- Generate plots of all baseline, demographic, outcome variables -----------
+plot_vars <- c("age.f", "sex.f", "race.combined", "severity.combined",
+               "prism3", "pim2", "diagnosis.f", "ever.vent", "ventdays",
+               "piculos", "hosplos", "fss", "popc", "mortality.f")
+
+## If site didn't collect PRISM3/PIM2, no need to display it
+if(sum(!is.na(demog.site$prism3)) == 0){
+  plot_vars <- setdiff(plot_vars, "prism3")
+}
+
+if(sum(!is.na(demog.site$pim2)) == 0){
+  plot_vars <- setdiff(plot_vars, "pim2")
+}
+
+desc_plots <- map(plot_vars, plot_demog_var)
+names(desc_plots) <- plot_vars
+
+desc_plots_page1 <- c("age.f", "race.combined", "sex.f", "diagnosis.f")
+desc_plots_page2 <- c("severity.combined", "prism3", "pim2")
+
+soi_plots <- length(grep("prism3|pim2", plot_vars))
+
+if(soi_plots == 2){
+  desc_matrix_page2 <- matrix(c(1, 1, 2, 3), ncol = 2)
+} else if(soi_plots == 1){
+  desc_matrix_page2 <- matrix(c(1, 2), nrow = 2)
+} else{
+  desc_matrix_page2 <- matrix(1, ncol = 1)
+}
+
+## Function to find a variable name in names(desc_plots), returning only non-NAs
+find_desc_plots <- function(name){
+  tmp <- grep(name, names(desc_plots))
+  if(length(tmp) > 0){
+    return(tmp)
+  } else{
+    return(NA)
+  }
+}
+
+these_plots_1 <- map_int(desc_plots_page1, find_desc_plots)
+these_plots_1 <- these_plots_1[!is.na(these_plots_1)]
+
+these_plots_2 <- map_int(desc_plots_page2, find_desc_plots)
+these_plots_2 <- these_plots_2[!is.na(these_plots_2)]
+
+@
+
+\clearpage
+<<vis_demog_1, results = 'asis', fig.height=10, fig.width = 7.5>>=
+multiplot(plotlist = map(these_plots_1, ~ desc_plots[[.]]),
+          layout = matrix(c(1, 1, 2, 2, 3, 4, 4, 4), ncol = 2))
+
+@
+
+\clearpage
+<<vis_demog_2, results = 'asis', fig.height=6, fig.width = 7.5>>=
+multiplot(plotlist = map(these_plots_2, ~ desc_plots[[.]]),
+          layout = desc_matrix_page2)
 
 @
 
@@ -453,134 +532,134 @@ hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 f
 the other hand, none of the three opioids of interest were recorded, no opioid data for that day is
 described - doses are left as missing.
 
-<<createmedstable>>=
-label(compliance.site$has.benzo) <- 'At least one recorded*'
-label(compliance.site$has.opioid) <- 'At least one recorded*'
-label(compliance.site$benzo.total) <- 'Total (lorazepam equiv.)'
-label(compliance.site$opioid.total) <- 'Total (morphine equiv.)'
-
-## At least one site has no benzodiazepines or opioids included; account for all possible cases
-if(sum(compliance.site$has.benzo) > 0 & sum(compliance.site$has.opioid)){
-  benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-                              diaz.scaled ~ month.cat,
-                             data = subset(compliance.site,
-                                           month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-                             continuous = 5)
-  benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
-                                clonaz.scaled + diaz.scaled ~ month.cat,
-                              data = subset(compliance.site,
-                                            month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-                              continuous = 5)
-  opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-                             fent.scaled ~ month.cat,
-                           data = subset(compliance.site,
-                                         month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-                                         continuous = 5)
-  opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-                                 fent.scaled ~ month.cat,
-                               data = subset(compliance.site,
-                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-                                             continuous = 5)
-  meds.sentence <- ''
-} else if(sum(compliance.site$has.benzo) > 0){
-  benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-                              diaz.scaled ~ month.cat,
-                             data = subset(compliance.site,
-                                           month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-                             continuous = 5)
-  benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
-                                clonaz.scaled + diaz.scaled ~ month.cat,
-                              data = subset(compliance.site,
-                                            month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-                              continuous = 5)
-  opioid.table <- NULL
-  meds.sentence <- paste0('\\textbf{No opioid doses were recorded at ', site, '; therefore, no opioid table is provided.}')
-} else if(sum(compliance.site$has.opioid) > 0){
-  benzo.table <- NULL
-  opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-                             fent.scaled ~ month.cat,
-                           data = subset(compliance.site,
-                                         month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-                                         continuous = 5)
-  opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-                                 fent.scaled ~ month.cat,
-                               data = subset(compliance.site,
-                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-                                             continuous = 5)
-  meds.sentence <- paste0('\\textbf{No benzodiazepine doses were recorded at ', site, '; therefore, no benzodiazepines table is provided.}')
-} else{
-  benzo.table.b6 <- benzo.table.b12 <- opioid.table.b6 <- opioid.table.b12 <- NULL
-  meds.sentence <- paste0('\\textbf{No benzodiazepine or opioid doses were recorded at ', site, '; therefore, no medications table is provided.}')
-}
-
-@
-
-\Sexpr{meds.sentence}
-
-<<printmedstable, results = 'asis'>>=
-if(!is.null(benzo.table.b6)){
-  latex(benzo.table.b6, file = '',
-        title = '',
-        caption = 'Daily Benzodiazepine Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-        digits = 2,
-        prmsd = FALSE,
-        prn = FALSE,
-        prN = FALSE,
-        what = '%',
-        long = TRUE,
-        where = '!h',
-        label = 'table:benzosb6',
-        size = 'scriptsize',
-        insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
-}
-
-if(!is.null(benzo.table.b12)){
-  latex(benzo.table.b12, file = '',
-        title = '',
-        caption = 'Daily Benzodiazepine Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-        digits = 2,
-        prmsd = FALSE,
-        prn = FALSE,
-        prN = FALSE,
-        what = '%',
-        long = TRUE,
-        where = '!h',
-        label = 'table:benzosb12',
-        size = 'scriptsize')
-}
-
-if(!is.null(opioid.table.b6)){
-  latex(opioid.table.b6, file = '',
-        title = '',
-        caption = 'Daily Opioid Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-        digits = 2,
-        prmsd = FALSE,
-        prn = FALSE,
-        prN = FALSE,
-        what = '%',
-        long = TRUE,
-        where = '!h',
-        label = 'table:opioidsb6',
-        size = 'scriptsize',
-        insert.bottom = "\\emph{* `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
-}
-
-if(!is.null(opioid.table.b12)){
-  latex(opioid.table.b12, file = '',
-        title = '',
-        caption = 'Daily Opioid Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-        digits = 2,
-        prmsd = FALSE,
-        prn = FALSE,
-        prN = FALSE,
-        what = '%',
-        long = TRUE,
-        where = '!h',
-        label = 'table:opioidsb12',
-        size = 'scriptsize')
-}
-
-@
+% <<createmedstable>>=
+% label(compliance.site$has.benzo) <- 'At least one recorded*'
+% label(compliance.site$has.opioid) <- 'At least one recorded*'
+% label(compliance.site$benzo.total) <- 'Total (lorazepam equiv.)'
+% label(compliance.site$opioid.total) <- 'Total (morphine equiv.)'
+%
+% ## At least one site has no benzodiazepines or opioids included; account for all possible cases
+% if(sum(compliance.site$has.benzo) > 0 & sum(compliance.site$has.opioid)){
+%   benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+%                               diaz.scaled ~ month.cat,
+%                              data = subset(compliance.site,
+%                                            month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+%                              continuous = 5)
+%   benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
+%                                 clonaz.scaled + diaz.scaled ~ month.cat,
+%                               data = subset(compliance.site,
+%                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+%                               continuous = 5)
+%   opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+%                              fent.scaled ~ month.cat,
+%                            data = subset(compliance.site,
+%                                          month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+%                                          continuous = 5)
+%   opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+%                                  fent.scaled ~ month.cat,
+%                                data = subset(compliance.site,
+%                                              month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+%                                              continuous = 5)
+%   meds.sentence <- ''
+% } else if(sum(compliance.site$has.benzo) > 0){
+%   benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
+%                               diaz.scaled ~ month.cat,
+%                              data = subset(compliance.site,
+%                                            month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+%                              continuous = 5)
+%   benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
+%                                 clonaz.scaled + diaz.scaled ~ month.cat,
+%                               data = subset(compliance.site,
+%                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+%                               continuous = 5)
+%   opioid.table <- NULL
+%   meds.sentence <- paste0('\\textbf{No opioid doses were recorded at ', site, '; therefore, no opioid table is provided.}')
+% } else if(sum(compliance.site$has.opioid) > 0){
+%   benzo.table <- NULL
+%   opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+%                              fent.scaled ~ month.cat,
+%                            data = subset(compliance.site,
+%                                          month.cat %in% c('Baseline', paste('Imp.', 1:6))),
+%                                          continuous = 5)
+%   opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
+%                                  fent.scaled ~ month.cat,
+%                                data = subset(compliance.site,
+%                                              month.cat %in% c('Baseline', paste('Imp.', 7:12))),
+%                                              continuous = 5)
+%   meds.sentence <- paste0('\\textbf{No benzodiazepine doses were recorded at ', site, '; therefore, no benzodiazepines table is provided.}')
+% } else{
+%   benzo.table.b6 <- benzo.table.b12 <- opioid.table.b6 <- opioid.table.b12 <- NULL
+%   meds.sentence <- paste0('\\textbf{No benzodiazepine or opioid doses were recorded at ', site, '; therefore, no medications table is provided.}')
+% }
+%
+% @
+%
+% \Sexpr{meds.sentence}
+%
+% <<printmedstable, results = 'asis'>>=
+% if(!is.null(benzo.table.b6)){
+%   latex(benzo.table.b6, file = '',
+%         title = '',
+%         caption = 'Daily Benzodiazepine Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+%         digits = 2,
+%         prmsd = FALSE,
+%         prn = FALSE,
+%         prN = FALSE,
+%         what = '%',
+%         long = TRUE,
+%         where = '!h',
+%         label = 'table:benzosb6',
+%         size = 'scriptsize',
+%         insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
+% }
+%
+% if(!is.null(benzo.table.b12)){
+%   latex(benzo.table.b12, file = '',
+%         title = '',
+%         caption = 'Daily Benzodiazepine Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+%         digits = 2,
+%         prmsd = FALSE,
+%         prn = FALSE,
+%         prN = FALSE,
+%         what = '%',
+%         long = TRUE,
+%         where = '!h',
+%         label = 'table:benzosb12',
+%         size = 'scriptsize')
+% }
+%
+% if(!is.null(opioid.table.b6)){
+%   latex(opioid.table.b6, file = '',
+%         title = '',
+%         caption = 'Daily Opioid Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+%         digits = 2,
+%         prmsd = FALSE,
+%         prn = FALSE,
+%         prN = FALSE,
+%         what = '%',
+%         long = TRUE,
+%         where = '!h',
+%         label = 'table:opioidsb6',
+%         size = 'scriptsize',
+%         insert.bottom = "\\emph{* `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
+% }
+%
+% if(!is.null(opioid.table.b12)){
+%   latex(opioid.table.b12, file = '',
+%         title = '',
+%         caption = 'Daily Opioid Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
+%         digits = 2,
+%         prmsd = FALSE,
+%         prn = FALSE,
+%         prN = FALSE,
+%         what = '%',
+%         long = TRUE,
+%         where = '!h',
+%         label = 'table:opioidsb12',
+%         size = 'scriptsize')
+% }
+%
+% @
 
 \end{landscape}
 \end{document}
