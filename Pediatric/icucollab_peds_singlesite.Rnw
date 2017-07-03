@@ -46,8 +46,6 @@ For continuous variables (like days of invasive ventilation), the 25th, 50th, an
 
 For example, for PICU length of stay in the baseline cohort (see Table \ref{table:descstats}), 25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had \Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had \Sexpr{quantile.example['75%']} or fewer days in the ICU.
 
-Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values); and the number of days on MV among the entire cohort (i.e., including zero values).
-
 Categorical variables (eg, age category) are visualized by barcharts showing the percentage of patients in each category during each data collection period. Continuous variables (eg, FSS) are visualized by boxplots, which show the median (middle line), 25th percentile (bottom of the box), and 75th percentile (top of the box). Points shown are the most extreme values (outliers).
 
 \subsection{Explanation of Boxplots}
@@ -161,6 +159,71 @@ multiplot(plotlist = map(these_plots_1, ~ desc_plots[[.]]),
 <<vis_demog_2, results = 'asis', fig.height=6, fig.width = 7.5>>=
 multiplot(plotlist = map(these_plots_2, ~ desc_plots[[.]]),
           layout = desc_matrix_page2)
+
+@
+
+\clearpage
+\subsection{Adverse Events}
+
+<<aetable, results = "asis">>=
+latex(summaryM(as.formula(paste(paste(grep("^had", names(demog), value = TRUE),
+                                      collapse = " + "),
+                                "~ data.time")),
+               data = demog.site),
+      file = "",
+      where = "!h",
+      what = "%",
+      npct = "both",
+      title = "",
+      caption = "Adverse Events",
+      exclude1 = TRUE,
+      long = FALSE)
+
+@
+
+\clearpage
+\subsection{Comparison of Outcomes}
+Table \ref{table:outcomes} describes and presents unadjusted tests of outcomes between the baseline and implementation time points.
+
+Time on mechanical ventilation is described in three ways: the number of patients who \textbf{ever} had MV; the number of days on MV among those patients who ever received MV (i.e., non-zero values); and the number of days on MV among the entire cohort (i.e., including zero values).
+
+<<outcomes>>=
+desc.outcomes <- summaryM(fss.dc + popc.dc + ever.vent.test + ventdays.exp +
+                            ventdays + piculos + hosplos + mortality.f ~
+                            data.time,
+                          data = demog.site,
+                          test = FALSE)
+
+## Outcomes only tested over entire cohort - multiple comparisons problem if
+## we look at each site individually
+
+@
+
+<<printoutcomes, results = 'asis'>>=
+my.print.summaryM(desc.outcomes,
+                  caption = 'Study Outcomes',
+                  caption.lot = 'Study Outcomes',
+                  exclude1 = FALSE,
+                  size = 'small',
+                  label = 'table:outcomes')
+
+@
+
+<<vis_outcomes_1, results = 'asis', fig.height=6, fig.width = 7.5>>=
+multiplot(desc_plots$fss, desc_plots$popc,
+          layout = matrix(c(1, 2), ncol = 1))
+
+@
+
+<<vis_outcomes_2, results = 'asis', fig.height=3, fig.width = 7.5>>=
+multiplot(desc_plots$ever.vent, desc_plots$ventdays,
+          layout = matrix(c(1, 2), nrow = 1, byrow = TRUE))
+
+@
+
+<<vis_outcomes_3, results = 'asis', fig.height=3, fig.width = 7.5>>=
+multiplot(desc_plots$piculos, desc_plots$hosplos, desc_plots$mortality.f,
+          layout = matrix(1:3, nrow = 1, byrow = TRUE))
 
 @
 

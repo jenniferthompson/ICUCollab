@@ -5,9 +5,6 @@ library(JTHelpers)
 library(tidyverse)
 library(devtools)
 
-## What's the last month that should be included in the report?
-last.month <- 20
-
 ## Wrapper function for latex-ing summaryM objects
 my.print.summaryM <- function(...){
   latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
