@@ -785,154 +785,311 @@ perf.charts[[10]]
 
 \clearpage
 \section{Medication Use}
-The following tables, if applicable, summarize drug doses \textbf{per 24 hours} for benzodiazepines and opioids.
 
+<<med_sentences>>=
+med_yn_statement <- "\\textbf{If values are missing in the database, we assume this indicates that no drug was given.}"
 
-Total benzodiazepines are converted to lorazepam equivalents:
-\emph{lorazepam = clonazepam = [diazepam / 0.2] = [midazolam / 0.5]}
+med_doses_statement <- "\\textbf{If no dose is entered in the database, we assume this indicates that no drug was given, and that day/drug is assigned a dose of 0.}"
 
+include_med_yn <- include_med_doses <- TRUE
 
-Total opioids are converted to morphine equivalents:
+if(site == "Le Bonheur Childrens Hospital"){
+  med_yn_statement <- med_doses_statement <- "No medication data was collected at this site; therefore no tables or runcharts are provided."
+  include_med_yn <- include_med_doses <- FALSE
+} else if(site %in% c("Mayo Eugenio Litta Childrens Hospital",
+                      "Monroe Carell Jr. Childrens Hospital at Vanderbilt",
+                      "Weill Cornell Pediatrics")){
+  med_doses_statement <- "Only exposure (yes/no) to medications was collected at this site; therefore no dosing information is provided."
+  include_med_doses <- FALSE
+}
+
+@
+
+<<createmedstable>>=
+if(include_med_yn){
+  label(compliance.site$benzo.rcvd) <- 'Received benzodiazepines'
+  label(compliance.site$opioid.rcvd) <- 'Received opioids'
+  label(compliance.site$benzo.total) <- 'Total (lorazepam equiv.)'
+  label(compliance.site$opioid.total) <- 'Total (morphine equiv.)'
+  label(compliance.site$benzo.total.eo) <-
+    'Total (lorazepam equiv.)\\\\~~~~~~among exposed'
+  label(compliance.site$opioid.total.eo) <-
+    'Total (morphine equiv.)\\\\~~~~~~among exposed'
+
+  meds.table.yn <- summaryM(benzo.rcvd + loraz.rcvd + midaz.rcvd + opioid.rcvd +
+                              morph.rcvd + hydromorph.rcvd +
+                              fent.rcvd ~ month.cat,
+                            data = subset(compliance.site, drugs_yn))
+
+  if(include_med_doses){
+    meds.table.doses.b6 <-
+      summaryM(benzo.total + benzo.total.eo + loraz.scaled.eo +
+                 midaz.scaled.eo + opioid.total + opioid.total.eo +
+                 morph.scaled.eo + hydromorph.scaled.eo +
+                 fent.scaled.eo ~ month.cat,
+               continuous = 5,
+               data = subset(compliance.site,
+                             drugs_amt &
+                               month.cat %in% c("Baseline",
+                                                paste("Imp.", 1:6))))
+
+    meds.table.doses.b12 <-
+      summaryM(benzo.total + benzo.total.eo + loraz.scaled.eo +
+                 midaz.scaled.eo + opioid.total + opioid.total.eo +
+                 morph.scaled.eo + hydromorph.scaled.eo +
+                 fent.scaled.eo ~ month.cat,
+               continuous = 5,
+               data = subset(compliance.site,
+                             drugs_amt &
+                               month.cat %in% c("Baseline",
+                                                paste("Imp.", 7:12))))
+  }
+}
+
+@
+
+\subsection{Medications Received (Yes/No)}
+\Sexpr{med_yn_statement}
+
+If included, a value of FALSE indicates that none of a particular medication was given during any month.
+
+<<printmedtables, results = 'asis'>>=
+if(include_med_yn){
+  latex(meds.table.yn, file = '',
+        title = '',
+        caption = 'Daily Medication Use, Yes vs. No. \\textbf{We assume missing data indicates no drug was given}',
+        prn = FALSE,
+        prN = FALSE,
+        what = '%',
+        long = TRUE,
+        where = '!h',
+        # rgroup = c("Benzodiazepines", "Opioids"),
+        # n.rgroup = c(3, 4),
+        label = 'table:medsyn',
+        size = 'scriptsize')
+}
+
+@
+
+\clearpage
+\subsection{Medication Doses}
+
+Notes:
+\begin{itemize}
+\item Total benzodiazepines are converted to lorazepam equivalents:
+\emph{lorazepam = [midazolam / 0.5]}
+\item Total opioids are converted to morphine equivalents:
 \emph{morphine = hydromorphone / 4 = fentanyl / 10}
+\item All doses are scaled by weight in kilograms prior to conversion.
+\end{itemize}
 
+\Sexpr{med_doses_statement}
 
-All doses are scaled by weight in kilograms prior to conversion.
+<<printmeddoses, results = "asis">>=
+if(include_med_doses){
+  latex(meds.table.doses.b6, file = '',
+        title = '',
+        caption = 'Daily Medication Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. \\textbf{If no dose is entered in the database, that dose is assumed to be 0}',
+        digits = 2,
+        prmsd = FALSE,
+        prn = FALSE,
+        prN = FALSE,
+        what = '%',
+        long = TRUE,
+        where = '!h',
+        rgroup = c("Benzodiazepines", "Opioids"),
+        n.rgroup = c(4, 5),
+        label = 'table:meddoses1',
+        size = 'scriptsize')
 
-If at least one medication in a category (benzodiazepines or opioids) had a dose recorded, all NA
-values in that category were assumed to be zero. Otherwise, doses were considered missing. For
-example, if a patient-day had a dose recorded for fentanyl but nothing recorded for morphine or
-hydromorphone, both morphine and hydromorphone were assumed to have doses of 0 for that day. If, on
-the other hand, none of the three opioids of interest were recorded, no opioid data for that day is
-described - doses are left as missing.
+  latex(meds.table.doses.b12, file = '',
+        title = '',
+        caption = 'Daily Medication Use, Baseline + Implementation Months 7-8. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles. \\textbf{If no dose is entered in the database, that dose is assumed to be 0}',
+        digits = 2,
+        prmsd = FALSE,
+        prn = FALSE,
+        prN = FALSE,
+        what = '%',
+        long = TRUE,
+        where = '!h',
+        rgroup = c("Benzodiazepines", "Opioids"),
+        n.rgroup = c(4, 5),
+        label = 'table:meddoses2',
+        size = 'scriptsize')
+}
 
-% <<createmedstable>>=
-% label(compliance.site$has.benzo) <- 'At least one recorded*'
-% label(compliance.site$has.opioid) <- 'At least one recorded*'
-% label(compliance.site$benzo.total) <- 'Total (lorazepam equiv.)'
-% label(compliance.site$opioid.total) <- 'Total (morphine equiv.)'
-%
-% ## At least one site has no benzodiazepines or opioids included; account for all possible cases
-% if(sum(compliance.site$has.benzo) > 0 & sum(compliance.site$has.opioid)){
-%   benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-%                               diaz.scaled ~ month.cat,
-%                              data = subset(compliance.site,
-%                                            month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-%                              continuous = 5)
-%   benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
-%                                 clonaz.scaled + diaz.scaled ~ month.cat,
-%                               data = subset(compliance.site,
-%                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-%                               continuous = 5)
-%   opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-%                              fent.scaled ~ month.cat,
-%                            data = subset(compliance.site,
-%                                          month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-%                                          continuous = 5)
-%   opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-%                                  fent.scaled ~ month.cat,
-%                                data = subset(compliance.site,
-%                                              month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-%                                              continuous = 5)
-%   meds.sentence <- ''
-% } else if(sum(compliance.site$has.benzo) > 0){
-%   benzo.table.b6 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled + clonaz.scaled +
-%                               diaz.scaled ~ month.cat,
-%                              data = subset(compliance.site,
-%                                            month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-%                              continuous = 5)
-%   benzo.table.b12 <- summaryM(has.benzo + benzo.total + loraz.scaled + midaz.scaled +
-%                                 clonaz.scaled + diaz.scaled ~ month.cat,
-%                               data = subset(compliance.site,
-%                                             month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-%                               continuous = 5)
-%   opioid.table <- NULL
-%   meds.sentence <- paste0('\\textbf{No opioid doses were recorded at ', site, '; therefore, no opioid table is provided.}')
-% } else if(sum(compliance.site$has.opioid) > 0){
-%   benzo.table <- NULL
-%   opioid.table.b6 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-%                              fent.scaled ~ month.cat,
-%                            data = subset(compliance.site,
-%                                          month.cat %in% c('Baseline', paste('Imp.', 1:6))),
-%                                          continuous = 5)
-%   opioid.table.b12 <- summaryM(has.opioid + opioid.total + morph.scaled + hydromorph.scaled +
-%                                  fent.scaled ~ month.cat,
-%                                data = subset(compliance.site,
-%                                              month.cat %in% c('Baseline', paste('Imp.', 7:12))),
-%                                              continuous = 5)
-%   meds.sentence <- paste0('\\textbf{No benzodiazepine doses were recorded at ', site, '; therefore, no benzodiazepines table is provided.}')
-% } else{
-%   benzo.table.b6 <- benzo.table.b12 <- opioid.table.b6 <- opioid.table.b12 <- NULL
-%   meds.sentence <- paste0('\\textbf{No benzodiazepine or opioid doses were recorded at ', site, '; therefore, no medications table is provided.}')
-% }
-%
-% @
-%
-% \Sexpr{meds.sentence}
-%
-% <<printmedstable, results = 'asis'>>=
-% if(!is.null(benzo.table.b6)){
-%   latex(benzo.table.b6, file = '',
-%         title = '',
-%         caption = 'Daily Benzodiazepine Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-%         digits = 2,
-%         prmsd = FALSE,
-%         prn = FALSE,
-%         prN = FALSE,
-%         what = '%',
-%         long = TRUE,
-%         where = '!h',
-%         label = 'table:benzosb6',
-%         size = 'scriptsize',
-%         insert.bottom = "\\emph{* `Benzodiazepine recorded' indicates that a recorded dose was available for at least one of lorazepam, midazolam, diazepam, and clonazepam. `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
-% }
-%
-% if(!is.null(benzo.table.b12)){
-%   latex(benzo.table.b12, file = '',
-%         title = '',
-%         caption = 'Daily Benzodiazepine Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-%         digits = 2,
-%         prmsd = FALSE,
-%         prn = FALSE,
-%         prN = FALSE,
-%         what = '%',
-%         long = TRUE,
-%         where = '!h',
-%         label = 'table:benzosb12',
-%         size = 'scriptsize')
-% }
-%
-% if(!is.null(opioid.table.b6)){
-%   latex(opioid.table.b6, file = '',
-%         title = '',
-%         caption = 'Daily Opioid Use, Baseline - Implementation Month 6. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-%         digits = 2,
-%         prmsd = FALSE,
-%         prn = FALSE,
-%         prN = FALSE,
-%         what = '%',
-%         long = TRUE,
-%         where = '!h',
-%         label = 'table:opioidsb6',
-%         size = 'scriptsize',
-%         insert.bottom = "\\emph{* `Opioid recorded' indicates that a recorded dose was available for at least one of morphine, hydromorphone, and fentanyl.}")
-% }
-%
-% if(!is.null(opioid.table.b12)){
-%   latex(opioid.table.b12, file = '',
-%         title = '',
-%         caption = 'Daily Opioid Use, Baseline + Implementation Months 7-12. Doses are summarized by {\\scriptsize 25th} 50th {\\scriptsize 75th} percentiles',
-%         digits = 2,
-%         prmsd = FALSE,
-%         prn = FALSE,
-%         prN = FALSE,
-%         what = '%',
-%         long = TRUE,
-%         where = '!h',
-%         label = 'table:opioidsb12',
-%         size = 'scriptsize')
-% }
-%
-% @
+@
+
+<<vis_meds>>=
+if(include_med_yn){
+  ## -- Runcharts for proportion of patient-days with Drug X over time ---------
+  med_names <- grep("\\.rcvd", names(compliance), value = TRUE)
+  med_titles <- c("Midazolam", "Lorazepam", "Benzodiazepines", "Fentanyl",
+                  "Morphine", "Hydromorphone", "Opioids")
+  med_subtitles <- c(
+    NA, NA, "Lorazepam and/or midazolam", NA, NA, NA,
+    "Fentanyl, morphine and/or hydromorphone"
+  )
+
+  ## How many days were eligible each month?
+  med_elig_yn <- compliance.site %>%
+    filter(drugs_yn & !is.na(month.cat)) %>%
+    group_by(month.cat) %>%
+    summarise(n_days = n())
+
+  med_rcvd_df <- compliance.site %>%
+    filter(drugs_yn & !is.na(month.cat)) %>%
+    dplyr::select(month.cat, one_of(med_names)) %>%
+    group_by(month.cat) %>%
+    summarise_all(.funs = c("mean", "sum")) %>%
+    gather(key = drug.fun, value = val, -month.cat) %>%
+    separate(drug.fun, into = c("drug", "quantity"), sep = "_") %>%
+    spread(key = quantity, value = val) %>%
+    left_join(med_elig_yn, by = "month.cat") %>%
+    mutate(num.denom = paste0(sum, "/", n_days),
+           linegroup = 1)
+
+  ## Function to create a runchart for a single medication
+  med.runchart <- function(med, med_title, med_subtitle){
+
+    df <- med_rcvd_df %>%
+      filter(drug == med)
+
+    if(med %in% c("benzo.rcvd", "opioid.rcvd")){
+      nd.size <- 2.5
+      ysize <- 10
+      axtext.size <- 9
+    } else{
+      nd.size <- 2
+      ysize <- 8
+      axtext.size <- 6
+    }
+
+    tmp <- ggplot(data = df, aes(x = month.cat, y = mean)) +
+      annotate(geom = 'rect', xmin = -Inf, xmax = Inf, ymax = Inf, ymin = 0.96,
+               fill = 'white', colour = NA) +
+      geom_line(aes(group = linegroup), colour = "#003D79") +
+      geom_point(colour = "#003D79") +
+      geom_text(aes(label = num.denom), y = 1,
+                size = nd.size, colour = "#003D79", fontface = 'bold') +
+      scale_x_discrete(name = NULL) +
+      scale_y_continuous(
+        limits = c(0, 1),
+        breaks = seq(0, 1, 0.2),
+        labels = paste0(seq(0, 1, 0.2) * 100, "%"),
+        name = sprintf("Percent of Days\nReceived %s", med_title)
+      ) +
+      theme_minimal() +
+      theme(axis.text.x =
+              element_text(angle = 45, hjust = 1, vjust = 1,
+                           size = axtext.size),
+            axis.text.y = element_text(size = axtext.size),
+            axis.title = element_text(size = ysize),
+            plot.title = element_text(face = 'bold'),
+            plot.subtitle = element_text(face = 'italic', size = 10),
+            panel.grid.minor.x = element_blank())
+
+    if(!is.na(med_subtitle)){
+      tmp <- tmp +
+        ggtitle(label = med_title, subtitle = med_subtitle)
+    } else{
+      tmp <- tmp +
+        ggtitle(label = med_title)
+    }
+
+    tmp
+  }
+
+  med_rcvd_plots <- pmap(list("med" = med_names,
+                              "med_title" = med_titles,
+                              "med_subtitle" = med_subtitles),
+                         .f = med.runchart)
+  names(med_rcvd_plots) <- med_names
+}
+
+## -- Boxplots for amount of drug among exposed over time ----------------------
+if(include_med_doses){
+  med_amt_names <- grep(".+\\.eo$", names(compliance), value = TRUE)
+
+  med_amt_df <- compliance.site %>%
+    filter(drugs_yn & !is.na(month.cat)) %>%
+    dplyr::select(month.cat, one_of(med_amt_names)) %>%
+    gather(key = drug, value = amt, -month.cat) %>%
+    filter(!is.na(amt)) %>%
+    mutate(is_baseline = month.cat == "Baseline")
+
+  ## Function to create a runchart for a single medication
+  med.boxplot <- function(med, med_title, med_subtitle){
+
+    plot_cols <- c("TRUE" = as.character(peds.colors["D"]),
+                   "FALSE" = as.character(peds.colors["A"]))
+
+    df <- med_amt_df %>%
+      filter(drug == med)
+
+    if(med %in% c("benzo.total.eo", "opioid.total.eo")){
+      nd.size <- 3
+    } else{
+      nd.size <- 2
+    }
+
+    tmp <- ggplot(data = df, aes(x = month.cat, y = amt)) +
+      geom_boxplot(aes(fill = is_baseline, colour = is_baseline), alpha = 0.6) +
+      scale_x_discrete(name = NULL) +
+      scale_y_continuous(
+        name = sprintf("Amount of %s Per 24 Hours Among Those Who Received It",
+                       med_title)
+      ) +
+      scale_fill_manual(values = plot_cols) +
+      scale_colour_manual(values = plot_cols) +
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+            plot.title = element_text(face = 'bold'),
+            plot.subtitle = element_text(face = 'italic', size = 10),
+            panel.grid.minor.x = element_blank())
+
+    if(!is.na(med_subtitle)){
+      tmp <- tmp +
+        ggtitle(label = med_title, subtitle = med_subtitle)
+    } else{
+      tmp <- tmp +
+        ggtitle(label = med_title)
+    }
+
+    tmp
+  }
+
+  med_amt_plots <- pmap(list("med" = med_amt_names,
+                             "med_title" = med_titles,
+                             "med_subtitle" = med_subtitles),
+                        .f = med.boxplot)
+}
+
+@
+
+\clearpage
+<<print_benzo_runcharts, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
+if(include_med_yn){
+  benzo_rcvd_plotorder <- c( "benzo.rcvd", "loraz.rcvd", "midaz.rcvd")
+
+  multiplot(plotlist = map(benzo_rcvd_plotorder, ~ med_rcvd_plots[[.]]),
+            layout = matrix(c(1, 1, 2, 3), ncol = 2))
+}
+
+@
+
+\clearpage
+<<print_opioid_runcharts, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
+if(include_med_yn){
+  opioid_rcvd_plotorder <-
+    c("opioid.rcvd", "morph.rcvd", "hydromorph.rcvd", "fent.rcvd")
+
+  multiplot(plotlist = map(opioid_rcvd_plotorder, ~ med_rcvd_plots[[.]]),
+            layout = matrix(c(1, 1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4), ncol = 2))
+}
+
+@
 
 \end{landscape}
 \end{document}
