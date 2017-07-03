@@ -229,66 +229,95 @@ multiplot(desc_plots$piculos, desc_plots$hosplos, desc_plots$mortality.f,
 
 \begin{landscape}
 \section{ABCDEF Bundle Performance}
-Table \ref{table:performance} presents information on each element of the ABCDEF Bundle by month.
-(All three baseline months are described together; all months during the implementation period are
-described separately.)
+The following table presents information on each element of the ABCDEF Bundle by month. (All three baseline months are described together; all months during the implementation period are described separately.)
 
-Categorical variables (eg, days with pain data available) are described as frequency (percent).
-Continuous variables (eg, number of assessments with pain score $\ge$5) are described by their
-median (25th, 75th percentiles).
+Categorical variables are described as frequency (percent). Continuous variablesare described by their median (25th, 75th percentiles).
 
-\emph{Italicized rows} describe the availability of recorded data on a specific characteristic. For
-example, we can only describe how many days had pain assessed on days which had any pain assessment data recorded, and not all sites collected data on pain. In addition, this will allow us to quickly
-see where data which should be present still needs to be entered.
+\emph{Italicized rows} describe the availability of recorded data on a specific characteristic. For example, we can only describe sedation on days which had any sedation data recorded.
 
 <<performancetableinfo>>=
-## -- Function to create string of median (IQR) for a continuous variable --------------------------
-get.mediqr <- function(x, rnddigits = 0){
-  quants.x <- quantile(x, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
-  if(all(is.na(quants.x))){
-    ''
-  } else{
-    paste0(rndformat(quants.x['50%'], rnddigits), ' (',
-           rndformat(quants.x['25%'], rnddigits), ', ',
-           rndformat(quants.x['75%'], rnddigits), ')')
-  }
-}
-
-## -- Function to create N (%) string, or '' if denominator is NaN ---------------------------------
-npctString <- function(num, denom){
-  tmp <- paste0(num, ' (',
-                round((num / denom)*100), '%)')
-  tmp[denom == 0] <- ''
-  tmp
-}
-
-## -- Function to get sum of a variable for each month ---------------------------------------------
+## -- Function to get sum of a variable for each month -------------------------
 mapSum <- function(sumvar){
   map_int(all.months,
-          function(x){ sum(compliance.site[compliance.site$month.cat == x, sumvar], na.rm = TRUE) })
+          function(x){
+            sum(compliance.site[compliance.site$month.cat == x, sumvar],
+                na.rm = TRUE)
+          })
 }
 
-## -- How many days are entered for each month? ----------------------------------------------------
-n.days <- map_int(all.months, function(x){ sum(compliance.site$month.cat == x, na.rm = TRUE) })
+## -- How many days are entered for each month? --------------------------------
+n.days <- map_int(all.months,
+                  function(x){
+                    sum(compliance.site$month.cat == x, na.rm = TRUE)
+                  })
 
-## -- A: Pain assessment, prevention and management ------------------------------------------------
-## How many days each month had pain data recorded?
-days.pain.info <- mapSum('pain.info')
-pctdays.pain.info <- round((days.pain.info / n.days)*100)
-npct.pain.info <- npctString(days.pain.info, n.days)
+## -- A: Pain assessment, prevention and management ----------------------------
+## How many days each month had pain assessment data recorded?
+days.painassess.info <- mapSum('pain.assess.info')
+pctdays.painassess.info <- round((days.painassess.info / n.days)*100)
+npct.painassess.info <- npctString(days.painassess.info, n.days)
+
+## What proportion of eligible assessments were done per day?
+asmts.pain <- map_chr(
+  all.months,
+  function(x){
+    get.mediqr(subset(compliance.site, month.cat == x)$pain.prop.assessed)
+  }
+)
+
+## How many days each month had pain *re*assessment data recorded?
+days.pain2hrs.info <- mapSum('pain.2hrs.info')
+pctdays.pain2hrs.info <- round((days.pain2hrs.info / n.days)*100)
+npct.pain2hrs.info <- npctString(days.pain2hrs.info, n.days)
+
+## How many days each month had pain score < 5 when reassessed?
+mapSum_chr <- function(sumvar, value){
+  map_int(all.months,
+          function(x){
+            sum(compliance.site[compliance.site$month.cat == x, sumvar] == value,
+                na.rm = TRUE)
+          })
+}
+
+## Want to know how many days had a reassessment <5, >=5 *and* never reassessed
+days.pain2hrs.underthreshold <- mapSum_chr('pain.2hrs.threshold', "<5")
+pctdays.pain2hrs.underthreshold <-
+  round((days.pain2hrs.underthreshold / days.pain2hrs.info)*100)
+npct.pain2hrs.underthreshold <- npctString(days.pain2hrs.underthreshold,
+                                           days.pain2hrs.info)
+
+days.pain2hrs.overthreshold <- mapSum_chr('pain.2hrs.threshold', ">=5")
+pctdays.pain2hrs.overthreshold <-
+  round((days.pain2hrs.overthreshold / days.pain2hrs.info)*100)
+npct.pain2hrs.overthreshold <- npctString(days.pain2hrs.overthreshold,
+                                           days.pain2hrs.info)
+
+days.pain2hrs.notassessed <- mapSum_chr('pain.2hrs.threshold', "Not reassessed")
+pctdays.pain2hrs.notassessed <-
+  round((days.pain2hrs.notassessed / days.pain2hrs.info)*100)
+npct.pain2hrs.notassessed <- npctString(days.pain2hrs.notassessed,
+                                        days.pain2hrs.info)
+
+## How many days each month had pain threshold data recorded?
+days.painthreshold.info <- mapSum('pain.threshold.info')
+pctdays.painthreshold.info <- round((days.painthreshold.info / n.days)*100)
+npct.painthreshold.info <- npctString(days.painthreshold.info, n.days)
 
 ## How many days each month had at least one pain score >= 5?
 days.pain.threshold <- mapSum('pain.threshold')
-pctdays.pain.threshold <- round((days.pain.threshold / n.days)*100)
-npct.pain.threshold <- npctString(days.pain.threshold, days.pain.info)
+pctdays.pain.threshold <-
+  round((days.pain.threshold / days.painthreshold.info)*100)
+npct.pain.threshold <- npctString(days.pain.threshold, days.painthreshold.info)
 
 ## How many pain assessments per day had at least one pain score >= 5?
-asmts.pain.threshold <-
-  map_chr(all.months,
-          function(x){
-            get.mediqr(subset(compliance.site, month.cat == x)$pain.morethan5) })
+asmts.pain.threshold <- map_chr(
+  all.months,
+  function(x){
+    get.mediqr(subset(compliance.site, month.cat == x)$pain.morethan5)
+  }
+)
 
-## -- B: Both SAT and SBT --------------------------------------------------------------------------
+## -- B: Both SAT and SBT ------------------------------------------------------
 ## Sedation
 ## Days sedation data available
 days.sed.info <- mapSum('sedation.info')
@@ -371,7 +400,7 @@ days.sbt.protocol <- mapSum('sbt.protocol')
 pctdays.sbt.protocol <- round((days.sbt.protocol / days.mv)*100)
 npct.sbt.protocol <- npctString(days.sbt.protocol, days.mv)
 
-## -- C: Choice of analgesia and sedation ----------------------------------------------------------
+## -- C: Choice of analgesia and sedation --------------------------------------
 ## How many days had anxiolysis section filled out?
 days.anxio.info <- mapSum('anxiolysis.info')
 pctdays.anxio.info <- round((days.anxio.info / n.days)*100)
@@ -395,7 +424,7 @@ days.diphen <- mapSum('anxio.diphen')
 pctdays.diphen <- round((days.diphen / days.anxio.info)*100)
 npct.diphen <- npctString(days.diphen, days.anxio.info)
 
-## -- D: Delirium - assess, prevent and manage -----------------------------------------------------
+## -- D: Delirium - assess, prevent and manage ---------------------------------
 days.del.assessed <- mapSum('delirium.assessed')
 pctdays.del.assessed <- round((days.del.assessed / n.days)*100)
 npct.del.assessed <- npctString(days.del.assessed, n.days)
@@ -405,11 +434,13 @@ pctdays.del.present <- round((days.del.present / days.del.assessed)*100)
 npct.del.present <- npctString(days.del.present, days.del.assessed)
 
 ## How many delirium assessments per day?
-asmts.del <- map_chr(all.months,
-                     function(x){
-                       get.mediqr(subset(compliance.site, month.cat == x)$delirium.assessments) })
+asmts.del <- map_chr(
+  all.months,
+  function(x){
+    get.mediqr(subset(compliance.site, month.cat == x)$delirium.assessments)
+  })
 
-## -- E: Exercise/early mobility -------------------------------------------------------------------
+## -- E: Exercise/early mobility -----------------------------------------------
 ## How many days had mobility safety screen?
 days.exersafety.info <- mapSum('exer.safety.info')
 pctdays.exersafety.info <- round((days.exersafety.info / n.days)*100)
@@ -440,7 +471,7 @@ days.exer.protocol <- mapSum('exer.protocol')
 pctdays.exer.protocol <- round((days.exer.protocol / days.exer.protocol.info)*100)
 npct.exer.protocol <- npctString(days.exer.protocol, days.exer.protocol.info)
 
-## -- F: Family engagement and empowerment ---------------------------------------------------------
+## -- F: Family engagement and empowerment -------------------------------------
 ## Information on family presence available?
 days.familypres.info <- mapSum('family.present.info')
 pctdays.familypres.info <- round((days.familypres.info / n.days)*100)
@@ -456,7 +487,7 @@ days.familyinter.info <- mapSum('family.inter.info')
 pctdays.familyinter.info <- round((days.familyinter.info / days.familypres)*100)
 npct.familyinter.info <- npctString(days.familyinter.info, days.familypres)
 
-## If family present and info available, did they help with nonpharm intervention
+## If family present & info available, did they help with nonpharm intervention
 days.familyinter <- mapSum('family.intervention')
 pctdays.familyinter <- round((days.familyinter / days.familyinter.info)*100)
 npct.familyinter <- npctString(days.familyinter, days.familyinter.info)
@@ -471,7 +502,13 @@ italicize.this <- function(r){
 
 perf.table <- matrix(c(as.character(n.days),
                        ## A
-                       italicize.this(npct.pain.info),
+                       italicize.this(npct.painassess.info),
+                       asmts.pain,
+                       italicize.this(npct.pain2hrs.info),
+                       npct.pain2hrs.underthreshold,
+                       npct.pain2hrs.overthreshold,
+                       npct.pain2hrs.notassessed,
+                       italicize.this(npct.painthreshold.info),
                        npct.pain.threshold,
                        asmts.pain.threshold,
                        ## B - sedation
@@ -517,11 +554,17 @@ perf.table <- matrix(c(as.character(n.days),
                      byrow = TRUE,
                      ncol = length(all.months))
 rownames(perf.table) <- c('Days recorded',
-                          '\\emph{Pain data available}',
+                          '\\emph{Pain assessment data available}',
+                          'Assessments done / opportunities',
+                          '\\emph{Pain \\textbf{re}assessment data available}',
+                          '2-hour reassessment < 5',
+                          '2-hour reassessment >= 5',
+                          'No 2-hour reassessment done',
+                          '\\emph{Pain threshold data available}',
                           '>=1 assessment with pain >=5',
                           'Assessments with pain >=5',
                           '\\emph{Sedation data available}',
-                          'On continuous/intermittent sedation',
+                          'On continuous/inter. sedation',
                           '~~~\\emph{Interruption data available}',
                           '~~~Sedation interrupted (SAT)',
                           '~~~\\emph{Weaning data available}',
@@ -544,11 +587,11 @@ rownames(perf.table) <- c('Days recorded',
                           'Delirium assessed',
                           '~~~Assessments per day',
                           '~~~Delirium present',
-                          '\\emph{Mobility safety screen data available}',
+                          '\\emph{Safety screen data available}',
                           'Mobility safety screen done',
-                          '\\emph{Mobility performance data available}',
+                          '\\emph{Performance data available}',
                           'Mobilization performed',
-                          '\\emph{Mobility protocol data available}',
+                          '\\emph{Protocol data available}',
                           'Mobility protocol followed**',
                           '\\emph{Family presence data available}',
                           'Family or caregiver present',
@@ -561,16 +604,183 @@ latex(perf.table, file = '',
       title = '',
       where = '!h',
       label = 'table:performance',
-      size = 'scriptsize',
+      size = 'footnotesize',
       colheads = all.months,
       col.just = rep('r', ncol(perf.table)),
-      rgroup = c('', 'A: Assess, Prevent, Manage Pain', 'B: Both SAT/SBT: Sedation',
-                 'B: Both SAT/SBT: ERT/Breathing', 'C: Choice of Analgesia \\& Sedation',
-                 'D: Delirium***', 'E: Exercise/Early Mobility',
+      rgroup = c('',
+                 'A: Assess, Prevent, Manage Pain',
+                 'B: Both SAT/SBT: Sedation',
+                 'B: SAT/SBT: ERT/Breathing',
+                 'C: Choice of Sedation',
+                 'D: Delirium***',
+                 'E: Exercise/Early Mobility',
                  'F: Family Engagement'),
-      n.rgroup = c(1, 3, 9, 7, 5, 3, 6, 4),
+      n.rgroup = c(1, 9, 9, 7, 5, 3, 6, 4),
       insert.bottom = "* Deep sedation refers to SBS $\\le$ -2 or RASS $\\le$ -4; ** Protocol = safety screen performed and, if passed, SBT/mobilization performed; *** Delirium assessed if one or more of those assessment tools is available; delirium present if highest CAPD $\\ge$9 or present on psCAM, pCAM or CAM-ICU")
 
+@
+
+\clearpage
+<<runcharts_datamgmt>>=
+## -- Create data frame for all runcharts --------------------------------------
+all.perfpct <- list(pctdays.pain2hrs.underthreshold, pctdays.had.sat,
+                    pctdays.had.weaning, pctdays.sbt, pctdays.sbt.protocol,
+                    pctdays.anxio.spec, pctdays.del.present, pctdays.exer,
+                    pctdays.exer.protocol, pctdays.familyinter)
+
+all.perfdays <- list(days.pain2hrs.underthreshold, days.had.sat,
+                     days.had.weaning, days.sbt, days.sbt.protocol,
+                     days.anxio.spec, days.del.present, days.exer,
+                     days.exer.protocol, days.familyinter)
+
+all.infodays <- list(days.pain2hrs.info, days.sat.info, days.weaning.info,
+                     days.sbt.info, days.sbt.info, days.anxio.info,
+                     days.del.assessed, days.exer.info, days.exer.protocol.info,
+                     days.familypres.info)
+
+denom.infodays <- list(n.days, days.rcvd.majorsed, days.rcvd.majorsed,
+                       days.mv, days.mv, n.days, n.days,
+                       n.days, n.days, n.days)
+
+## List of chart titles
+perf.chart.titles <- list(
+  "A: Pain score < 5 when reassessed within 2h of highest level",
+  "B: Sedation interrupted (SAT)",
+  "B: Sedation weaned via protocol",
+  "B: SBT performed",
+  "B: SBT protocol performed (safety screen + SBT)",
+  "C: Received benzodiazepines, ketamine and/or diphenhydramine",
+  "D: Delirium present",
+  "\nE: Mobilization performed",
+  "E: Mobilization protocol performed\n(safety screen + mobility)",
+  "F: Family participation"
+)
+
+perf.info.subtitles.1 <- list(
+  "Pain reassessment, or lack thereof, was documented",
+  "SAT was documented",
+  "Weaning was documented",
+  "SBT was documented",
+  "SBT protocol documented",
+  "Anxiolytic medications were documented",
+  "Delirium was assessed",
+  "Mobilization was documented",
+  "Protocol was documented",
+  "Family presence was documented"
+)
+
+perf.info.subtitles.2 <- list("in the ICU",
+                              "\non continuous/intermittent sedation",
+                              "\non continuous/intermittent sedation",
+                              "\non mechanical ventilation",
+                              "\non mechanical ventilation",
+                              "in the ICU",
+                              "in the ICU",
+                              "\nin the ICU",
+                              "\nin the ICU",
+                              "in the ICU")
+
+perf.yaxes <- list(
+  "Pain Reassessment Score < 5\nout of Days Pain Reassessed within 2h of Highest Level",
+  "Sedation Was Interrupted\nout of Days on Sedation with Documentation",
+  "Sedation Weaned via Protocol\nout of Days on Sedation with Documentation",
+  "SBT Performed\nout of Days on MV with Documentation",
+  "SBT Protocol Performed\nout of Days on MV with Documentation",
+  "Received One or More Anxiolytic\nout of Days with Documentation",
+  "Delirium Present\nout of Days Delirium Assessed",
+  "Mobilization Performed\nout of Days with Documentation",
+  "Mobilization Protocol Performed\nout of Days with Documentation",
+  "Family Participated in Intervention\nout of Days Family Documented Present"
+  )
+
+perf.chart.data <- map_df(1:length(all.perfdays),
+                          ~ data.frame(chart.title = perf.chart.titles[[.]],
+                                       month = 1:length(all.months),
+                                       pct.perf = all.perfpct[[.]],
+                                       days.perf = all.perfdays[[.]],
+                                       days.info = all.infodays[[.]],
+                                       days.elig = denom.infodays[[.]],
+                                       sub1 = perf.info.subtitles.1[[.]],
+                                       sub2 = perf.info.subtitles.2[[.]],
+                                       yax = perf.yaxes[[.]])) %>%
+  mutate(num.denom = ifelse(is.nan(pct.perf), '',
+                     ifelse(substr(trimws(chart.title), 1, 1) %in% c('B', 'E'),
+                            paste0(days.perf, ' /\n', days.info),
+                            paste(days.perf, '/', days.info))),
+         linegroup = 1)
+
+## Function to create a runchart for a single element
+perf.runchart <- function(ctitle){
+  df <- perf.chart.data %>% filter(chart.title == ctitle)
+
+  if(substr(trimws(ctitle), 1, 1) %in% c('B', 'E')){
+    nd.size <- 2
+  } else{
+    nd.size <- 2.5
+  }
+
+  sub1 <- unique(df$sub1)
+  sub2 <- unique(df$sub2)
+  ytitle <- unique(df$yax)
+
+  info.avail <- sum(df[,'days.info'], na.rm = TRUE)
+  info.elig <- sum(df[,'days.elig'], na.rm = TRUE)
+  info.pct <- round((info.avail / info.elig)*100)
+
+  tmp <- ggplot(data = df, aes(x = month, y = pct.perf)) +
+    annotate(geom = 'rect', xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = -0.5,
+             fill = 'white', colour = NA) +
+    geom_line(aes(group = linegroup), colour = "#003D79") +
+    geom_point(colour = "#003D79") +
+    geom_text(aes(label = num.denom),
+              y = -5, size = nd.size, colour = "#003D79", fontface = 'bold') +
+    scale_x_continuous(breaks = 1:length(all.months),
+                       labels = all.months,
+                       name = NULL) +
+    scale_y_continuous(limits = c(-2, 100), breaks = seq(0, 100, 20),
+                       name = sprintf("Percent of Days %s", ytitle)) +
+    ggtitle(label = ctitle,
+            subtitle = sprintf('%s on %s out of %s patient-days (%s%%) %s.',
+                              sub1, info.avail, info.elig, info.pct, sub2)) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+          plot.title = element_text(face = 'bold'),
+          plot.subtitle = element_text(face = 'italic', size = 10),
+          panel.grid.minor.x = element_blank())
+
+  tmp
+}
+
+perf.charts <- map(perf.chart.titles, perf.runchart)
+
+@
+
+<<perfcharta, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[1]]
+@
+
+<<perfchartb_sat, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+multiplot(perf.charts[[2]], perf.charts[[3]], layout = matrix(1:2, nrow = 1))
+@
+
+<<perfchartb_sbt, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+multiplot(perf.charts[[4]], perf.charts[[5]], layout = matrix(1:2, nrow = 1))
+@
+
+<<perfchartc, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[6]]
+@
+
+<<perfchartd, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[7]]
+@
+
+<<perfcharte, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+multiplot(perf.charts[[8]], perf.charts[[9]], layout = matrix(1:2, nrow = 1))
+@
+
+<<perfchartf, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+perf.charts[[10]]
 @
 
 \clearpage

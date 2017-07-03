@@ -19,6 +19,27 @@ peds.colors = c("A" = "#887C90",
                 "E" = "#5C82A0",
                 "F" = "#565978")
 
+## -- Function to create string of median (IQR) for a continuous variable ------
+get.mediqr <- function(x, rnddigits = 0){
+  quants.x <- quantile(x, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+  if(all(is.na(quants.x))){
+    ''
+  } else{
+    paste0(rndformat(quants.x['50%'], rnddigits), ' (',
+           rndformat(quants.x['25%'], rnddigits), ', ',
+           rndformat(quants.x['75%'], rnddigits), ')')
+  }
+}
+
+## -- Function to create N (%) string, or '' if denominator is NaN -------------
+npctString <- function(num, denom){
+  tmp <- paste0(num, ' (',
+                round((num / denom)*100), '%)')
+  tmp[denom == 0] <- ''
+  tmp
+}
+
+## -- Data loading/management --------------------------------------------------
 ## Load full Rdata file
 load('RawData/pediatric.Rdata')
 
