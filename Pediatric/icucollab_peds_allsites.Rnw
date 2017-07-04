@@ -382,7 +382,7 @@ my.print.summaryM(desc.dx,
 @
 
 \clearpage
-<<vis_demog_1, results = 'asis', fig.height=10, fig.width = 7.5>>=
+<<vis_demog_1_agg, results = 'asis', fig.height=10, fig.width = 7.5>>=
 multiplot(desc_plots$age.f, desc_plots$race.combined, desc_plots$sex.f,
           desc_plots$diagnosis.f,
           layout = matrix(c(1, 1, 2, 2, 3, 4, 4, 4), ncol = 2))
@@ -390,7 +390,7 @@ multiplot(desc_plots$age.f, desc_plots$race.combined, desc_plots$sex.f,
 @
 
 \clearpage
-<<vis_demog_2, results = 'asis', fig.height=6, fig.width = 7.5>>=
+<<vis_demog_2_agg, results = 'asis', fig.height=6, fig.width = 7.5>>=
 multiplot(desc_plots$severity.combined, desc_plots$prism3, desc_plots$pim2,
           layout = matrix(c(1, 1, 2, 3), ncol = 2))
 
@@ -441,19 +441,19 @@ my.print.summaryM(desc.outcomes,
 
 @
 
-<<vis_outcomes_1, results = 'asis', fig.height=6, fig.width = 7.5>>=
+<<vis_outcomes_1_agg, results = 'asis', fig.height=6, fig.width = 7.5>>=
 multiplot(desc_plots$fss, desc_plots$popc,
           layout = matrix(c(1, 2), ncol = 1))
 
 @
 
-<<vis_outcomes_2, results = 'asis', fig.height=3, fig.width = 7.5>>=
+<<vis_outcomes_2_agg, results = 'asis', fig.height=3, fig.width = 7.5>>=
 multiplot(desc_plots$ever.vent, desc_plots$ventdays,
           layout = matrix(c(1, 2), nrow = 1, byrow = TRUE))
 
 @
 
-<<vis_outcomes_3, results = 'asis', fig.height=3, fig.width = 7.5>>=
+<<vis_outcomes_3_agg, results = 'asis', fig.height=3, fig.width = 7.5>>=
 multiplot(desc_plots$piculos, desc_plots$hosplos, desc_plots$mortality.f,
           layout = matrix(1:3, nrow = 1, byrow = TRUE))
 
@@ -1004,31 +1004,31 @@ perf.charts <- map(perf.chart.titles, perf.runchart)
 
 @
 
-<<perfcharta, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+<<perfcharta_agg, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
 perf.charts[[1]]
 @
 
-<<perfchartb_sat, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+<<perfchartb_sat_agg, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
 multiplot(perf.charts[[2]], perf.charts[[3]], layout = matrix(1:2, nrow = 1))
 @
 
-<<perfchartb_sbt, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+<<perfchartb_sbt_agg, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
 multiplot(perf.charts[[4]], perf.charts[[5]], layout = matrix(1:2, nrow = 1))
 @
 
-<<perfchartc, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+<<perfchartc_agg, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
 perf.charts[[6]]
 @
 
-<<perfchartd, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+<<perfchartd_agg, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
 perf.charts[[7]]
 @
 
-<<perfcharte, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
+<<perfcharte_agg, results = 'asis', fig.height = 6, fig.width = 10, fig.align = 'center'>>=
 multiplot(perf.charts[[8]], perf.charts[[9]], layout = matrix(1:2, nrow = 1))
 @
 
-<<perfchartf, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
+<<perfchartf_agg, results = 'asis', fig.height = 7, fig.width = 10, fig.align = 'center'>>=
 perf.charts[[10]]
 @
 
@@ -1097,7 +1097,7 @@ Notes:
 \item All doses are scaled by weight in kilograms prior to conversion.
 \end{itemize}
 
-All sites excluding Le Bonheur and Cornell are included in Tables \ref{table:meddoses1}-\ref{table:meddoses2}. \textbf{If no dose is entered in the database, we assume this indicates that no drug was given, and that day/drug is assigned a dose of 0.}
+The following sites are \textbf{included} in Tables \ref{table:meddoses1}-\ref{table:meddoses2}: Johns Hopkins; Seattle; St Louis; UC Davis. \textbf{If no dose is entered in the database, we assume this indicates that no drug was given, and that day/drug is assigned a dose of 0.}
 
 <<printmeddoses, results = "asis">>=
 latex(meds.table.doses.b6, file = '',
@@ -1273,12 +1273,10 @@ med_amt_plots <- pmap(list("med" = med_amt_names,
                            "med_subtitle" = med_subtitles),
                       .f = med.boxplot)
 
-
-
 @
 
 \clearpage
-<<print_benzo_runcharts, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
+<<print_benzo_runcharts_agg, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
 benzo_rcvd_plotorder <- c( "benzo.rcvd", "loraz.rcvd", "midaz.rcvd")
 
 multiplot(plotlist = map(benzo_rcvd_plotorder, ~ med_rcvd_plots[[.]]),
@@ -1287,7 +1285,7 @@ multiplot(plotlist = map(benzo_rcvd_plotorder, ~ med_rcvd_plots[[.]]),
 @
 
 \clearpage
-<<print_opioid_runcharts, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
+<<print_opioid_runcharts_agg, results = "asis", fig.width = 10, fig.height = 7.5, fig.align = "center">>=
 opioid_rcvd_plotorder <-
   c("opioid.rcvd", "morph.rcvd", "hydromorph.rcvd", "fent.rcvd")
 

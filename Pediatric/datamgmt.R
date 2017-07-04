@@ -443,7 +443,10 @@ compliance <- compliance %>%
 sites_drug_yn <- setdiff(levels(demog$hosp.f), "Le Bonheur Childrens Hospital")
 sites_drug_amt <- setdiff(
   levels(demog$hosp.f),
-  c("Le Bonheur Childrens Hospital", "Weill Cornell Pediatrics")
+  c("Le Bonheur Childrens Hospital",
+    "Mayo Eugenio Litta Childrens Hospital",
+    "Monroe Carell Jr. Childrens Hospital at Vanderbilt",
+    "Weill Cornell Pediatrics")
 )
 
 ## Merge site onto compliance data
