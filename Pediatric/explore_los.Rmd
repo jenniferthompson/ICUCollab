@@ -1,0 +1,164 @@
+---
+title: "Exploratory Data Analysis: PICU and Hospital LOS"
+output:
+  html_notebook:
+    code_folding: hide
+    theme: yeti
+---
+
+# Question:
+
+Why does the overall difference between baseline and implementation months differ so little in PICU and hospital LOS, when individual sites seem to have changed quite a lot?
+
+```{r prep}
+suppressPackageStartupMessages(library(tidyverse, quietly = TRUE))
+suppressPackageStartupMessages(library(ggjoy))
+
+## Color palette based on pediatric logo
+peds.colors = c("A" = "#887C90",
+                "B" = "#F9F68A",
+                "C" = "#C8DC9F",
+                "D" = "#9BCBBB",
+                "E" = "#5C82A0",
+                "F" = "#565978")
+
+load("RawData/pediatric.Rdata")
+
+hist_alpha <- 0.6
+
+```
+
+# PICU Length of Stay
+
+First, let's plot the overall PICU LOS, ignoring study site. We'll plot the **density**, which is a way of looking at how the data is distributed for (in our case) baseline vs implementation - like a histogram, but standardized, so that the fact that our baseline Ns are lower than our implementation Ns don't make it harder to determine differences. Basically, where the density curve is highest, we have the most data for that time frame.
+
+```{r piculos_all_density}
+ggplot(data = demog, aes(x = piculos)) +
+  geom_density(aes(colour = data.time, fill = data.time), alpha = hist_alpha) +
+  scale_x_continuous(limits = c(0, 30), name = "PICU Length of Stay") +
+  scale_colour_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  ggtitle(label = "PICU Length of Stay, All Sites") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+
+We see that the baseline period has a little more data on the higher end of the X axis - generally, that the length of stay is a little longer during the baseline period. But the distributions aren't wildly different. Let's also show a boxplot so that we can see the summary statistics better. NOTE: One value of
+`r max(demog$piculos, na.rm = TRUE)` days was removed to allow us to better see the rest of the distribution.
+
+```{r piculos_all_boxplot}
+ggplot(data = demog, aes(x = data.time, y = piculos)) +
+  geom_boxplot(aes(fill = data.time), alpha = 0.6) +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(name = "PICU Length of Stay", limits = c(0, 100)) +
+  ggtitle(label = "PICU Length of Stay, All Sites") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+PICU LOS looks, generally speaking, somewhat shorter in the implementation period - the medians aren't that different (just one day), but there is a difference of three days in the 75th percentiles. This means that during the baseline period, 75% of patients had a LOS of 14 days or fewer, but during the implementation period, 75% of patients had a LOS of 11 days or fewer. **Even if the shorter lengths of stay (lower 50%, below the median) didn't change very much, the longer lengths of stay seem to be shorter during the implementation period.**
+
+Now, let's look at densities by individual site.
+
+```{r piculos_site_joy}
+## Add number of patient-days to site levels
+days_per_site <- demog %>%
+  group_by(hosp.f) %>%
+  summarise(n_site = n())
+
+demog <- demog %>%
+  left_join(days_per_site, by = "hosp.f") %>%
+  mutate(hosp_n = paste0(hosp.f, "\nN = ", n_site))
+
+ggplot(data = demog, aes(x = piculos)) +
+  geom_joy(aes(y = hosp_n, fill = data.time),
+           alpha = hist_alpha, colour = "grey80") +
+  scale_x_continuous(name = "PICU Length of Stay", limits = c(0, 100)) +
+  scale_y_discrete(name = "") +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  ggtitle(label = "PICU Length of Stay by Site") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+
+Some of the sites look pretty different between the two time points, like Mayo and Seattle; some look really similar, like Vanderbilt, UC Davis and Hopkins. But recall that Mayo had the second lowest number of patient-days in the database, so even a strong difference there can't outweigh the fact that at Vanderbilt, things stayed very similar.
+
+Let's also look at boxplots by site.
+
+```{r piculos_site_boxplot}
+ggplot(data = demog, aes(x = data.time, y = piculos)) +
+  facet_wrap(~ hosp_n) +
+  geom_boxplot(aes(fill = data.time), alpha = 0.6, varwidth = TRUE) +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  scale_y_continuous(limits = c(0, 25)) +
+  ggtitle(label = "PICU Length of Stay, Individual Sites") +
+  theme_minimal()
+
+```
+
+# Hospital Length of Stay
+
+We have the same concerns about hospital LOS, so let's do the same plots.
+
+```{r hosplos_all_density}
+ggplot(data = demog, aes(x = hosplos)) +
+  geom_density(aes(colour = data.time, fill = data.time), alpha = hist_alpha) +
+  scale_x_continuous(limits = c(0, 50), name = "Hospital Length of Stay") +
+  scale_colour_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  ggtitle(label = "Hospital Length of Stay, All Sites") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+
+Again, we see that the baseline period has a little more data on the higher end of the X axis - there's not a dramatic difference, but there is some. Let's also show a boxplot so that we can see the summary statistics better.
+
+```{r hosplos_all_boxplot}
+ggplot(data = demog, aes(x = data.time, y = hosplos)) +
+  geom_boxplot(aes(fill = data.time), alpha = 0.6) +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(name = "Hospital Length of Stay", limits = c(0, 200)) +
+  ggtitle(label = "Hospital Length of Stay, All Sites") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+Again, the 75th percentile is definitely different between the two time points. **Even if the shorter lengths of stay (lower 50%, below the median) didn't change very much, the longer lengths of stay seem to be shorter during the implementation period.**
+
+Now, let's look at densities by individual site.
+
+```{r hosplos_site_joy}
+ggplot(data = demog, aes(x = hosplos)) +
+  geom_joy(aes(y = hosp_n, fill = data.time),
+           alpha = hist_alpha, colour = "grey80") +
+  scale_x_continuous(name = "Hospital Length of Stay", limits = c(0, 100)) +
+  scale_y_discrete(name = "") +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  ggtitle(label = "Hospital Length of Stay by Site") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+
+Definitely some differences! But again, a lot of the difference between time points seems to be shortening the longest hospital stays (St Louis is a good example of that). So when taken in combination with other sites with generally shorter lengths of stay, the difference isn't as stark.
+
+```{r hosplos_site_boxplot}
+ggplot(data = demog, aes(x = data.time, y = hosplos)) +
+  facet_wrap(~ hosp_n) +
+  geom_boxplot(aes(fill = data.time), alpha = 0.6, varwidth = TRUE) +
+  scale_fill_manual(values = c(peds.colors[["D"]], peds.colors[["A"]])) +
+  scale_x_discrete(name = "") +
+  scale_y_continuous(limits = c(0, 150)) +
+  ggtitle(label = "Hospital Length of Stay, Individual Sites") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
