@@ -8,5 +8,7 @@
 *.docx
 *.lof
 *.out
-
+*.txt
+*.zip
+*.csv
 .Rproj.user
