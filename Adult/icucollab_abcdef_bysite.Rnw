@@ -1,0 +1,306 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.425in]{geometry}
+\usepackage{hyperref}
+
+\title{ICU Collaborative: ABCDEF Bundle Compliance, \Sexpr{site}}
+\author{Society of Critical Care Medicine}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\listoftables
+\listoffigures
+
+<<setup, results='hide', echo=FALSE>>=
+opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE,
+               fig.path = gsub('[ -]+', '_', site))
+options(replace.assign = TRUE, width = 90)
+@
+
+The following tables and figures present descriptions of compliance with the ABCDEF bundle at this
+ICU Collaborative site before and after implementation. Code for all data management and report
+generation can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_reportsbysite.R}{here} and \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_bysite.Rnw}{here}.
+
+\clearpage
+\section{Demographic, Baseline, and Hospital Stay Characteristics}
+<<desccohort>>=
+if(sum(!is.na(demog.site$days.noninvas.vent)) == 0){
+  desc.all <- summaryM(data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
+                         invas.vent.episode + days.invas.vent + noninvas.vent.episode +
+                         icu.los + hosp.losv + dc.status.f ~ data.time,
+                       data = demog.site, overall = TRUE)
+} else{
+  desc.all <- summaryM(data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
+                         invas.vent.episode + days.invas.vent + noninvas.vent.episode +
+                         days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time,
+                       data = demog.site, overall = TRUE)
+}
+
+if(sum(!is.na(demog.site$mean.sed.assess.other)) == 0){
+  desc.comp.all <- summaryM(mean.pain.verbal + mean.pain.valid + mean.pain.other +
+                              mean.pain.verbal.valid + mean.sed.assess.valid +
+                              mean.del.assess.valid ~ data.time,
+                            data = demog.site, overall = TRUE)
+} else{
+  desc.comp.all <- summaryM(mean.pain.verbal + mean.pain.valid + mean.pain.other +
+                              mean.pain.verbal.valid + mean.sed.assess.valid +
+                              mean.sed.assess.other + mean.sed.assess.either +
+                              mean.del.assess.valid + mean.del.assess.other +
+                              mean.del.assess.either ~ data.time,
+                            data = demog.site, overall = TRUE)
+}
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.all,
+                  caption = 'Summary of Compliance-Related Variables, ICU Days Only',
+                  caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only',
+                  size = 'small') #,
+#                   rgroup = c('A', 'C', 'D'),
+#                   n.rgroup = c(4, 3, 3))
+
+@
+
+\clearpage
+\section{Compliance by Time}
+<<complianceall>>=
+comp.all.ac <- summaryM(a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall +
+                          b.comp.sat + b.comp.sbt + b.comp.overall + c.comp.target + c.comp.valid +
+                          c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 +
+                          meds.4 + meds.5 + meds.6 + meds.7 ~ data.time,
+                        data = subset(compliance.site, icu.24.f == 'Yes'))
+
+comp.all.df <- summaryM(d.comp.valid + d.comp.other + d.comp.overall +
+                          e.comp.overall + mobilityhighest.f + f.comp.overall ~ data.time,
+                        data = subset(compliance.site, icu.24.f == 'Yes'))
+
+@
+
+<<printcompall, results = 'asis'>>=
+my.print.summaryM(comp.all.ac,
+                  caption = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days, A-C',
+#                   rgroup = c('A: Assess, Prevent and Manage Pain',
+#                              'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+#                   n.rgroup = c(16, 12, 23),
+                  size = 'small')
+
+my.print.summaryM(comp.all.df,
+                  caption = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days, D-F',
+#                   rgroup = c('D: Delirium: Assess, Prevent and Manage',
+#                              'E: Early Mobility and Exercise',
+#                              'F: Family Engagement and Empowerment'),
+#                   n.rgroup = c(12, 13, 4),
+                  size = 'small')
+
+@
+
+\clearpage
+<<figuresa>>=
+pain.x.breaks <- seq(0,
+                     with(subset(compliance.site, icu.24.f == 'Yes'), {
+                       max(c(pain.valid, pain.verbal), na.rm = TRUE) }),
+                     5)
+
+a.comp.plot <- ggplot.prop(var = 'a.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'A, Overall: >=6 Behavioral+Self-Report Assessments',
+                           title.size = 8)
+
+a.asmts.valid <- ggplot.prop(var = 'pain.valid',
+                             x.breaks = pain.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Behavioral Pain Assessments',
+                             title.size = 8) +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+a.asmts.verbal <- ggplot.prop(var = 'pain.verbal',
+                              x.breaks = pain.x.breaks,
+                              use.xlab = 'Number of Assessments Today',
+                              use.legend = FALSE,
+                              title.string = 'Self-Reported Pain Assessments',
+                              title.size = 8) +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+@
+
+<<printfiguresa, results = 'asis', fig.cap = 'A - Assess and Manage Pain, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(a.comp.plot, a.asmts.valid, a.asmts.verbal, layout = matrix(c(1, 1, 2, 3), ncol = 2))
+@
+
+<<figuresb>>=
+b.sat.plot <- ggplot.prop(var = 'b.comp.sat',
+                          dataset = subset(compliance.site, icu.24.f == 'Yes' & on.sedation),
+                          use.ylab = 'Percent of ICU Days on Sedation',
+                          axis.text.size = 6,
+                          legend.text.size = 6,
+                          legend.key.cm = 0.25,
+                          title.string = '\nB: SAT Performed or Attempted')
+
+b.sbt.plot <- ggplot.prop(var = 'b.comp.sbt',
+                          dataset = subset(compliance.site,
+                                           icu.24.f == 'Yes' & venttoday.f == 'Yes'),
+                          use.ylab = 'Percent of ICU Days on MV',
+                          axis.text.size = 6,
+                          legend.text.size = 6,
+                          legend.key.cm = 0.25,
+                          title.string = '\nB: SBT Performed or Attempted')
+
+b.comp.plot <- ggplot.prop(var = 'b.comp.sbt',
+                           dataset = subset(compliance.site,
+                                            icu.24.f == 'Yes' & on.sedation & venttoday.f == 'Yes'),
+                           use.ylab = 'Percent of ICU Days on Sedation+MV',
+                           axis.text.size = 6,
+                           legend.text.size = 6,
+                           legend.key.cm = 0.25,
+                           title.string = 'B, Overall: SAT+SBT\nPerformed or Attempted')
+@
+
+<<printfiguresb, results = 'asis', fig.cap = 'B - Both SAT and SBT, Entire Cohort', fig.width = 7.5, fig.height = 3, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(b.sat.plot, b.sbt.plot, b.comp.plot, layout = matrix(c(1:3), ncol = 3))
+@
+
+<<figuresc>>=
+arouse.x.breaks <- seq(0,
+                       with(subset(compliance.site, icu.24.f == 'Yes'), {
+                         max(c(sed.assess.valid, sed.assess.other), na.rm = TRUE) }),
+                       5)
+
+c.target.plot <- ggplot.prop(var = 'c.comp.target',
+                             axis.text.size = 6,
+                             legend.key.cm = 0.3,
+                             title.string = '\nC: Sedation Target Documented')
+
+c.comp.plot <- ggplot.prop(var = 'c.comp.overall',
+                           axis.text.size = 6,
+                           legend.key.cm = 0.3,
+                           title.string = 'C, Overall: >=6 PAD + Other\nArousal Assessments')
+
+c.asmts.valid <- ggplot.prop(var = 'sed.assess.valid',
+                             x.breaks = arouse.x.breaks,
+                             axis.text.size = 6,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'PAD-Recommended\nArousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60')
+
+c.asmts.other <- ggplot.prop(var = 'sed.assess.other',
+                             x.breaks = arouse.x.breaks,
+                             axis.text.size = 6,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Other Arousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60')
+
+@
+
+<<printfiguresc, results = 'asis', fig.cap = 'C - Choice of Sedation \\& Analgesia, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(c.target.plot, c.comp.plot, c.asmts.valid, c.asmts.other,
+          layout = matrix(c(1, 1, 2, 2, 3, 4), ncol = 3, byrow = FALSE))
+@
+
+<<figuresd>>=
+del.x.max <- with(subset(compliance.site, icu.24.f == 'Yes'), {
+  max(c(delirium.assess.valid, delirium.assess.other), na.rm = TRUE) })
+del.x.limits <- c(-0.5, del.x.max)
+del.x.breaks <- seq(0, del.x.max, 5)
+
+d.comp.plot <- ggplot.prop(var = 'd.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'D, Overall: >=2 Total Delirium Assessments')
+
+d.asmts.valid <- ggplot.prop(var = 'delirium.assess.valid',
+                             x.limits = del.x.limits,
+                             x.breaks = del.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'PAD-Recommended Delirium Assessments') +
+  geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5)
+
+d.asmts.other <- ggplot.prop(var = 'delirium.assess.other',
+                             x.limits = del.x.limits,
+                             x.breaks = del.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Other Delirium Assessments') +
+  geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5)
+
+@
+
+<<printfiguresd, results = 'asis', fig.cap = 'D - Delirium - Assess, Prevent and Manage, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(d.comp.plot, d.asmts.valid, d.asmts.other, layout = matrix(c(1, 1, 2, 3), ncol = 2))
+@
+
+<<figuresef>>=
+e.comp.plot <- ggplot.prop(var = 'e.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'E: Exercise/Mobility Performed or Attempted')
+
+e.mobility.plot <- ggplot.prop(var = 'mobilityhighest.f',
+                               axis.text.size = 7,
+                               x.angle = 45, x.hjust = 1,
+                               use.legend = FALSE,
+                               title.string = 'E: Highest Level of Exercise/Mobility Today')
+
+f.comp.plot <- ggplot.prop(var = 'f.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'F: Family Participation in Rounds/Conference')
+@
+
+<<printfiguresef, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, Entire Cohort', fig.width = 7.5, fig.height = 10, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(e.comp.plot, e.mobility.plot, f.comp.plot,
+          layout = matrix(c(1, 1, 1, 2, 2, 2, 2, 3, 3, 3), ncol = 1))
+@
+
+%' \clearpage
+%' \section{Code Used for Analysis}
+%' <<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
+%' @
+
+\clearpage
+\section{Technical Details}
+All analyses were produced using \Sexpr{session_info()$platform$version}, along with the following
+attached add-on packages.
+
+<<printpkgs, results='asis'>>=
+latex(session_info()$packages[session_info()$packages[,2] == '*', -2], file = '',
+      where = '!h',
+      rowname = NULL,
+      caption = 'List of R Packages Loaded for This Analysis',
+      col.just = c('l', 'r', 'r', 'l'),
+      colheads = capitalize(names(session_info()$packages)[c(1, 3:ncol(session_info()$packages))]))
+
+@
+
+\end{document}

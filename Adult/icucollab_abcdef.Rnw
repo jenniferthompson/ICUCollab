@@ -1,0 +1,1228 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.425in]{geometry}
+\usepackage{hyperref}
+
+\title{ICU Collaborative: ABCDEF Bundle Compliance, All Sites}
+\author{Society of Critical Care Medicine}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\listoftables
+\listoffigures
+
+The following tables and figures present descriptions of compliance with the ABCDEF bundle at ICU
+Collaborative sites before and after implementation. Code for all data management and analysis can
+be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef.Rnw}{here}.
+
+<<setup, message=FALSE, echo=FALSE>>=
+opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE)
+options(replace.assign = TRUE, width = 90)
+
+## Load libraries
+library(Hmisc)
+library(dplyr)
+library(tidyr)
+library(devtools)
+
+## Wrapper function for latex-ing summaryM objects
+my.print.summaryM <- function(...){
+  latex.summaryM(file = '', where = '!h', digits = 2, prmsd = TRUE, long = TRUE,
+                 npct = 'both', what = '%', ...)
+}
+
+## Function to round number to and print same number of digits
+rndformat <- function(x, ndigits = 2){
+  format(round(x, digits = ndigits), nsmall = ndigits)
+}
+
+## Function to format p-values
+formatp <- function(p){
+  ifelse(p < 0.0001, '<0.0001',
+  ifelse(p < 0.001, '<0.001',
+         rndformat(p, 3)))
+}
+
+## multiplot() function for multiple ggplot objects on one page (from Winston Chang's Cookbook for
+##  R: http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/)
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    for (i in 1:numPlots) {
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+## -- Function to calculate & plot proportions of patient-days by time and, if needed, -------------
+## -- faceting variable ----------------------------------------------------------------------------
+ggplot.prop <-
+  function(var,                                             ## X variable to plot
+           facet.var = NULL,                                ## variable to facet by
+           facet.col = 1,                                   ## number of columns for faceting
+           use.na = c('no', 'ifany', 'always'),             ## include missing values in facets
+           dataset = subset(compliance, icu.24.f == 'Yes'), ## data set to use
+           use.ylab = 'Percent of ICU Days',                ## Y axis label
+           use.xlab = NULL,                                 ## X axis label
+           x.limits = NULL,                                 ## X axis limits
+           x.breaks = NULL,                                 ## breaks to use for X axis
+           x.angle = 0, x.hjust = 0.5,                      ## X axis text formatting
+           axis.text.size = 7,                              ## axis text size
+           axis.title.size = 8,                             ## axis title size
+           time.colors = c('#9ecae1', '#08306b'),           ## colors for bars
+           use.legend = TRUE,                               ## include legend?
+           legend.text.size = 7,                            ## legend text size
+           legend.key.cm = 0.4,                             ## legend key size in cm
+           strip.text.size = 8,                             ## strip text size
+           title.string = var,                              ## plot title; defaults to X var name
+           title.size = 9,                                  ## font size for main title
+           title.hjust = 0){                                ## justification for plot title
+
+  use.na <- match.arg(use.na)
+
+  ## Get number in each cell
+  if(!is.null(facet.var)){
+    crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", facet.var, ", ",
+                                              var, ", data.time, useNA = '", use.na, "')))")))
+    names(crosstab.data) <- gsub(facet.var, 'facetvar', names(crosstab.data))
+  } else{
+    crosstab.data <- eval(parse(text = paste0("with(dataset, as.data.frame(table(", var,
+                                              ", data.time, useNA = '", use.na, "')))")))
+    crosstab.data$facetvar <- 'All'
+  }
+  names(crosstab.data) <- gsub(var, 'proplevel', tolower(names(crosstab.data)))
+
+  ## If original X variable is numeric, force tabulated form to be numeric
+  if('integer' %in% class(dataset[,var]) | 'numeric' %in% class(dataset[,var])){
+    crosstab.data$proplevel <- as.numeric(as.character(crosstab.data$proplevel))
+  }
+
+  ## Get totals for each time point
+  time.totals <- crosstab.data %>%
+    group_by(facetvar, data.time) %>%
+    summarise(time.n = sum(freq, na.rm = TRUE)) %>%
+    ungroup()
+
+  ## Merge time totals, calculate proportions
+  crosstab.data <- crosstab.data %>%
+    left_join(time.totals, by = c('facetvar', 'data.time'), all = TRUE) %>%
+    mutate(prop = freq / time.n)
+
+  ## Create plot
+  prop.plot <- ggplot(data = crosstab.data, aes(x = proplevel, y = prop, fill = data.time)) +
+    geom_bar(stat = 'identity', position = 'dodge') +
+    scale_y_continuous(name = use.ylab,
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.25),
+                       labels = paste0(seq(0, 100, 25), '%')) +
+    scale_fill_manual(name = NULL, values = time.colors) +
+    ggtitle(title.string) +
+    theme(legend.position = 'bottom',
+          legend.direction = 'horizontal',
+          legend.key.size = unit(legend.key.cm, 'cm'),
+          legend.text = element_text(size = legend.text.size),
+          strip.text = element_text(face = 'bold', size = strip.text.size),
+          plot.title = element_text(hjust = title.hjust, face = 'bold', size = title.size),
+          axis.text.x = element_text(angle = x.angle, hjust = x.hjust, size = axis.text.size),
+          axis.text.y = element_text(size = axis.text.size),
+          axis.title = element_text(size = axis.title.size))
+
+  ## Facet plot, if needed
+  if(!is.null(facet.var)){
+    prop.plot <- prop.plot + facet_wrap(~ facetvar, ncol = facet.col)
+  }
+
+  ## Remove legend if requested
+  if(!use.legend){
+    prop.plot <- prop.plot + guides(fill = 'none')
+  }
+
+  ## X axis breaks and title
+  if(!is.null(x.breaks)){
+    if(!is.null(x.limits)){
+      prop.plot <- prop.plot +
+        scale_x_continuous(name = use.xlab, limits = x.limits, breaks = x.breaks)
+    } else{
+      prop.plot <- prop.plot + scale_x_continuous(name = use.xlab, breaks = x.breaks)
+    }
+  } else{
+    prop.plot <- prop.plot + xlab(use.xlab)
+  }
+
+  return(prop.plot)
+}
+
+@
+
+<<datamgmt>>=
+## -- Read in data, create factors/labels using REDCap scripts -------------------------------------
+## Demographics form
+demog <- read.csv('RawData/demog.csv', stringsAsFactors = FALSE)
+source('demog_redcap.R')
+names(demog) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(demog)))
+
+## Compliance form
+compliance <- read.csv('RawData/compliance.csv', stringsAsFactors = FALSE)
+source('compliance_redcap.R')
+names(compliance) <- gsub('\\.factor', '\\.f', gsub('_+', '.', names(compliance)))
+
+## Add label for complete data variable
+label(compliance$daily.compliance.form.complete.f) <- 'Daily form status'
+
+## Spreadsheet from Vishakha showing which hospitals belong in which region
+hosp.region <- read.csv('RawData/hospital_regions.csv', stringsAsFactors = FALSE) %>%
+  filter(region != '') %>%
+  separate(hospital, ', ', into = c('hosp.num', 'hosp.f')) %>%
+  mutate(region = factor(region))
+levels(hosp.region$region) <- c('East Coast', 'Midwest', 'West Coast')
+
+## -- Remove any test patients ---------------------------------------------------------------------
+## Get list of IDs which don't meet required format to send Vishakha
+reformat.ids <-
+  demog$id[grep('^[A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9]$', toupper(demog$id), invert = TRUE)]
+
+## Remove any patient with "test" in the ID
+demog <- demog[grep('test', tolower(demog$id), invert = TRUE),]
+compliance <- compliance[grep('test', tolower(compliance$id), invert = TRUE),]
+
+## -- Data management for demographic form ---------------------------------------------------------
+## Create indicator for retrospective (mos 1-6) vs. prospective (mos 7-) data collection
+demog$data.time <- with(demog, {
+  factor(ifelse(month <= 6, 1, 2), levels = 1:2, labels = c('Baseline', 'Prospective')) })
+
+## Merge on hospital region
+demog <- merge(demog, subset(hosp.region, select = c(region, hosp.num)),
+               by.x = c('hosp'), by.y = c('hosp.num'), all.x = TRUE, all.y = FALSE)
+
+## Create single race variable
+demog$race.f <- with(demog, {
+  factor(ifelse(rowSums(demog[,grep('^race\\.[1-6]$', names(demog))]) == 0, 8,
+         ifelse(rowSums(demog[,grep('^race\\.[1-6]$', names(demog))]) > 1, 7,
+         ifelse(race.1 == 1, 1,
+         ifelse(race.2 == 1, 2,
+         ifelse(race.3 == 1, 3,
+         ifelse(race.4 == 1, 4,
+         ifelse(race.5 == 1, 5, NA))))))),
+         levels = 1:8,
+         labels = c('American Indian/AK Native',
+                    'Black/African American',
+                    'White',
+                    'Asian',
+                    'Native HI/Pacific Islander',
+                    'Other/nonspecified',
+                    'Multiple races indicated',
+                    'Missing data')) })
+
+## Shorten levels as needed
+levels(demog$dc.status.f) <- c('Died in ICU, collaborative stay',
+                               'Died in ICU, not collaborative stay',
+                               'Died during hospitalization, not ICU',
+                               'Discharged alive')
+
+## Total time on invasive, noninvasive MV
+demog$days.invas.vent <- with(demog, {
+  ifelse(is.na(invas.vent.episode) | invas.vent.episode == 0, NA,
+         rowSums(demog[,paste0('invas.vent.length.', 1:6)], na.rm = TRUE)) })
+
+demog$days.noninvas.vent <- with(demog, {
+  ifelse(is.na(noninvas.vent.episode) | noninvas.vent.episode == 0, NA,
+         rowSums(demog[,paste0('invas.vent.length.', 1:6)], na.rm = TRUE)) })
+
+label(demog$data.time) <- 'Time of data collection'
+label(demog$data.plan.f) <- 'Data plan'
+label(demog$region) <- 'Hospital region'
+label(demog$month.f) <- 'Month in Collaborative ICU'
+label(demog$age.f) <- 'Age range'
+label(demog$sex.f) <- 'Sex'
+label(demog$race.f) <- 'Race'
+label(demog$hispanic.f) <- 'Hispanic'
+label(demog$english.f) <- 'English-speaking'
+label(demog$invas.vent.episode) <- 'Episodes of invasive MV'
+label(demog$days.invas.vent) <- 'Total days on invasive MV'
+label(demog$noninvas.vent.episode) <- 'Episodes of noninvasive MV'
+label(demog$days.noninvas.vent) <- 'Total days on noninvasive MV'
+label(demog$icu.los) <- 'ICU length of stay'
+label(demog$hosp.losv) <- 'Hospital length of stay'
+label(demog$dc.status.f) <- 'Discharge/mortality status'
+
+# ## -- Data checks ----------------------------------------------------------------------------------
+# sink('demog_dataissues.txt')
+#
+# cat('Patients missing time of data collection\n\n')
+# subset(demog, is.na(month))$id
+#
+# cat('\n\nPatients with >=1 episode of invasive MV, but total length of MV = 0\n\n')
+# subset(demog,
+#        invas.vent.episode > 0 & days.invas.vent == 0)[,c('id',
+#                                                          'invas.vent.episode',
+#                                                          paste0('invas.vent.length.', 1:6))]
+#
+# cat('\n\nPatients with >=1 episode of noninvasive MV, but total length of noninvasive MV = 0\n\n')
+# subset(demog,
+#        noninvas.vent.episode > 0 & days.noninvas.vent == 0)[,c('id',
+#                                                                'noninvas.vent.episode',
+#                                                                paste0('noninvas.vent.length.',
+#                                                                       1:6))]
+#
+# sink()
+
+## -- Data management for compliance form ----------------------------------------------------------
+## -- Preliminary variables ------------------------------------------------------------------------
+## Total number of pain assessments, any type
+compliance$pain.verbal.valid <-
+  ifelse(rowSums(!is.na(compliance[,paste0('pain.', c('verbal', 'valid'))])) == 0, NA,
+         rowSums(compliance[,paste0('pain.', c('verbal', 'valid'))], na.rm = TRUE))
+
+## Create variable for whether patient received continuous and/or intermittent sedation
+compliance$on.sedation <- rowSums(compliance[,paste0('sedative.', 1:2)]) > 0
+
+## Indicator for whether no sedation information marked
+compliance$no.sedation.checked <- rowSums(compliance[,paste0('sedative.', 0:3)]) == 0
+
+## Indicator for whether none + some other sedation amount marked
+compliance$none.some.sedation <-
+  compliance$sedative.0 & rowSums(compliance[,paste0('sedative.', 0:3)]) > 1
+
+## Total number of sedation assessments, any type
+compliance$sed.assess.either <-
+  ifelse(rowSums(!is.na(compliance[,paste0('sed.assess.', c('valid', 'other'))])) == 0, NA,
+         rowSums(compliance[,paste0('sed.assess.', c('valid', 'other'))], na.rm = TRUE))
+
+## Total number of delirium assessments, any type
+compliance$delirium.assess.either <-
+  ifelse(rowSums(!is.na(compliance[,paste0('delirium.assess.', c('valid', 'other'))])) == 0, NA,
+         rowSums(compliance[,paste0('delirium.assess.', c('valid', 'other'))], na.rm = TRUE))
+
+## Indicator for whether no family participation information marked
+compliance$no.family.checked <- rowSums(compliance[,paste0('familyinvite.', 1:5)]) == 0
+
+## Do answers to family question make sense?
+compliance$family.disagree <- with(compliance, {
+  (familyinvite.5 == 1 & rowSums(compliance[,paste0('familyinvite.', 1:5)]) > 1) |
+  (familyinvite.1 == 1 & (familyinvite.2 == 1 | familyinvite.3 == 1 | familyinvite.4 == 1)) |
+  (familyinvite.4 == 1 & (familyinvite.2 == 1 | familyinvite.3 == 1)) })
+
+# ## -- Data checks ----------------------------------------------------------------------------------
+# ## A Section ##
+# ## Just looking for missing data on ICU days
+# sink('a_missingdata.txt')
+# cat('ICU Days Missing Number of Behavioral (PAD) Pain Assessments:\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(pain.valid), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Self-Reported Pain Assessments:\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(pain.verbal), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Other Pain Assessments:\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(pain.other), select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## B Section ##
+# sink('b_dataissues.txt')
+# cat('ICU Days with No Sedation Information Indicated\n\n')
+# subset(compliance, icu.24.f == 'Yes' & no.sedation.checked, select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days with Both No Sedation AND Some Sedation Indicated\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & none.some.sedation,
+#        select = c(id, redcap.event.name.f, sedative.1:sedative.0))
+#
+# cat('\n\nICU Days Missing Whether Patient Received Mechanical Ventilation\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(venttoday.f), select = c(id, redcap.event.name.f))
+#
+# ## Missing SAT performance on sedation days
+# cat('\n\nReceived Sedation, but No Answer for Whether SAT Performed\n\n')
+# subset(compliance, on.sedation & is.na(satperformed.f), select = c(id, redcap.event.name.f))
+#
+# ## Missing SBT performance on MV days
+# cat('\n\nICU Day and Received MV, but No Answer for Whether SBT Performed\n\n')
+# subset(compliance, icu.24.f == 'Yes' & venttoday.f == 'Yes' & is.na(sbtperformed.f),
+#        select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## C Section ##
+# sink('c_missingdata.txt')
+#
+# cat('ICU Days Missing Whether Documented Sedation Target\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(sed.target.f), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of PAD-Recommended Sedation Assessments\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(sed.assess.valid), select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Other Sedation Assessments\n\n')
+# subset(compliance, icu.24.f == 'Yes' & is.na(sed.assess.other), select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## D Section ##
+# sink('d_missingdata.txt')
+#
+# cat('ICU Days Missing Number of PAD-Recommended Delirium Assessments\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & is.na(delirium.assess.valid),
+#        select = c(id, redcap.event.name.f))
+#
+# cat('\n\nICU Days Missing Number of Other Delirium Assessments\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & is.na(delirium.assess.other),
+#        select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## E Section ##
+# sink('e_missingdata.txt')
+# cat('ICU Days Missing Exercise/Early Mobility Performance\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & is.na(mobilityperformed.f),
+#        select = c(id, redcap.event.name.f))
+#
+# sink()
+#
+# ## F Section ##
+# sink('f_dataissues.txt')
+# cat('ICU Days with No Family Invitation Indicated\n\n')
+# subset(compliance, icu.24.f == 'Yes' & no.family.checked, select = c(id, redcap.event.name.f))
+#
+# cat('ICU Days with Contradictory Family Invitation Information\n\n')
+# subset(compliance,
+#        icu.24.f == 'Yes' & family.disagree,
+#        select = c(id, redcap.event.name.f, familyinvite.1:familyinvite.5))
+# sink()
+
+## -- Create indicators for compliance on each component -------------------------------------------
+## -- Only present for ICU days, except for SAT/SBT components -------------------------------------
+
+## Level labels for all compliance variables
+compliance.levels <- c('Compliant', 'Noncompliant', 'Missing data')
+
+compliance <- compliance %>%
+  mutate(## A: Assess, prevent, and manage pain
+         ##  Include all ICU days; compliance: >=6 self-reported or behavioral assessments
+         a.comp.verbal = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                ifelse(is.na(pain.verbal), 2,
+                                ifelse(pain.verbal >= 6, 0, 1))),
+                                levels = 0:2, labels = compliance.levels),
+         a.comp.valid = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(pain.valid), 2,
+                               ifelse(pain.valid >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         a.comp.other = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(pain.other), 2,
+                               ifelse(pain.other >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         a.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(pain.verbal.valid), 2,
+                                 ifelse(pain.verbal.valid >= 6, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## B: Both SAT and SBT
+         ##  SAT: Include days on continuous or intermittent sedation;
+         ##       compliance = SAT performed or safety screen failure
+         ##  SBT: Include days on MV; compliance = SBT performed or safety screen failure
+         ## Overall: for days with both sedation and MV, were both SAT and SBT attempted?
+         b.comp.sat = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No' | !on.sedation, NA,
+                             ifelse(is.na(satperformed.f), 2,
+                             ifelse(satperformed.f == 'No. Other reason/ Not documented', 1, 0))),
+                             levels = 0:2, labels = compliance.levels),
+         b.comp.sbt = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No' |
+                                      is.na(venttoday.f) | venttoday.f == 'No', NA,
+                             ifelse(is.na(sbtperformed.f), 2,
+                             ifelse(sbtperformed.f == 'No. Other reason/ Not documented', 1, 0))),
+                             levels = 0:2, labels = compliance.levels),
+         b.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No' | !on.sedation |
+                                          is.na(venttoday.f) | venttoday.f == 'No', NA,
+                                 ifelse(is.na(satperformed.f) | is.na(sbtperformed.f), 2,
+                                 ifelse(satperformed.f == 'No. Other reason/ Not documented' |
+                                          sbtperformed.f == 'No. Other reason/ Not documented',
+                                        1, 0))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## C: Choice of sedation
+         c.comp.target = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                ifelse(is.na(sed.target.f), 2,
+                                ifelse(sed.target.f == 'Yes', 0, 1))),
+                                levels = 0:2, labels = compliance.levels),
+         c.comp.valid = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(sed.assess.valid), 2,
+                               ifelse(sed.assess.valid >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         c.comp.other = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(sed.assess.other), 2,
+                               ifelse(sed.assess.other >= 6, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         c.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(sed.assess.either), 2,
+                                 ifelse(sed.assess.either >= 6, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## D: Delirium: Assess, Prevent and Manage
+         d.comp.valid = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(delirium.assess.valid), 2,
+                               ifelse(delirium.assess.valid >= 2, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         d.comp.other = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                               ifelse(is.na(delirium.assess.other), 2,
+                               ifelse(delirium.assess.other >= 2, 0, 1))),
+                               levels = 0:2, labels = compliance.levels),
+         d.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(delirium.assess.either), 2,
+                                 ifelse(delirium.assess.either >= 2, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## E: Early mobility and exercise
+         e.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(is.na(mobilityperformed.f), 2,
+                                 ifelse(mobilityperformed.f == 'Not performed /not documented',
+                                        1, 0))),
+                                 levels = 0:2, labels = compliance.levels),
+         ## F: Famly engagement and empowerment
+         f.comp.overall = factor(ifelse(is.na(icu.24.f) | icu.24.f == 'No', NA,
+                                 ifelse(no.family.checked, 2,
+                                 ifelse(familyinvite.2 == 1 | familyinvite.3 == 1, 0, 1))),
+                                 levels = 0:2, labels = compliance.levels)) %>%
+  ## Merge on time of data collection and hospital region
+  left_join(dplyr::select(demog, id, data.time, hosp.f, region), by = 'id')
+
+levels(compliance$meds.1.f) <- levels(compliance$meds.2.f) <- levels(compliance$meds.3.f) <-
+  levels(compliance$meds.4.f) <- levels(compliance$meds.5.f) <- levels(compliance$meds.6.f) <-
+  levels(compliance$meds.7.f) <- c('No', 'Yes')
+
+label(compliance$a.comp.verbal) <- 'A: >=6 documented self-reported pain assessments'
+label(compliance$a.comp.valid) <- 'A: >=6 documented behavioral pain assessments'
+label(compliance$a.comp.other) <- 'A: >=6 documented other pain assessments'
+label(compliance$a.comp.overall) <- 'A, overall: >=6 pain assessments, behavioral + self-report'
+label(compliance$b.comp.sat) <- 'B: SAT: patient on sedation and had SAT or attempt'
+label(compliance$b.comp.sbt) <- 'B: SBT: patient on MV and had SBT or attempt'
+label(compliance$b.comp.overall) <- 'B, overall: patient on sedation+MV, had SAT+SBT or attempt'
+label(compliance$c.comp.target) <- 'C: documented sedation target'
+label(compliance$c.comp.valid) <- 'C: >=6 PAD-recommended arousal assessments'
+label(compliance$c.comp.other) <- 'C: >=6 other arousal assessments'
+label(compliance$c.comp.overall) <- 'C, overall: >=6 total arousal assessments'
+label(compliance$meds.1) <- 'Received opioid'
+label(compliance$meds.2) <- 'Received benzodiazepine'
+label(compliance$meds.3) <- 'Received propofol'
+label(compliance$meds.4) <- 'Received dexmedetomidine'
+label(compliance$meds.5) <- 'Received ketamine'
+label(compliance$meds.6) <- 'Received typical antipsychotic'
+label(compliance$meds.7) <- 'Received atypical antipsychotic'
+label(compliance$d.comp.valid) <- 'D: >=2 PAD-recommended delirium assessments'
+label(compliance$d.comp.other) <- 'D: >=2 other delirium assessments'
+label(compliance$d.comp.overall) <- 'D, overall: >=2 total delirium assessments'
+label(compliance$e.comp.overall) <- 'E, overall: mobility performed or attempt'
+label(compliance$mobilityhighest.f) <- 'E: Highest level of exercise/mobilization today'
+label(compliance$f.comp.overall) <- 'F, overall: family participated in rounds and/or conference'
+
+
+## -- Summary variables for daily data -------------------------------------------------------------
+## Function for calculating mean of a given variable, setting to NA if no non-missing values
+calc.mean.na <- function(var){ ifelse(sum(!is.na(var)) == 0, NA, sum(var, na.rm = TRUE)) }
+
+comp.summary.icu <- compliance %>%
+  filter(icu.24.f == 'Yes') %>%
+  group_by(id) %>%
+  summarise(mean.pain.verbal = calc.mean.na(pain.verbal),
+            mean.pain.valid = calc.mean.na(pain.valid),
+            mean.pain.other = calc.mean.na(pain.other),
+            mean.pain.verbal.valid = calc.mean.na(pain.verbal.valid),
+            mean.sed.assess.valid = calc.mean.na(sed.assess.valid),
+            mean.sed.assess.other = calc.mean.na(sed.assess.other),
+            mean.sed.assess.either = calc.mean.na(sed.assess.either),
+            mean.del.assess.valid = calc.mean.na(delirium.assess.valid),
+            mean.del.assess.other = calc.mean.na(delirium.assess.other),
+            mean.del.assess.either = calc.mean.na(delirium.assess.either),
+            n.comp.days = sum(daily.compliance.form.complete.f == 'Complete', na.rm = TRUE)) %>%
+  ungroup()
+
+demog <- demog %>%
+  left_join(comp.summary.icu, by = 'id')
+
+label(demog$mean.pain.verbal) <- 'Mean self-report pain asmts'
+label(demog$mean.pain.valid) <- 'Mean behavioral pain asmts'
+label(demog$mean.pain.other) <- 'Mean other pain asmts'
+label(demog$mean.pain.verbal.valid) <- 'Mean behavioral + self-report'
+label(demog$mean.sed.assess.valid) <- 'Mean PAD-rec. arousal asmts'
+label(demog$mean.sed.assess.other) <- 'Mean other arousal asmts'
+label(demog$mean.sed.assess.either) <- 'Mean total arousal asmts'
+label(demog$mean.del.assess.valid) <- 'Mean PAD-rec. delirium asmts'
+label(demog$mean.del.assess.other) <- 'Mean other delirium asmts'
+label(demog$mean.del.assess.either) <- 'Mean total delirium asmts'
+label(demog$n.comp.days) <- 'Number of days marked complete'
+
+@
+
+\subsection{Data Collection Status}
+<<datacollect>>=
+data.status.daily <- summaryM(daily.compliance.form.complete.f ~ data.time,
+                              data = compliance, overall = TRUE)
+
+data.status.patient <- summaryM(n.comp.days ~ data.time, data = demog, overall = TRUE)
+@
+
+<<printdatacollect, results = 'asis'>>=
+my.print.summaryM(data.status.daily,
+                  caption = 'Data Collection Status for All Patient-Days',
+                  caption.lot = 'Data Collection Status for All Patient-Days',
+                  exclude1 = FALSE)
+
+my.print.summaryM(data.status.patient,
+                  caption = 'Days of Complete Data Per Patient',
+                  caption.lot = 'Days of Complete Data Per Patient',
+                  exclude1 = FALSE)
+
+@
+
+\clearpage
+\section{Entire Cohort}
+\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
+<<desccohort>>=
+desc.all <- summaryM(region + data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f +
+                       invas.vent.episode + days.invas.vent + noninvas.vent.episode +
+                       days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time,
+                     data = demog, overall = TRUE)
+
+desc.comp.all <- summaryM(mean.pain.verbal + mean.pain.valid + mean.pain.other +
+                            mean.pain.verbal.valid + mean.sed.assess.valid +
+                            mean.sed.assess.other + mean.sed.assess.either +
+                            mean.del.assess.valid + mean.del.assess.other +
+                            mean.del.assess.either ~ data.time,
+                          data = demog, overall = TRUE)
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.all,
+                  caption = 'Summary of Compliance-Related Variables, Entire Cohort, ICU Days Only',
+                  caption.lot = 'Summary of Compliance-Related Variables, Entire Cohort, ICU Days Only',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 3))
+@
+
+\clearpage
+\subsection{Compliance by Time}
+<<complianceall>>=
+comp.all.ac <- summaryM(a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall +
+                          b.comp.sat + b.comp.sbt + b.comp.overall + c.comp.target + c.comp.valid +
+                          c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 +
+                          meds.4 + meds.5 + meds.6 + meds.7 ~ data.time,
+                        data = subset(compliance, icu.24.f == 'Yes'))
+
+comp.all.df <- summaryM(d.comp.valid + d.comp.other + d.comp.overall +
+                          e.comp.overall + mobilityhighest.f + f.comp.overall ~ data.time,
+                        data = subset(compliance, icu.24.f == 'Yes'))
+
+@
+
+<<printcompall, results = 'asis'>>=
+my.print.summaryM(comp.all.ac,
+                  caption = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days, A-C',
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 12, 23),
+                  size = 'small')
+
+my.print.summaryM(comp.all.df,
+                  caption = 'Description of Compliance, All ICU Days',
+                  caption.lot = 'Description of Compliance, All ICU Days, D-F',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 13, 4),
+                  size = 'small')
+
+@
+
+\clearpage
+<<figuresa>>=
+pain.x.breaks <- seq(0,
+                     with(subset(compliance, icu.24.f == 'Yes'), {
+                       max(c(pain.valid, pain.verbal), na.rm = TRUE) }),
+                     5)
+
+a.comp.plot <- ggplot.prop(var = 'a.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'A, Overall: >=6 Behavioral+Self-Report Assessments',
+                           title.size = 8)
+
+a.asmts.valid <- ggplot.prop(var = 'pain.valid',
+                             x.breaks = pain.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Behavioral Pain Assessments',
+                             title.size = 8) +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+a.asmts.verbal <- ggplot.prop(var = 'pain.verbal',
+                              x.breaks = pain.x.breaks,
+                              use.xlab = 'Number of Assessments Today',
+                              use.legend = FALSE,
+                              title.string = 'Self-Reported Pain Assessments',
+                              title.size = 8) +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+@
+
+<<printfiguresa, results = 'asis', fig.cap = 'A - Assess and Manage Pain, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(a.comp.plot, a.asmts.valid, a.asmts.verbal, layout = matrix(c(1, 1, 2, 3), ncol = 2))
+@
+
+<<figuresb>>=
+b.sat.plot <- ggplot.prop(var = 'b.comp.sat',
+                          dataset = subset(compliance, icu.24.f == 'Yes' & on.sedation),
+                          use.ylab = 'Percent of ICU Days on Sedation',
+                          axis.text.size = 6,
+                          legend.text.size = 6,
+                          legend.key.cm = 0.25,
+                          title.string = '\nB: SAT Performed or Attempted')
+
+b.sbt.plot <- ggplot.prop(var = 'b.comp.sbt',
+                          dataset = subset(compliance, icu.24.f == 'Yes' & venttoday.f == 'Yes'),
+                          use.ylab = 'Percent of ICU Days on MV',
+                          axis.text.size = 6,
+                          legend.text.size = 6,
+                          legend.key.cm = 0.25,
+                          title.string = '\nB: SBT Performed or Attempted')
+
+b.comp.plot <- ggplot.prop(var = 'b.comp.sbt',
+                           dataset = subset(compliance,
+                                            icu.24.f == 'Yes' & on.sedation & venttoday.f == 'Yes'),
+                           use.ylab = 'Percent of ICU Days on Sedation+MV',
+                           axis.text.size = 6,
+                           legend.text.size = 6,
+                           legend.key.cm = 0.25,
+                           title.string = 'B, Overall: SAT+SBT\nPerformed or Attempted')
+@
+
+<<printfiguresb, results = 'asis', fig.cap = 'B - Both SAT and SBT, Entire Cohort', fig.width = 7.5, fig.height = 3, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(b.sat.plot, b.sbt.plot, b.comp.plot, layout = matrix(c(1:3), ncol = 3))
+@
+
+<<figuresc>>=
+arouse.x.breaks <- seq(0,
+                       with(subset(compliance, icu.24.f == 'Yes'), {
+                         max(c(sed.assess.valid, sed.assess.other), na.rm = TRUE) }),
+                       5)
+
+c.target.plot <- ggplot.prop(var = 'c.comp.target',
+                             axis.text.size = 6,
+                             legend.key.cm = 0.3,
+                             title.string = '\nC: Sedation Target Documented')
+
+c.comp.plot <- ggplot.prop(var = 'c.comp.overall',
+                           axis.text.size = 6,
+                           legend.key.cm = 0.3,
+                           title.string = 'C, Overall: >=6 PAD + Other\nArousal Assessments')
+
+c.asmts.valid <- ggplot.prop(var = 'sed.assess.valid',
+                             x.breaks = arouse.x.breaks,
+                             axis.text.size = 6,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'PAD-Recommended\nArousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60')
+
+c.asmts.other <- ggplot.prop(var = 'sed.assess.other',
+                             x.breaks = arouse.x.breaks,
+                             axis.text.size = 6,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Other Arousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 7, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 1.5, colour = 'grey60')
+
+@
+
+<<printfiguresc, results = 'asis', fig.cap = 'C - Choice of Sedation \\& Analgesia, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(c.target.plot, c.comp.plot, c.asmts.valid, c.asmts.other,
+          layout = matrix(c(1, 1, 2, 2, 3, 4), ncol = 3, byrow = FALSE))
+@
+
+<<figuresd>>=
+del.x.max <- with(subset(compliance, icu.24.f == 'Yes'), {
+  max(c(delirium.assess.valid, delirium.assess.other), na.rm = TRUE) })
+del.x.limits <- c(-0.5, del.x.max)
+del.x.breaks <- seq(0, del.x.max, 5)
+
+d.comp.plot <- ggplot.prop(var = 'd.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'D, Overall: >=2 Total Delirium Assessments')
+
+d.asmts.valid <- ggplot.prop(var = 'delirium.assess.valid',
+                             x.limits = del.x.limits,
+                             x.breaks = del.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'PAD-Recommended Delirium Assessments') +
+  geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 1, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 2.5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+d.asmts.other <- ggplot.prop(var = 'delirium.assess.other',
+                             x.limits = del.x.limits,
+                             x.breaks = del.x.breaks,
+                             use.xlab = 'Number of Assessments Today',
+                             use.legend = FALSE,
+                             title.string = 'Other Delirium Assessments') +
+  geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5) +
+  annotate(geom = 'text', label = 'Noncompliant', x = 1, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60') +
+  annotate(geom = 'text', label = 'Compliant', x = 2.5, y = 1, hjust = 1, vjust = 0,
+           angle = 90, size = 2, colour = 'grey60')
+
+@
+
+<<printfiguresd, results = 'asis', fig.cap = 'D - Delirium - Assess, Prevent and Manage, Entire Cohort', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(d.comp.plot, d.asmts.valid, d.asmts.other, layout = matrix(c(1, 1, 2, 3), ncol = 2))
+@
+
+<<figuresef>>=
+e.comp.plot <- ggplot.prop(var = 'e.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'E: Exercise/Mobility Performed or Attempted')
+
+e.mobility.plot <- ggplot.prop(var = 'mobilityhighest.f',
+                               axis.text.size = 7,
+                               x.angle = 45, x.hjust = 1,
+                               use.legend = FALSE,
+                               title.string = 'E: Highest Level of Exercise/Mobility Today')
+
+f.comp.plot <- ggplot.prop(var = 'f.comp.overall',
+                           axis.text.size = 8,
+                           title.string = 'F: Family Participation in Rounds/Conference')
+@
+
+<<printfiguresef, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, Entire Cohort', fig.width = 7.5, fig.height = 10, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(e.comp.plot, e.mobility.plot, f.comp.plot,
+          layout = matrix(c(1, 1, 1, 2, 2, 2, 2, 3, 3, 3), ncol = 1))
+@
+
+\clearpage
+\section{Descriptives by Region}
+\subsection{Demographic, Baseline, and Hospital Stay Characteristics}
+<<desccohortregion>>=
+desc.formula <- as.formula("data.plan.f + age.f + sex.f + race.f + hispanic.f + english.f + invas.vent.episode + days.invas.vent + noninvas.vent.episode + days.noninvas.vent + icu.los + hosp.losv + dc.status.f ~ data.time")
+
+desc.ec <- summaryM(desc.formula, data = subset(demog, region == 'East Coast'), overall = TRUE)
+desc.mw <- summaryM(desc.formula, data = subset(demog, region == 'Midwest'), overall = TRUE)
+desc.wc <- summaryM(desc.formula, data = subset(demog, region == 'West Coast'), overall = TRUE)
+
+desc.comp.formula <- as.formula("mean.pain.verbal + mean.pain.valid + mean.pain.other + mean.pain.verbal.valid + mean.sed.assess.valid + mean.sed.assess.other + mean.sed.assess.either + mean.del.assess.valid + mean.del.assess.other + mean.del.assess.either ~ data.time")
+
+desc.comp.ec <- summaryM(desc.comp.formula,
+                         data = subset(demog, region == 'East Coast'),
+                         overall = TRUE)
+desc.comp.mw <- summaryM(desc.comp.formula,
+                         data = subset(demog, region == 'Midwest'),
+                         overall = TRUE)
+desc.comp.wc <- summaryM(desc.comp.formula,
+                         data = subset(demog, region == 'West Coast'),
+                         overall = TRUE)
+
+@
+
+\subsubsection{East Coast}
+<<printdesccohortec, results = 'asis'>>=
+my.print.summaryM(desc.ec,
+                  caption = 'Description of Cohort, East Coast',
+                  caption.lot = 'Description of Cohort, East Coast',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.ec,
+                  caption = 'Summary of Compliance-Related Variables, ICU Days Only, East Coast',
+                  caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only, East Coast',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 9))
+
+@
+
+\clearpage
+\subsubsection{Midwest}
+<<printdesccohortmw, results = 'asis'>>=
+my.print.summaryM(desc.mw,
+                  caption = 'Description of Cohort, Midwest',
+                  caption.lot = 'Description of Cohort, Midwest',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.mw,
+                  caption = 'Summary of Compliance-Related Variables, ICU Days Only, Midwest',
+                  caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only, Midwest',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 3))
+
+@
+
+\clearpage
+\subsubsection{West Coast}
+<<printdesccohortwc, results = 'asis'>>=
+my.print.summaryM(desc.wc,
+                  caption = 'Description of Cohort, West Coast',
+                  caption.lot = 'Description of Cohort, West Coast',
+                  exclude1 = FALSE,
+                  size = 'small')
+my.print.summaryM(desc.comp.wc,
+                  caption = 'Summary of Compliance-Related Variables, ICU Days Only, West Coast',
+                  caption.lot = 'Summary of Compliance-Related Variables, ICU Days Only, West Coast',
+                  size = 'small',
+                  rgroup = c('A', 'C', 'D'),
+                  n.rgroup = c(4, 3, 10))
+
+@
+
+\clearpage
+\subsection{Compliance by Time}
+<<complianceregion>>=
+comp.ac.formula <- as.formula("a.comp.verbal + a.comp.valid + a.comp.other + a.comp.overall + b.comp.sat + b.comp.sbt + b.comp.overall + c.comp.target + c.comp.valid + c.comp.other + c.comp.overall + meds.1 + meds.2 + meds.3 + meds.4 + meds.5 + meds.6 + meds.7 ~ data.time")
+
+comp.ac.ec <- summaryM(comp.ac.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'East Coast'))
+comp.ac.mw <- summaryM(comp.ac.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'Midwest'))
+comp.ac.wc <- summaryM(comp.ac.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'West Coast'))
+
+comp.df.formula <- as.formula("d.comp.valid + d.comp.other + d.comp.overall + e.comp.overall + mobilityhighest.f + f.comp.overall ~ data.time")
+
+comp.df.ec <- summaryM(comp.df.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'East Coast'))
+comp.df.mw <- summaryM(comp.df.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'Midwest'))
+comp.df.wc <- summaryM(comp.df.formula,
+                       data = subset(compliance, icu.24.f == 'Yes' & region == 'West Coast'))
+
+@
+
+\subsubsection{East Coast}
+<<printcompec, results = 'asis'>>=
+my.print.summaryM(comp.ac.ec,
+                  caption = 'Description of Compliance, A-C, East Coast',
+                  caption.lot = 'Description of Compliance, A-C, East Coast',
+                  size = 'small',
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 12, 23))
+
+my.print.summaryM(comp.df.ec,
+                  caption = 'Description of Compliance, D-F, East Coast',
+                  caption.lot = 'Description of Compliance, D-F, East Coast',
+                  size = 'small',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 13, 4))
+
+@
+
+\clearpage
+\subsubsection{Midwest}
+<<printcompmw, results = 'asis'>>=
+my.print.summaryM(comp.ac.mw,
+                  caption = 'Description of Compliance, A-C, Midwest',
+                  caption.lot = 'Description of Compliance, A-C, Midwest',
+                  exclude1 = TRUE,
+                  size = 'small',
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 12, 23))
+
+my.print.summaryM(comp.df.mw,
+                  caption = 'Description of Compliance, D-F, Midwest',
+                  caption.lot = 'Description of Compliance, D-F, Midwest',
+                  size = 'small',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 13, 4))
+
+@
+
+\clearpage
+\subsubsection{West Coast}
+<<printcompwc, results = 'asis'>>=
+my.print.summaryM(comp.ac.wc,
+                  caption = 'Description of Compliance, A-C, West Coast',
+                  caption.lot = 'Description of Compliance, A-C, West Coast',
+                  exclude1 = TRUE,
+                  size = 'small',
+                  rgroup = c('A: Assess, Prevent and Manage Pain',
+                             'B: Both SAT and SBT', 'C: Choice of Sedation and Analgesia'),
+                  n.rgroup = c(16, 12, 23))
+
+my.print.summaryM(comp.df.wc,
+                  caption = 'Description of Compliance, D-F, West Coast',
+                  caption.lot = 'Description of Compliance, D-F, West Coast',
+                  size = 'small',
+                  rgroup = c('D: Delirium: Assess, Prevent and Manage',
+                             'E: Early Mobility and Exercise',
+                             'F: Family Engagement and Empowerment'),
+                  n.rgroup = c(12, 13, 4))
+
+@
+
+\clearpage
+<<figuresaregion>>=
+a.comp.plot.region <-
+  ggplot.prop(var = 'a.comp.overall',
+              facet.var = 'region',
+              facet.col = 3,
+              axis.text.size = 8,
+              title.string = 'A, Overall: >=6 Behavioral + Self-Report Assessments',
+              title.size = 8)
+
+a.asmts.valid.region <- ggplot.prop(var = 'pain.valid',
+                                    facet.var = 'region',
+                                    facet.col = 3,
+                                    x.breaks = pain.x.breaks,
+                                    axis.text.size = 6,
+                                    axis.title.size = 7,
+                                    use.xlab = 'Number of Assessments Today',
+                                    use.legend = FALSE,
+                                    title.string = 'Behavioral Pain Assessments',
+                                    strip.text.size = 8) +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', size = 0.5, alpha = 0.5)
+
+a.asmts.verbal.region <- ggplot.prop(var = 'pain.verbal',
+                                     facet.var = 'region',
+                                     facet.col = 3,
+                                     x.breaks = pain.x.breaks,
+                                     use.xlab = 'Number of Assessments Today',
+                                     use.legend = FALSE,
+                                     axis.text.size = 6,
+                                     axis.title.size = 7,
+                                     title.string = 'Self-Reported Pain Assessments',
+                                     strip.text.size = 8) +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', size = 0.5, alpha = 0.5)
+
+@
+
+<<printfiguresaregion, results = 'asis', fig.cap = 'A - Assess and Manage Pain, by Region', fig.width = 7.5, fig.height = 8, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(a.comp.plot.region, a.asmts.valid.region, a.asmts.verbal.region,
+          layout = matrix(c(1, 1, 2, 3), ncol = 1))
+@
+
+<<figuresbregion>>=
+b.sat.plot.region <- ggplot.prop(var = 'b.comp.sat',
+                                 facet.var = 'region',
+                                 facet.col = 3,
+                                 dataset = subset(compliance, icu.24.f == 'Yes' & on.sedation),
+                                 use.ylab = 'Percent of ICU Days on Sedation',
+                                 axis.text.size = 7,
+                                 axis.title.size = 7,
+                                 strip.text.size = 8,
+                                 legend.key.cm = 0.3,
+                                 title.string = 'B: SAT Performed or Attempted')
+
+b.sbt.plot.region <-
+  ggplot.prop(var = 'b.comp.sbt',
+              facet.var = 'region',
+              facet.col = 3,
+              dataset = subset(compliance, icu.24.f == 'Yes' & venttoday.f == 'Yes'),
+              use.ylab = 'Percent of ICU Days on MV',
+              axis.text.size = 7,
+              axis.title.size = 7,
+              strip.text.size = 8,
+              legend.key.cm = 0.3,
+              title.string = 'B: SBT Performed or Attempted')
+
+b.comp.plot.region <-
+  ggplot.prop(var = 'b.comp.overall',
+              facet.var = 'region',
+              facet.col = 3,
+              dataset = subset(compliance, icu.24.f == 'Yes' & on.sedation & venttoday.f == 'Yes'),
+              use.ylab = 'Percent of ICU Days\non Sedation+MV',
+              axis.text.size = 6,
+              axis.title.size = 7,
+              strip.text.size = 8,
+              legend.key.cm = 0.25,
+              title.string = 'B, Overall: SAT+SBT Performed or Attempted')
+@
+
+<<printfiguresbregion, results = 'asis', fig.cap = 'B - Both SAT and SBT, by Region', fig.width = 7.5, fig.height = 8, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(b.sat.plot.region, b.sbt.plot.region, b.comp.plot.region,
+          layout = matrix(c(1:3), ncol = 1))
+@
+
+<<figurescregion>>=
+c.target.plot.region <- ggplot.prop(var = 'c.comp.target',
+                                    facet.var = 'region',
+                                    facet.col = 3,
+                                    axis.text.size = 6,
+                                    legend.key.cm = 0.3,
+                                    title.string = 'C: Sedation Target Documented')
+
+c.comp.plot.region <- ggplot.prop(var = 'c.comp.overall',
+                                  facet.var = 'region',
+                                  facet.col = 3,
+                                  axis.text.size = 6,
+                                  legend.key.cm = 0.3,
+                                  title.string = 'C, Overall: >=6 PAD + Other Arousal Assessments')
+
+c.asmts.valid.region <- ggplot.prop(var = 'sed.assess.valid',
+                                    facet.var = 'region',
+                                    facet.col = 3,
+                                    x.breaks = seq(0, max(arouse.x.breaks), 10),
+                                    axis.text.size = 6,
+                                    axis.title.size = 7,
+                                    use.xlab = 'Number of Assessments Today',
+                                    use.legend = FALSE,
+                                    strip.text.size = 7,
+                                    title.string = 'PAD-Recommended Arousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', size = 0.5, alpha = 0.5)
+
+c.asmts.other.region <- ggplot.prop(var = 'sed.assess.other',
+                                    facet.var = 'region',
+                                    facet.col = 3,
+                                    x.breaks = seq(0, max(arouse.x.breaks), 10),
+                                    axis.text.size = 6,
+                                    axis.title.size = 7,
+                                    use.xlab = 'Number of Assessments Today',
+                                    use.legend = FALSE,
+                                    strip.text.size = 7,
+                                    title.string = 'Other Arousal Assessments') +
+  geom_vline(xintercept = 5.5, colour = 'grey60', linetype = 'dashed', size = 0.5, alpha = 0.5)
+
+@
+
+<<printfigurescregion, results = 'asis', fig.cap = 'C - Choice of Sedation \\& Analgesia, by Region', fig.width = 7.5, fig.height = 10, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(c.target.plot.region, c.comp.plot.region, c.asmts.valid.region, c.asmts.other.region,
+          layout = matrix(c(1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 4, 4),
+                          ncol = 2, byrow = TRUE))
+@
+
+<<figuresdregion>>=
+d.comp.plot.region <- ggplot.prop(var = 'd.comp.overall',
+                                  facet.var = 'region',
+                                  facet.col = 3,
+                                  axis.text.size = 8,
+                                  title.string = 'D, Overall: >=2 Total Delirium Assessments')
+
+d.asmts.valid.region <- ggplot.prop(var = 'delirium.assess.valid',
+                                    facet.var = 'region',
+                                    facet.col = 3,
+                                    x.limits = del.x.limits,
+                                    x.breaks = del.x.breaks,
+                                    axis.text.size = 6,
+                                    axis.title.size = 7,
+                                    strip.text.size = 7,
+                                    use.xlab = 'Number of Assessments Today',
+                                    use.legend = FALSE,
+                                    title.string = 'PAD-Recommended Delirium Assessments',
+                                    title.size = 8) +
+  geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5)
+
+d.asmts.other.region <- ggplot.prop(var = 'delirium.assess.other',
+                                    facet.var = 'region',
+                                    facet.col = 3,
+                                    x.limits = del.x.limits,
+                                    x.breaks = del.x.breaks,
+                                    axis.text.size = 6,
+                                    axis.title.size = 7,
+                                    strip.text.size = 7,
+                                    use.xlab = 'Number of Assessments Today',
+                                    use.legend = FALSE,
+                                    title.string = 'Other Delirium Assessments',
+                                    title.size = 8) +
+  geom_vline(xintercept = 1.5, colour = 'grey60', linetype = 'dashed', alpha = 0.5)
+
+@
+
+<<printfiguresdregion, results = 'asis', fig.cap = 'D - Delirium - Assess, Prevent and Manage, by Region', fig.width = 7.5, fig.height = 4.25, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(d.comp.plot.region, d.asmts.valid.region, d.asmts.other.region,
+          layout = matrix(c(1, 1, 1, 1, 1, 1, 2, 3, 2, 3), ncol = 2, byrow = TRUE))
+@
+
+<<figuresefregion>>=
+e.comp.plot.region <- ggplot.prop(var = 'e.comp.overall',
+                                  facet.var = 'region',
+                                  facet.col = 3,
+                                  axis.text.size = 8,
+                                  title.string = 'E: Exercise/Mobility Performed or Attempted')
+
+e.mobility.plot.region <- ggplot.prop(var = 'mobilityhighest.f',
+                                      facet.var = 'region',
+                                      facet.col = 3,
+                                      axis.text.size = 6,
+                                      x.angle = 45, x.hjust = 1,
+                                      use.legend = FALSE,
+                                      title.string = 'E: Highest Level of Exercise/Mobility Today')
+
+f.comp.plot.region <- ggplot.prop(var = 'f.comp.overall',
+                                  facet.var = 'region',
+                                  facet.col = 3,
+                                  axis.text.size = 8,
+                                  title.string = 'F: Family Participation in Rounds/Conference')
+@
+
+<<printfiguresefregion, results = 'asis', fig.cap = 'E and F - Exercise/Mobility and Family Participation, by Region', fig.width = 7.5, fig.height = 10, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(e.comp.plot.region, e.mobility.plot.region, f.comp.plot.region,
+          layout = matrix(c(1, 1, 1, 2, 2, 2, 2, 3, 3, 3), ncol = 1))
+@
+
+%' \clearpage
+%' \section{Code Used for Analysis}
+%' <<all-code, ref.label=all_labels(), echo = TRUE, eval = FALSE>>=
+%' @
+
+\clearpage
+\section{Technical Details}
+All analyses were produced using \Sexpr{session_info()$platform$version}, along with the following
+attached add-on packages.
+
+<<printpkgs, results='asis'>>=
+latex(session_info()$packages[session_info()$packages[,2] == '*', -2], file = '',
+      where = '!h',
+      rowname = NULL,
+      caption = 'List of R Packages Loaded for This Analysis',
+      col.just = c('l', 'r', 'r', 'l'),
+      colheads = capitalize(names(session_info()$packages)[c(1, 3:ncol(session_info()$packages))]))
+
+@
+
+\end{document}

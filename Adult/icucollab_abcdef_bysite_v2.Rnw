@@ -1,0 +1,868 @@
+%% -- Specially formatted Latex comment tells RStudio to compile PDF with knitr
+% !Rnw weave = knitr
+
+\documentclass{article}
+
+\usepackage{setspace, relsize}
+\usepackage{longtable}
+\usepackage[margin = 0.425in]{geometry}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{pdflscape}
+
+\title{ICU Collaborative: ABCDEF Bundle Compliance, \Sexpr{site}}
+\author{Society of Critical Care Medicine}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\listoftables
+\listoffigures
+
+<<setup, results='hide', echo=FALSE>>=
+opts_chunk$set(echo=FALSE, results='hide', warning=FALSE, message=FALSE, cache=FALSE, error=FALSE,
+               fig.path = gsub('[ -]+', '_', site))
+options(replace.assign = TRUE, width = 90)
+@
+
+The following tables and figures present descriptions of performance and protocol compliance with
+the ABCDEF bundle at this ICU Collaborative site before and after implementation. Code for all data
+management and report generation can be found \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_reportsbysite_v2.R}{here} and \href{https://github.com/jenniferthompson/ICUCollab/blob/master/icucollab_abcdef_bysite_v2.Rnw}{here}.
+
+%\begin{landscape}
+\section{ABCDEF Bundle Compliance and Performance}
+For elements A, C, D, and E, the proportion of days compliant is out of all days where the patient
+was in the ICU the full 24 hours (row 1 in table). For element B, the proportion of SAT compliance
+is out of all days the patient was in the ICU the full 24 hours and on either continuous or
+intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where
+the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For element F, the proportion of compliance is out of all days where a family member or significant other was present.
+
+<<compliancetable>>=
+## -- Summarize compliance for each month ----------------------------------------------------------
+comp.summary.site <- compliance.site %>%
+  group_by(data.month.short) %>%
+  summarise(## Days compliance was tracked
+    days.tracked = sum(comp.tracked),
+    ## A: Assess, prevent and manage pain
+    asmt.pain.median = round(median(n.painassess.icu, na.rm = TRUE)),
+    asmt.pain.25 = round(quantile(n.painassess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.pain.75 = round(quantile(n.painassess.icu, probs = 0.75, na.rm = TRUE)),
+    days.comp.a = sum(comp.a, na.rm = TRUE),
+    pct.comp.a = mean(comp.a, na.rm = TRUE),
+    ## B: Both SAT and SBT
+    days.sedatives = sum(on.sedative.icu, na.rm = TRUE),
+    days.comp.b.sat = sum(comp.b.sat, na.rm = TRUE),
+    pct.comp.b.sat = mean(comp.b.sat, na.rm = TRUE),
+    days.perf.b.sat = sum(perf.b.sat, na.rm = TRUE),
+    pct.perf.b.sat = mean(perf.b.sat, na.rm = TRUE),
+    days.mv = sum(on.mv.icu, na.rm = TRUE),
+    days.comp.b.sbt = sum(comp.b.sbt, na.rm = TRUE),
+    pct.comp.b.sbt = mean(comp.b.sbt, na.rm = TRUE),
+    days.perf.b.sbt = sum(perf.b.sbt, na.rm = TRUE),
+    pct.perf.b.sbt = mean(perf.b.sbt, na.rm = TRUE),
+    days.satsbt = sum(had.satsbt.icu, na.rm = TRUE),
+    days.comp.b.satsbt = sum(comp.b.satsbt, na.rm = TRUE),
+    pct.comp.b.satsbt = mean(comp.b.satsbt, na.rm = TRUE),
+    ## C: Choice of analgesia and sedation
+    days.comp.c = sum(comp.c, na.rm = TRUE),
+    pct.comp.c = mean(comp.c, na.rm = TRUE),
+    asmt.sed.median = round(median(sed.assess.icu, na.rm = TRUE)),
+    asmt.sed.25 = round(quantile(sed.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.sed.75 = round(quantile(sed.assess.icu, probs = 0.75, na.rm = TRUE)),
+    ## D: Delirium - assess, prevent and manage
+    days.comp.d = sum(comp.d, na.rm = TRUE),
+    pct.comp.d = mean(comp.d, na.rm = TRUE),
+    asmt.del.median = round(median(delirium.assess.icu, na.rm = TRUE)),
+    asmt.del.25 = round(quantile(delirium.assess.icu, probs = 0.25, na.rm = TRUE)),
+    asmt.del.75 = round(quantile(delirium.assess.icu, probs = 0.75, na.rm = TRUE)),
+    ## E: Early mobility and exercise
+    days.comp.e = sum(comp.e, na.rm = TRUE),
+    pct.comp.e = mean(comp.e, na.rm = TRUE),
+    days.perf.e = sum(perf.e, na.rm = TRUE),
+    pct.perf.e = mean(perf.e, na.rm = TRUE),
+    ## F: Family engagement and empowerment
+    days.family.present = sum(family.present.icu, na.rm = TRUE),
+    days.comp.f = sum(comp.f, na.rm = TRUE),
+    pct.comp.f = mean(comp.f, na.rm = TRUE),
+    ## Overall bundle compliance and performance
+    days.comp.bundle = sum(bundle.comp, na.rm = TRUE),
+    pct.comp.bundle = mean(bundle.comp, na.rm = TRUE),
+    days.perf.bundle = sum(bundle.perf, na.rm = TRUE),
+    pct.perf.bundle = mean(bundle.perf, na.rm = TRUE),
+    total.elem.elig = sum(elements.elig, na.rm = TRUE),
+    total.elem.comp = sum(elements.comp, na.rm = TRUE),
+    total.elem.perf = sum(elements.perf, na.rm = TRUE)) %>%
+  filter(!is.na(data.month.short)) %>%
+  mutate(pct.elem.comp = total.elem.comp / total.elem.elig,
+         pct.elem.perf = total.elem.perf / total.elem.elig,
+         hosp.type = 'This Site',
+         line.alpha = 1)
+
+## Combine overall, region/type compliance numbers for plotting
+comp.summary.referencedata <-
+  bind_rows(comp.summary.overall,
+            dplyr::select(ungroup(compliance.regiontype), -hosp.region)) %>%
+  mutate(hosp.type = ifelse(hosp.type == 'All sites', hosp.type, 'Peer region/type'))
+
+## Combine overall, region/type MV, ICU LOS numbers for plotting
+mv.summary.referencedata <-
+  bind_rows(mv.summary.overall, dplyr::select(ungroup(mv.regiontype), -hosp.region)) %>%
+  mutate(hosp.type = ifelse(hosp.type == 'All sites', hosp.type, 'Peer region/type'))
+
+iculos.summary.referencedata <-
+  bind_rows(iculos.summary.overall, dplyr::select(ungroup(iculos.regiontype), -hosp.region)) %>%
+  mutate(hosp.type = ifelse(hosp.type == 'All sites', hosp.type, 'Peer region/type'))
+
+## -- Create results table by month ---------------------------------------------------------------
+results.month <- function(m){
+  mdata <-
+    unlist(subset(comp.summary.site, data.month.short == m)[,2:ncol(comp.summary.site)])
+
+  ## Combine descriptive statistics for number of assessments
+  create.asmtstats <- function(med, p25, p75){
+    paste0(mdata[med], ' (', mdata[p25], ', ', mdata[p75], ')')
+  }
+
+  pain.mediqr <- create.asmtstats('asmt.pain.median', 'asmt.pain.25', 'asmt.pain.75')
+  sed.mediqr <- create.asmtstats('asmt.sed.median', 'asmt.sed.25', 'asmt.sed.75')
+  del.mediqr <- create.asmtstats('asmt.del.median', 'asmt.del.25', 'asmt.del.75')
+
+  ## Combine percentages and counts for % compliance
+  create.npct <- function(nvar, pctvar){
+    paste0(rndformat(as.numeric(mdata[pctvar])*100, 0), '\\% (', mdata[nvar], ')')
+  }
+  npct.a <- create.npct('days.comp.a', 'pct.comp.a')
+  npct.b.sat <- create.npct('days.comp.b.sat', 'pct.comp.b.sat')
+  npct.perf.b.sat <- create.npct('days.perf.b.sat', 'pct.perf.b.sat')
+  npct.b.sbt <- create.npct('days.comp.b.sbt', 'pct.comp.b.sbt')
+  npct.perf.b.sbt <- create.npct('days.perf.b.sbt', 'pct.perf.b.sbt')
+  npct.b.satsbt <- create.npct('days.comp.b.satsbt', 'pct.comp.b.satsbt')
+  npct.c <- create.npct('days.comp.c', 'pct.comp.c')
+  npct.d <- create.npct('days.comp.d', 'pct.comp.d')
+  npct.e <- create.npct('days.comp.e', 'pct.comp.e')
+  npct.perf.e <- create.npct('days.perf.e', 'pct.perf.e')
+  npct.f <- create.npct('days.comp.f', 'pct.comp.f')
+  npct.bundle <- create.npct('days.comp.bundle', 'pct.comp.bundle')
+  npct.perf.bundle <- create.npct('days.perf.bundle', 'pct.perf.bundle')
+
+  c(mdata['days.tracked'],
+    npct.a, pain.mediqr,
+    mdata['days.sedatives'], npct.b.sat, npct.perf.b.sat,
+    mdata['days.mv'], npct.b.sbt, npct.perf.b.sbt,
+    mdata['days.satsbt'], npct.b.satsbt,
+    npct.c, sed.mediqr,
+    npct.d, del.mediqr,
+    npct.e, npct.perf.e,
+    mdata['days.family.present'], npct.f,
+    npct.bundle, npct.perf.bundle)
+
+}
+
+compliance.table <- do.call(cbind, lapply(levels(demog.site$data.month.short), FUN = results.month))
+rownames(compliance.table) <- c('Days comp. tracked',
+                                'Pain asmt comp.',
+                                'Pain asmts/day',
+                                'Days on sedatives',
+                                'SAT protocol comp.',
+                                'SAT performance',
+                                'Days on MV',
+                                'SBT protocol comp.',
+                                'SBT performance',
+                                'Days with SAT+SBT',
+                                'Days SAT before SBT',
+                                'Sedation asmt comp.',
+                                'Sedation asmts/day',
+                                'Delirium asmt comp.',
+                                'Delirium asmts/day',
+                                'Early mobility comp.',
+                                'Early mobility perf.',
+                                'Days family present',
+                                'Family****** comp.',
+                                'Overall compliance',
+                                'Overall performance')
+colnames(compliance.table) <- levels(demog.site$data.month)
+
+
+### FIGURES: big plot for site-specific over time
+refline.shade <- 'grey50'
+plot.compliance <- function(compvar,
+                            ytitle,
+                            ylims = c(0, 1),
+                            ybreaks = 0.2,
+                            refline.size = 1.5,
+                            dataset = comp.summary.site){
+  ggplot(data = dataset, aes_string(x = 'data.month.short', y = compvar)) +
+    facet_wrap(~ hosp.type, ncol = 2) +
+    geom_hline(yintercept = 0.9, linetype = 'dotted', colour = refline.shade) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = refline.size) +
+    geom_line(aes(group = hosp.type), colour = 'black') +
+    geom_point(colour = 'black') +
+    scale_x_discrete(name = '') +
+    scale_y_continuous(name = ytitle,
+                       limits = ylims,
+                       breaks = seq(0, 1, ybreaks),
+                       labels = paste0(seq(0, 1, ybreaks)*100, '%')) +
+    theme(axis.ticks = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+          axis.title.y = element_text(size = 9),
+          axis.text.y = element_text(size = 7))
+
+}
+
+plot.comp.a <- plot.compliance('pct.comp.a', 'Pain Asmt Compliance Out of All ICU Days') +
+  labs(title = 'A: Assess, prevent and manage pain') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.a.ref <- plot.compliance('pct.comp.a', 'Pain Asmt Compliance Out of All ICU Days',
+                                   data = comp.summary.referencedata) +
+  labs(title = '')
+
+plot.comp.b.sat <-
+  plot.compliance('pct.comp.b.sat',
+                  'SAT Protocol Compliance Out of All ICU Days on Sedation',
+                  refline.size = 1) +
+    labs(title = 'B: Both SAT + SBT') +
+    theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.b.sat.ref <-
+  plot.compliance('pct.comp.b.sat',
+                  'SAT Protocol Compliance Out of All ICU Days on Sedation',
+                  refline.size = 1,
+                  data = comp.summary.referencedata) +
+    labs(title = '')
+plot.perf.b.sat <-
+  plot.compliance('pct.perf.b.sat',
+                  'SAT Performance Out of All ICU Days on Sedation',
+                  refline.size = 1) +
+    labs(title = 'B: Both SAT + SBT') +
+    theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.perf.b.sat.ref <-
+  plot.compliance('pct.perf.b.sat',
+                  'SAT Performance Out of All ICU Days on Sedation',
+                  refline.size = 1,
+                  data = comp.summary.referencedata) +
+    labs(title = '')
+
+plot.comp.b.sbt <-
+  plot.compliance('pct.comp.b.sbt',
+                  'SBT Protocol Compliance Out of All ICU Days on MV',
+                  refline.size = 1) +
+  labs(title = '')
+plot.comp.b.sbt.ref <-
+  plot.compliance('pct.comp.b.sbt',
+                  'SBT Protocol Compliance Out of All ICU Days on MV',
+                  refline.size = 1,
+                  data = comp.summary.referencedata) +
+  labs(title = '')
+plot.perf.b.sbt <-
+  plot.compliance('pct.perf.b.sbt',
+                  'SBT Performance Out of All ICU Days on MV',
+                  refline.size = 1) +
+  labs(title = '')
+plot.perf.b.sbt.ref <-
+  plot.compliance('pct.perf.b.sbt',
+                  'SBT Performance Out of All ICU Days on MV',
+                  refline.size = 1,
+                  data = comp.summary.referencedata) +
+  labs(title = '')
+plot.perf.b.satsbt <- plot.compliance('pct.comp.b.satsbt',
+                                      'SAT Prior to SBT Out of All Days with SAT+SBT',
+                                      refline.size = 1) +
+  labs(title = '')
+plot.perf.b.satsbt.ref <- plot.compliance('pct.comp.b.satsbt',
+                                          'SAT Prior to SBT Out of All Days with SAT+SBT',
+                                          refline.size = 1,
+                                          data = comp.summary.referencedata) +
+  labs(title = '')
+
+plot.comp.c <- plot.compliance('pct.comp.c',
+                               'Sedation Asmt Compliance Out of All ICU Days on Sedation') +
+  labs(title = 'C: Choice of analgesia and sedation') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.c.ref <- plot.compliance('pct.comp.c',
+                                   'Sedation Asmt Compliance Out of All ICU Days on Sedation',
+                                   data = comp.summary.referencedata) +
+  labs(title = '')
+
+plot.comp.d <- plot.compliance('pct.comp.d',
+                               'Delirium Asmt Compliance Out of All ICU Days') +
+  labs(title = 'D: Delirium - assess, prevent and manage') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.d.ref <- plot.compliance('pct.comp.d',
+                                   'Delirium Asmt Compliance Out of All ICU Days',
+                                   data = comp.summary.referencedata) +
+  labs(title = '')
+
+plot.comp.e <- plot.compliance('pct.comp.e', 'Early Mobility Compliance Out of All ICU Days',
+                               refline.size = 1) +
+  labs(title = 'E: Early mobility and exercise') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.e.ref <- plot.compliance('pct.comp.e',
+                                   'Early Mobility Compliance Out of All ICU Days',
+                                   refline.size = 1,
+                                   data = comp.summary.referencedata) +
+  labs(title = '')
+plot.perf.e <- plot.compliance('pct.perf.e', 'Early Mobility Performance Out of All ICU Days',
+                               refline.size = 1) +
+  labs(title = 'E: Early mobility and exercise') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.perf.e.ref <- plot.compliance('pct.perf.e',
+                                   'Early Mobility Performance Out of All ICU Days',
+                                   refline.size = 1,
+                                   data = comp.summary.referencedata) +
+  labs(title = '')
+
+plot.comp.f <- plot.compliance('pct.comp.f',
+                               'Family Engagement Compliance Out of All ICU Days Family Present',
+                               refline.size = 1) +
+  labs(title = 'F: Family engagement') +
+  theme(plot.title = element_text(hjust = 0, face = 'bold'))
+plot.comp.f.ref <-
+  plot.compliance('pct.comp.f',
+                  'Family Engagement Compliance Out of All ICU Days Family Present',
+                  refline.size = 1,
+                  data = comp.summary.referencedata) +
+  labs(title = '')
+plot.comp.bundle <- plot.compliance('pct.comp.bundle',
+                                    'Overall ABCDEF Bundle Compliance') +
+  labs(title = 'ABCDEF Bundle Compliance')
+plot.comp.bundle.ref <- plot.compliance('pct.comp.bundle',
+                                        'Overall ABCDEF Bundle Compliance',
+                                        data = comp.summary.referencedata) +
+  labs(title = '')
+plot.perf.bundle <- plot.compliance('pct.perf.bundle',
+                                    'Overall ABCDEF Bundle Performance') +
+  labs(title = 'ABCDEF Bundle Performance')
+plot.perf.bundle.ref <- plot.compliance('pct.perf.bundle',
+                                        'Overall ABCDEF Bundle Performance',
+                                        data = comp.summary.referencedata) +
+  labs(title = '')
+
+plot.comp.elements <- plot.compliance('pct.elem.comp',
+                                      'Percent of Bundle Elements Compliant',
+                                      ylims = c(0,
+                                                max(comp.summary.site[,c('pct.elem.comp',
+                                                                         'pct.elem.perf')],
+                                                    na.rm = TRUE)),
+                                      ybreaks = 0.05) +
+  labs(title = 'ABCDEF Bundle Element Compliance',
+       subtitle = 'Bundle elements compliant / bundle elements eligible')
+plot.comp.elements.ref <- plot.compliance('pct.elem.comp',
+                                          'Percent of Bundle Elements Compliant',
+                                          dataset = comp.summary.referencedata,
+                                          ylims = c(0,
+                                                    max(comp.summary.referencedata[,c('pct.elem.comp',
+                                                                                      'pct.elem.perf')],
+                                                        na.rm = TRUE)),
+                                          ybreaks = 0.05)
+
+plot.perf.elements <- plot.compliance('pct.elem.perf',
+                                      'Percent of Bundle Elements Performed',
+                                      ylims = c(0,
+                                                max(comp.summary.site[,c('pct.elem.comp',
+                                                                    'pct.elem.perf')],
+                                                    na.rm = TRUE)),
+                                      ybreaks = 0.05) +
+  labs(title = 'ABCDEF Bundle Element Performance',
+       subtitle = 'Bundle elements performed / bundle elements eligible')
+plot.perf.elements.ref <- plot.compliance('pct.elem.perf',
+                                          'Percent of Bundle Elements Performed',
+                                          dataset = comp.summary.referencedata,
+                                           ylims = c(0,
+                                                     max(comp.summary.referencedata[,c('pct.elem.comp',
+                                                                                       'pct.elem.perf')],
+                                                         na.rm = TRUE)),
+                                          ybreaks = 0.05)
+
+
+## -- Function to plot number of assessments over time ---------------------------------------------
+plot.assessments <- function(asmtvar){
+  ggplot(data = subset(compliance.site, comp.tracked & !is.na(data.month.short)),
+         aes_string(x = 'data.month.short', y = asmtvar)) +
+    geom_vline(xintercept = 1.5, colour = 'white', size = 1) +
+    geom_boxplot(fill = NA,
+                 colour = 'black') +
+    scale_x_discrete(name = '') +
+    theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1, vjust = 1),
+          axis.text.y = element_text(size = 6, hjust = 1),
+          axis.title.y = element_text(size = 7)) +
+    labs(title = '')
+}
+
+box.asmts.a <- plot.assessments(asmtvar = 'n.painassess.icu') +
+  scale_y_continuous(name = 'Pain Assessments in 24h On All ICU Days',
+                     limits = c(0, 35), breaks = seq(0, 35, 5)) +
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = refline.shade)
+box.asmts.c <- plot.assessments(asmtvar = 'sed.assess.icu') +
+  scale_y_continuous(name = 'Sedation Assessments in 24h On All ICU Days',
+                     limits = c(0, 25), breaks = seq(0, 25, 5)) +
+  geom_hline(yintercept = 6, linetype = 'dotted', colour = refline.shade)
+box.asmts.d <- plot.assessments(asmtvar = 'delirium.assess.icu') +
+  scale_y_continuous(name = 'Delirium Assessments in 24h On All ICU Days',
+                     limits = c(0, 10), breaks = seq(0, 10, 2)) +
+  geom_hline(yintercept = 2, linetype = 'dotted', colour = refline.shade)
+
+
+## -- Figures showing compliance + performance for SAT, SBT, E components (all sites) --------------
+compperf.overall <- comp.summary.site %>%
+  dplyr::select(data.month.short, pct.comp.b.sat, pct.perf.b.sat, pct.comp.b.sbt, pct.perf.b.sbt,
+                pct.comp.e, pct.perf.e) %>%
+  gather(key = element_cp, value = pct, pct.comp.b.sat:pct.perf.e) %>%
+  mutate(element_cp = gsub('^pct\\.', '', gsub('\\.b\\.', '\\.', element_cp))) %>%
+  separate(element_cp, into = c('cp', 'element'), sep = '\\.') %>%
+  mutate(element = factor(ifelse(element == 'sat', 1,
+                          ifelse(element == 'sbt', 2, 3)),
+                          levels = 1:3, labels = c('B: SAT', 'B: SBT', 'E: Early Mobility')),
+         cp = factor(ifelse(cp == 'comp', 1, 2),
+                     levels = 1:2,
+                     labels = c('Compliance', 'Performance')))
+
+plot.compperf <-
+  ggplot(data = compperf.overall, aes(x = data.month.short, y = pct, group = cp)) +
+    facet_wrap(~ element, nrow = 1) +
+    geom_line(aes(colour = cp)) +
+    geom_point(aes(colour = cp)) +
+    scale_color_manual(values = as.character(magglass.colors[c('f', 'c')])) +
+    scale_x_discrete(name = NULL) +
+    scale_y_continuous(name = 'Percent of Patient-Days',
+                       limits = c(0, 1),
+                       breaks = seq(0, 1, 0.2),
+                       labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+    labs(title = 'Compliance and Performance Over Time',
+         caption = "Compliance reflects whether the ABCDEF protocol was followed and documented completely: safety screen, followed by performance if safe.\nPerformance reflects whether the activity was performed, regardless of safety screen.") +
+    theme(strip.text = element_text(face = 'bold', hjust = 0, size = 12),
+          strip.background = element_blank(),
+          axis.text.x = element_text(angle = 45, size = 7, hjust = 1),
+          plot.caption = element_text(face = 'italic', size = 8),
+          legend.title = element_blank(),
+          legend.key = element_blank(),
+          legend.position = c(1, 1),
+          legend.justification = c(1, 1),
+          legend.background = element_blank())
+
+@
+
+<<medmobilityfigure>>=
+drug.data <- compliance.site %>%
+  group_by(data.month.short) %>%
+  summarise(prop.benzo = mean(benzo.icu, na.rm = TRUE),
+            prop.opioid = mean(opioid.icu, na.rm = TRUE),
+            prop.propofol = mean(propofol.icu, na.rm = TRUE),
+            prop.antipsyc.typ = mean(antipsyc.typ.icu, na.rm = TRUE)) %>%
+  gather(key = drug, value = proportion, prop.benzo:prop.antipsyc.typ) %>%
+  mutate(drug.f = factor(ifelse(drug == 'prop.benzo', 1,
+                         ifelse(drug == 'prop.opioid', 2,
+                         ifelse(drug == 'prop.propofol', 3,
+                         ifelse(drug == 'prop.antipsyc.typ', 4, NA)))),
+                         levels = 1:4,
+                         labels = c('Benzodiazepines', 'Opioids', 'Propofol',
+                                    'Typical Antipsychotics')))
+
+drug.plot <- ggplot(data = drug.data,
+                    aes(x = data.month.short, y = proportion, group = drug.f, colour = drug.f)) +
+  geom_line() +
+  geom_point() +
+  scale_colour_manual(values = as.character(magglass.colors[c('e', 'f', 'c', 'b')])) +
+  scale_x_discrete(name = NULL) +
+  scale_y_continuous(name = 'Percent of Patient-Days',
+                     #limits = c(0, 1),
+                     breaks = seq(0, 1, 0.2), labels = paste0(seq(0, 1, 0.2)*100, '%')) +
+  labs(title = "Sedative and Analgesic Use") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = 'bold'),
+        legend.position = 'top',
+        legend.margin = margin(t = 0, r = 0, l = 0, b = 0),
+        legend.justification = c(0, 0),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 1)
+
+mobility.data <- compliance.site %>%
+  mutate(mobility.ap = factor(ifelse(!comp.tracked, NA,
+                              ifelse(is.na(mobility.high.icu) |
+                                       mobility.high.icu %in% c('Not documented /unclear',
+                                                                'Active ROM - in bed'), 1,
+                              ifelse(mobility.high.icu %in% c(#'Active ROM - in bed',
+                                                              'Dangle - side of bed',
+                                                              'Stand at side of bed'), 2,
+                              ifelse(mobility.high.icu %in%
+                                       c('Active Transfer - out of bed to chair', 'March in place',
+                                         'Walk in room', 'Walk  in hall'), 3, NA)))),
+                              levels = 1:3,
+                              labels = c('Not enough mobility recorded', 'Passive', 'Active'))) %>%
+  group_by(data.month.short) %>%
+  summarise(Passive = mean(mobility.ap == 'Passive', na.rm = TRUE),
+            Active = mean(mobility.ap == 'Active', na.rm = TRUE)) %>%
+  gather(key = mobility.type, value = proportion, Passive:Active) %>%
+  mutate(mobility.f = factor(ifelse(mobility.type == 'Passive', 'Passive - dangling, standing',
+                             ifelse(mobility.type == 'Active', 'Active - transfer, march, walk',
+                                    NA))))
+
+mobility.plot <- ggplot(data = mobility.data,
+                        aes(x = data.month.short, y = proportion,
+                            group = mobility.f, colour = mobility.f)) +
+  geom_line() +
+  geom_point() +
+  scale_colour_manual(values = as.character(magglass.colors[c('e', 'f', 'c', 'b')])) +
+  scale_x_discrete(name = NULL) +
+  scale_y_continuous(name = 'Percent of Patient-Days',
+                     limits = c(0, max(mobility.data$proportion)),
+                     breaks = seq(0, 1, 0.05), labels = paste0(seq(0, 1, 0.05)*100, '%')) +
+  labs(title = "Highest Level of Mobility Performed") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = 'bold'),
+        legend.position = 'top',
+        legend.margin = margin(t = 0, r = 0, l = 0, b = 0),
+        legend.justification = c(0, 0),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.text.align = 1)
+
+@
+
+\begin{landscape}
+<<printcompliancefigs_a, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element A', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.a, plot.comp.a.ref,
+          layout = matrix(c(1, 2), byrow = TRUE, nrow = 2))
+
+@
+
+\noindent \textbf{Assess, prevent and manage pain}: There was documentation that the patient received a minimum of 6 pain assessments in a 24-hour period using a PAD Guideline recommended instrument (i.e., self-report, NRS, BPS or CPOT).
+
+\clearpage
+<<printcompliancefigs_b, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element B', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.perf.b.sat, plot.perf.b.sbt, plot.perf.b.satsbt,
+          plot.perf.b.sat.ref, plot.perf.b.sbt.ref, plot.perf.b.satsbt.ref,
+          layout = matrix(c(1, 1, 2, 2, 3, 3,
+                            4, 4, 5, 5, 6, 6),
+                          byrow = TRUE, nrow = 2))
+
+@
+
+\noindent \textbf{Both SAT and SBT}\\
+\textbf{Days on sedative}: In patients receiving continuously infused (CI) and/or scheduled intermittent sedatives/opioids, the patient passed a SAT safety screen and received a SAT in the 24 hours period.
+\textbf{Days on mechanical ventilation}: In patients receiving invasive mechanical ventilation (MV), the patient passed a SBT safety screen and received a SBT in the 24 hours period.
+In patients who received both a SAT and a SBT, the SAT was performed before a SBT in the prior 24 hours period.
+
+\clearpage
+<<printcompliancefigs_c, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element C', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.c, plot.comp.c.ref,
+          layout = matrix(c(1, 2), byrow = TRUE, nrow = 2))
+
+@
+
+\noindent \textbf{Choice of analgesia and sedation}: There was documentation that the patient received a minimum of 6 sedation/agitation assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., RASS, SAS).
+
+\clearpage
+<<printmedinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
+latex(summaryM(opioid.icu + benzo.icu + propofol.icu + dex.icu + ketam.icu + antipsyc.typ.icu +
+                 antipsyc.atyp.icu + no.sedanal.icu ~ data.month,
+               data = subset(compliance.site, comp.tracked)), file = '',
+      # landscape = TRUE,
+      where = '!h',
+      what = '%',
+      title = '',
+      npct = 'none',
+      prn = FALSE,
+      prN = FALSE,
+      long = TRUE,
+      size = 'scriptsize',
+      caption = 'Sedatives and Analgesics in the ICU',
+      caption.lot = 'Sedatives and Analgesics in the ICU',
+      label = 'table:meds')
+
+drug.plot
+
+@
+
+\clearpage
+<<printcompliancefigs_d, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element D', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.d, plot.comp.d.ref,
+          layout = matrix(c(1, 2), byrow = TRUE, nrow = 2))
+
+@
+
+\noindent \textbf{Delirium: assess, prevent and manage}: There was documentation that the patient received a minimum of 2 delirium assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., CAM-ICU, ICDSC).
+
+\clearpage
+<<printcompliancefigs_e, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element E', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.perf.e, plot.perf.e.ref,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+\noindent \textbf{Early mobility and exercise}: There was documentation that the patient passed an early exercise/mobility safety screen and the patient received exercise/mobility in the prior 24 hours.
+
+\clearpage
+<<printmobilityinfo, results = 'asis', fig.width = 8, fig.height = 5>>=
+latex(summaryM(mobility.high.shortlabs ~ data.month, data = subset(compliance.site, comp.tracked)),
+      file = '',
+      # landscape = TRUE,
+      where = '!h',
+      what = '%',
+      title = '',
+      npct = 'none',
+      prn = FALSE,
+      prN = FALSE,
+      long = TRUE,
+      size = 'scriptsize',
+      caption = 'Early Mobility in the ICU',
+      caption.lot = 'Early Mobility in the ICU',
+      label = 'table:mobility')
+
+mobility.plot
+
+@
+
+\clearpage
+<<printcompliancefigs_f, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Element F', fig.height = 6.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.f, plot.comp.f.ref,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+\noindent \textbf{Family engagement and empowerment}: Documentation at least once in a 24-hour period that a family member/significant other participated in rounds or a family conference or assisted with the plan of care or the ABCDEF Bundle Care or received education on the bundle elements.
+
+\clearpage
+<<printcompperffigs, results = 'asis', fig.cap = 'Compliance and Performance Over Time: Elements B and E', fig.height = 5.5, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+plot.compperf
+
+@
+
+\clearpage
+<<printcompliancefigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.bundle, plot.perf.bundle, plot.comp.bundle.ref, plot.perf.bundle.ref,
+          layout = matrix(c(1, 2, 1, 2, 3, 4), byrow = TRUE, nrow = 3))
+
+@
+
+\clearpage
+<<printelementfigs_overall, results = 'asis', fig.cap = 'ABCDEF Bundle Elements Compliance and Performance Over Time: Total', fig.height = 7, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(plot.comp.elements, plot.perf.elements,
+          plot.comp.elements.ref, plot.perf.elements.ref,
+          layout = matrix(c(1, 2, 3, 4), byrow = TRUE, nrow = 2))
+
+@
+
+\clearpage
+\section{Secondary Outcomes}
+\subsection{Hours on Mechanical Ventilation}
+Figure \ref{fig:printhoursmv} presents the median (point) and interquartile range (errorbar; bottom = 25th percentile, top = 75th percentile) by month for hours on mechanical ventilation during each hospitalization. Patients who never received MV are assigned 0 hours.
+
+<<plothoursmv>>=
+mv.summary.site <- demog.site %>%
+  ## Here in case they want to include non-MV patients
+  # mutate(hrs.invas.vent.all = ifelse(is.na(hrs.invas.vent) &
+  #                                      !is.na(ever.invas.vent) &
+  #                                      ever.invas.vent == 'No', 0,
+  #                                    hrs.invas.vent)) %>%
+  mutate(hrs.invas.vent.all = hrs.invas.vent) %>%
+  group_by(data.month.short) %>%
+  summarise(med.hrs.mv = median(hrs.invas.vent.all, na.rm = TRUE),
+            q25.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.25, na.rm = TRUE),
+            q75.hrs.mv = quantile(hrs.invas.vent.all, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'This Site')
+
+## Plot for reference, faceted by hosp.type: hrs.mv.plot.ref
+hrs.mv.plot.site <- ggplot(data = mv.summary.site, aes(x = data.month.short, y = med.hrs.mv)) +
+  facet_wrap(~ hosp.type) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.hrs.mv, ymax = q75.hrs.mv), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) Hours on MV\nAmong Patients who Received MV') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+hrs.mv.plot.ref <- ggplot(data = mv.summary.referencedata,
+                          aes(x = data.month.short, y = med.hrs.mv)) +
+  facet_wrap(~ hosp.type, ncol = 2) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.hrs.mv, ymax = q75.hrs.mv), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) Hours on MV\nAmong Patients who Received MV') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+@
+
+<<printhoursmv, results = 'asis', fig.cap = 'Hours on Mechanical Ventilation by Month', fig.height = 6, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(hrs.mv.plot.site, hrs.mv.plot.ref,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+
+\clearpage
+\subsection{ICU Length of Stay}
+Figure \ref{fig:printiculos} presents the median (point) and interquartile range (errorbar; bottom = 25th percentile, top = 75th percentile) by month for ICU length of stay.
+
+<<ploticulos>>=
+iculos.summary.site <- demog.site %>%
+  group_by(data.month.short) %>%
+  summarise(med.icu.los = median(icu.los, na.rm = TRUE),
+            q25.icu.los = quantile(icu.los, probs = 0.25, na.rm = TRUE),
+            q75.icu.los = quantile(icu.los, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(hosp.type = 'This Site')
+
+## Plot for reference, faceted by hosp.type: hrs.mv.plot.ref
+icu.los.plot.site <- ggplot(data = iculos.summary.site, aes(x = data.month.short, y = med.icu.los)) +
+  facet_wrap(~ hosp.type) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.icu.los, ymax = q75.icu.los), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) ICU Length of Stay') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+icu.los.plot.ref <- ggplot(data = iculos.summary.referencedata,
+                           aes(x = data.month.short, y = med.icu.los)) +
+  facet_wrap(~ hosp.type, ncol = 2) +
+  geom_line(aes(group = hosp.type), colour = 'black') +
+  geom_pointrange(aes(ymin = q25.icu.los, ymax = q75.icu.los), colour = 'black', alpha = 0.4) +
+  geom_point(aes(group = hosp.type), colour = 'black') +
+  scale_x_discrete(name = '') +
+  scale_y_continuous(name = 'Median (25th, 75th Percentiles) ICU Length of Stay') +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+        axis.title.y = element_text(size = 9),
+        axis.text.y = element_text(size = 7),
+        panel.grid.major.x = element_blank())
+
+@
+
+<<printiculos, results = 'asis', fig.cap = 'ICU Length of Stay by Month', fig.height = 6, fig.width = 10.5, fig.pos = '!h', fig.align = 'center'>>=
+multiplot(icu.los.plot.site, icu.los.plot.ref,
+          layout = matrix(1:2, byrow = TRUE, nrow = 2))
+
+@
+\end{landscape}
+
+\clearpage
+\section{Demographic, Baseline, and Hospital Stay Characteristics}
+Table \ref{table:descstats} describes the patients whose data was collected during the retrospective
+and prospective data collection period. There are \Sexpr{format(length(unique(demog.site$id)), big.mark = ',')} unique patient IDs with data recorded up to month \Sexpr{last.month}; of these,
+\Sexpr{format(length(unique(subset(demog.site, data.time == 'Retrospective')$id)), big.mark = ',')}
+were collected during the retrospective period (months 1-6), and \Sexpr{format(length(unique(subset(demog.site, data.time == 'Prospective')$id)), big.mark = ',')} were collected during the prospective period (months 7-\Sexpr{last.month}).
+
+For continuous variables (like hours of invasive ventilation), the 25th, 50th, and 75th percentiles
+are shown, in that order. The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a ``typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+
+For example, for ICU length of stay in the retrospective cohort (see Table \ref{table:descstats}),
+25\% of patients had \Sexpr{quantile.example['25%']} or fewer days in the ICU; half the patients had
+\Sexpr{quantile.example['50%']} or fewer days in the ICU; and 75\% of patients had
+\Sexpr{quantile.example['75%']} or fewer days in the ICU.
+
+<<desccohort>>=
+## These are all the variables we *want* to include in descriptives; in cases where all values are
+## NA, code breaks. So select only variables where there is at least one non-missing value.
+desc.vars <- c('agecat.f', 'sex.f', 'race.f', 'hispanic.f', 'english.f', 'ever.invas.vent',
+               'hrs.invas.vent', 'ever.noninvas.vent', 'hrs.noninvas.vent', 'ever.delirious',
+               'days.delirium.ever', 'ever.comatose', 'days.coma.ever', 'icu.los', 'hosp.losv',
+               'dc.status.f')
+desc.vars.allna <- unlist(lapply(desc.vars, FUN = function(v){ sum(!is.na(demog.site[,v])) == 0 }))
+desc.vars.use <- desc.vars[!desc.vars.allna]
+
+desc.all <- summaryM(as.formula(paste(paste(desc.vars.use, collapse = ' + '), '~ data.time')),
+                     data = demog.site)
+
+@
+
+<<printdesccohort, results = 'asis'>>=
+my.print.summaryM(desc.all,
+                  caption = 'Description of Entire Cohort',
+                  caption.lot = 'Description of Entire Cohort',
+                  exclude1 = FALSE,
+                  size = 'footnotesize',
+                  label = 'table:descstats')
+
+@
+
+
+\begin{landscape}
+\subsection{Compliance on Days Patient in ICU All 24 Hours}
+
+Table \ref{table:compliance} presents compliance results by time period for all parts of the ABCDEF
+Bundle. For elements A, C, D, and E, the proportion of days compliant is out of all days where the
+patient was in the ICU the full 24 hours (row 1 in table). For element B, the proportion of SAT
+compliance is out of all days the patient was in the ICU the full 24 hours and on either continuous or intermittent scheduled sedation; the proportion of SBT compliance, out of all days in the ICU where the patient received invasive mechanical ventilation; and for SAT+SBT, out of all days in the ICU where both an SAT and SBT were performed. For element F, the proportion of compliance is out of all days where a family member or significant other was present.
+
+The number of pain, sedation and delirium assessments are described using the median (25th, 75th percentiles). The 50th percentile (median) is the ``middle" value in the cohort, or the closest value to a "typical" patient: half the patients have a value below that number, and half the patients have a value above it.
+
+<<printcompliancetable, results = 'asis'>>=
+latex(compliance.table, file = '',
+      # landscape = TRUE,
+      where = '!h',
+      title = '',
+      caption = 'ABCDEF Bundle Protocol Compliance and Performance',
+      caption.lot = 'ABCDEF Bundle Protocol Compliance and Performance',
+      label = 'table:compliance',
+      size = 'tiny',
+      rgroup = c('',
+                 'A: Assess...*',
+                 'B: Both...**',
+                 'C: Choice...***',
+                 'D: Delirium...****',
+                 'E: Early...*****',
+                 'F: Family...******',
+                 'ABCDEF Bundle'),
+      n.rgroup = c(1, 2, 8, 2, 2, 2, 2, 2),
+      colheads = c('Retro.', paste0('M', 7:last.month)),
+      col.just = rep('r', ncol(compliance.table)),
+      insert.top = "\\\\ \\emph{Note: Continuous variables are described as median (25th percentile, 75th percentile). All other variables are described as frequency (percentage). \\\\ Abbrevations: asmt. = assessment; comp. = compliance; perf. = performance; SAT = spontaneous awakening trial; SBT = spontaneous breathing trial.}",
+      insert.bottom = '\\emph{* ``Assess, prevent, and manage pain"; ** ``Both SAT and SBT"; *** ``Choice of analgesia and sedation"; **** ``Delirium - assess, prevent, and manage pain"; *****``Early mobility and exercise"; ****** ``Family engagement and empowerment"}')
+
+@
+
+% \section{Data Definitions}
+% \begin{table}[!h]
+% \caption[Data Definitions]{Data Definitions\label{}}
+% \begin{center}
+% \begin{tabular}{lp{18cm}}
+% \hline\hline
+% \multicolumn{1}{l}{}&\multicolumn{1}{}{Compliance Definition}\tabularnewline
+% \hline
+% {\bfseries Days Compliance Was Tracked}&\tabularnewline
+% ~~ &Days where patient was in the ICU a full 24 hours during the 7 or 14 day period.\tabularnewline
+% \hline
+% {\bfseries Assess, prevent and manage pain}&\tabularnewline
+% ~~  &There was documentation that the patient received a minimum of 6 pain assessments in the 24 hour period using a PAD Guideline recommended instrument (i.e., self-report, NRS, BPS or CPOT).\tabularnewline\tabularnewline
+% ~~   &The number of pain assessments/day using self-report/NRS, BPS or CPOT that were documented in the nursing flowsheet.\tabularnewline
+% \hline
+% {\bfseries Both SAT and SBT}&\tabularnewline
+% ~~    &\textbf{Days on sedative:} In patients receiving continuously infused (CI) and/or scheduled intermittent sedatives/opioids, the patient passed a SAT safety screen and received a SAT in the 24 hours period.\tabularnewline\tabularnewline
+% ~~     &\textbf{Days on mechanical ventilation:} In patients receiving invasive mechanical ventilation (MV), the patient passed a SBT safety screen and received a SBT in the 24 hours period.\tabularnewline\tabularnewline
+% ~~      &In patients who received both a SAT and a SBT, the SAT was performed before a SBT in the prior 24 hours period.\tabularnewline
+% \hline
+% {\bfseries Choice of analgesia and sedation}&\tabularnewline
+% ~~       &There was documentation that the patient received a minimum of 6 sedation/agitation assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., RASS, SAS).\tabularnewline\tabularnewline
+% ~~        &The number of sedation assessments/day using the RASS or SAS that were documented in the nursing flowsheet.\tabularnewline
+% \hline
+% {\bfseries Delirium: assess, prevent and manage}&\tabularnewline
+% ~~         &There was documentation that the patient received a minimum of 2 delirium assessments in the prior 24 hour period using a PAD Guideline recommended instrument (i.e., CAM-ICU, ICDSC).\tabularnewline\tabularnewline
+% ~~          &The number of delirium assessments/day using the CAM-ICU or ICDSC that were documented in the nursing flowsheet.\tabularnewline
+% \hline
+% {\bfseries Early mobility and exercise}&\tabularnewline
+% ~~           &There was documentation that the patient passed an early exercise/mobility safety screen and the patient received exercise/mobility in the prior 24 hours.\tabularnewline\tabularnewline
+% ~~           &\emph{Early exercise/mobility is defined as, at a minimum, sitting assisted or unassisted at the edge of bed (i.e., active and passive range of motion, or passive bed to chair transfers not included).}\tabularnewline
+% \hline
+% {\bfseries Family engagement and empowerment}&\tabularnewline
+% ~~            &Documentation at least once in a 24-hour period that a family member/significant other participated in rounds or a family conference or assisted with the plan of care or the ABCDEF Bundle Care or received education on the bundle elements.\tabularnewline
+% \hline
+% \end{tabular}\end{center}
+%
+% \end{table}
+
+\end{landscape}
+\end{document}
