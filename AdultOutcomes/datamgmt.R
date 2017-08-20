@@ -379,3 +379,23 @@ compliance <- compliance %>%
                       !(mobilityhighest_f %in%
                           c("Not documented /unclear", "Active ROM - in bed")))
   )
+
+## -- F: Family engagement and empowerment -------------------------------------
+compliance <- compliance %>%
+  mutate(
+    ## Indicator for whether family was documented to be present
+    family_present = !is.na(familyvisit_f) & familyvisit_f == "Yes",
+    family_present_icu = ifelse(!icu_day, NA, family_present),
+
+    ## Compliance: Family member did at least one of
+    ## - Took part in rounds or conference
+    ## - Assisted in plan of care or ABCDEF care
+    ## - Educated on pain, agitation/sedation, delirium, mobility, bundle
+    comp_f = ifelse(!icu_day | !family_present_icu, NA,
+                    familyinvite_2 | familyinvite_3 | familyparticipate_1 |
+                    familyparticipate_2 | familyeducate_1 | familyeducate_2 |
+                    familyeducate_3 | familyeducate_4 | familyeducate_5),
+
+    ## Performance: Same definition
+    perf_f = comp_f
+  )
