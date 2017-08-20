@@ -299,3 +299,26 @@ compliance <- compliance %>%
     ## Performance: Same definition
     perf_c = comp_c
   )
+
+## -- D: Assess, prevent and manage delirium -----------------------------------
+compliance <- compliance %>%
+  mutate(
+    ## Indicator for whether patient was comatose *in the ICU*
+    coma_icu = ifelse(!icu_day |
+                        is.na(coma_f) | coma_f == "Not documented/unclear", NA,
+                      coma_f == "Yes"),
+
+    ## Number of delirium assessments per day in the ICU using a validated tool
+    ## A few have a negative value - make these NA
+    del_assess_valid_icu =
+      ifelse(!icu_day |
+               (!is.na(delirium_assess_valid) & delirium_assess_valid < 0), NA,
+             delirium_assess_valid),
+
+    ## Compliance: Number of assessments is documented and is >=2
+    comp_d = ifelse(!icu_day, NA,
+                    !is.na(del_assess_valid_icu) & del_assess_valid_icu >= 2),
+
+    ## Performance: Same definition
+    perf_d = comp_d
+  )
