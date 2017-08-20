@@ -216,7 +216,7 @@ compliance <- compliance %>%
   )
 
 ## -- B: Both SAT and SBT ------------------------------------------------------
-compliance2 <- compliance %>%
+compliance <- compliance %>%
   mutate(
     ## Can't determine if patient was on sedation if none of the sedative
     ## options are checked
