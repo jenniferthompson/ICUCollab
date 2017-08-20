@@ -343,6 +343,31 @@ compliance <- compliance %>%
     on_restraints = restraints_f == "Yes",
     on_restraints_icu = ifelse(!icu_day, NA, on_restraints),
 
+    ## Highest level of mobility done on ICU days
+    mobilityhighest_icu = factor(
+      ifelse(!icu_day, NA,
+      ifelse(is.na(mobilityhighest_f) |
+               mobilityhighest_f == "Not documented /unclear",
+             8,
+      ifelse(mobilityhighest_f == "Active ROM - in bed", 1,
+      ifelse(mobilityhighest_f == "Dangle - side of bed", 2,
+      ifelse(mobilityhighest_f == "Stand at side of bed", 3,
+      ifelse(mobilityhighest_f == "Active Transfer - out of bed to chair", 4,
+      ifelse(mobilityhighest_f == "March in place", 5,
+      ifelse(mobilityhighest_f == "Walk in room", 6,
+      ifelse(mobilityhighest_f == "Walk  in hall", 7,
+             NA))))))))),
+      levels = 1:8,
+      labels = c("Active ROM in bed",
+                 "Dangle, side of bed",
+                 "Stand at side of bed",
+                 "Active transfer, bed to chair",
+                 "March in place",
+                 "Walk in room",
+                 "Walk in hall",
+                 "No level documented")
+    ),
+
     ## Compliance:
     ## - Mobility screen, performance, and highest level (if mobility performed)
     ##   all documented
