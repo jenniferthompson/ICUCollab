@@ -283,3 +283,19 @@ compliance <- compliance %>%
 
   )
 
+## -- C: Choice of analgesia and sedation --------------------------------------
+compliance <- compliance %>%
+  mutate(
+    ## Number of sedation assessments per day in the ICU using a validated tool
+    ## A few have a negative value - make these NA
+    sed_assess_valid_icu =
+      ifelse(!icu_day | (!is.na(sed_assess_valid) & sed_assess_valid < 0), NA,
+             sed_assess_valid),
+
+    ## Compliance: Number of assessments is documented and is >=6
+    comp_c = ifelse(!icu_day, NA,
+                    !is.na(sed_assess_valid_icu) & sed_assess_valid_icu >= 6),
+
+    ## Performance: Same definition
+    perf_c = comp_c
+  )
