@@ -399,3 +399,32 @@ compliance <- compliance %>%
     ## Performance: Same definition
     perf_f = comp_f
   )
+
+## -- Overall compliance and performance, daily --------------------------------
+compliance_vars <- grep("^comp_", names(compliance), value = TRUE)
+performance_vars <- grep("^perf_", names(compliance), value = TRUE)
+
+## On a given day, how many elements were
+## - eligible to be done (eg, if patient not on MV, not eligible for SBT)
+## - compliant
+## - performed
+compliance$elements_elig <-
+  ifelse(!compliance$icu_day, NA, rowSums(!is.na(compliance[,compliance_vars])))
+compliance$elements_comp <-
+  ifelse(!compliance$icu_day, NA,
+         rowSums(compliance[ , compliance_vars], na.rm = TRUE))
+compliance$elements_perf <-
+  ifelse(!compliance$icu_day, NA,
+         rowSums(compliance[ , performance_vars], na.rm = TRUE))
+
+## Total compliance/performance for a given day
+compliance <- compliance %>%
+  mutate(
+    ## Overall: *all* eligible elements must be done; yes/no
+    comp_yn = ifelse(!icu_day, NA, elements_comp == elements_elig),
+    perf_yn = ifelse(!icu_day, NA, elements_perf == elements_elig),
+
+    ## Dose: proportion of eligible elements done
+    comp_prop = ifelse(!icu_day, NA, elements_comp / elements_elig),
+    perf_prop = ifelse(!icu_day, NA, elements_perf / elements_elig)
+  )
