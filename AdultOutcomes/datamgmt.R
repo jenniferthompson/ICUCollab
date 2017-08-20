@@ -181,7 +181,7 @@ subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
 ## Variables related to each bundle element done in separate chunks for easier
 ## changes later
 
-## A: Assess, prevent, and manage pain
+## -- A: Assess, prevent, and manage pain --------------------------------------
 compliance <- compliance %>%
   mutate(
     ## Indicator for whether a day should be included (must be documented as a
@@ -213,5 +213,73 @@ compliance <- compliance %>%
                      (!is.na(sigpain_verbal) & sigpain_verbal) |
                        (!is.na(sigpain_valid) & sigpain_valid)),
     sigpain_icu = ifelse(!icu_day, NA, sigpain)
+  )
+
+## -- B: Both SAT and SBT ------------------------------------------------------
+compliance2 <- compliance %>%
+  mutate(
+    ## Can't determine if patient was on sedation if none of the sedative
+    ## options are checked
+    on_sedation = ifelse(rowSums(compliance[,paste0("sedative_", 0:3)]) == 0, NA,
+                         sedative_1 | sedative_2),
+    on_sedation_icu = ifelse(!icu_day, NA, on_sedation),
+
+    ## Compliance, SAT:
+    ## - Both screen and performance must be documented in database
+    ## - If safety screen failed, performance must be "No, failed screen..."
+    ## - If safety screen passed, performance must be Yes
+    ## - If safety screen not performed/documented, performance must be Yes *or*
+    ##   "No, failed screen/contraindicated"
+    comp_b_sat =
+      ifelse(!icu_day | !on_sedation_icu, NA,
+      ifelse(is.na(satscreen_f) | is.na(satperformed_f), FALSE,
+      ifelse(satscreen_f == "Failed" &
+               satperformed_f == "No. Patient failed the safety screen/contraindicated",
+             TRUE,
+      ifelse(satscreen_f == "Passed" & satperformed_f == "Yes", TRUE,
+      ifelse(satscreen_f == "Not performed/Not documented" &
+               satperformed_f %in%
+               c("Yes", "No. Patient failed the safety screen/contraindicated"),
+             TRUE,
+             FALSE))))),
+
+    ## Performance, SAT: SAT is performed (ignore safety screen)
+    perf_b_sat = ifelse(!icu_day | !on_sedation_icu, NA,
+                        (!is.na(satperformed_f) & satperformed_f == "Yes")),
+
+    ## Was patient in the ICU and on MV?
+    on_mv_icu = ifelse(!icu_day | is.na(venttoday_f), NA, venttoday_f == "Yes"),
+
+    ## Compliance, SBT:
+    ## - Both screen and performance must be documented in database
+    ## - If safety screen failed, performance must be "No, failed screen..."
+    ## - If safety screen passed, performance must be Yes
+    ## - If safety screen not performed/documented, performance must be Yes *or*
+    ##   "No, failed screen/contraindicated"
+    comp_b_sbt =
+      ifelse(!icu_day | !on_mv_icu, NA,
+      ifelse(is.na(sbtscreen_f) | is.na(sbtperformed_f), FALSE,
+      ifelse(sbtscreen_f == "Failed" &
+               sbtperformed_f == "No. Patient failed the safety screen/contraindicated",
+             TRUE,
+      ifelse(sbtscreen_f == "Passed" & sbtperformed_f == "Yes", TRUE,
+      ifelse(sbtscreen_f == "Not performed/Not documented" &
+               sbtperformed_f %in%
+               c("Yes", "No. Patient failed the safety screen/contraindicated"),
+             TRUE,
+             FALSE))))),
+
+    ## Performance, SBT: SBT is performed (ignore safety screen)
+    perf_b_sbt = ifelse(!icu_day | !on_mv_icu, NA,
+                        (!is.na(sbtperformed_f) & sbtperformed_f == "Yes")),
+
+    ## Was SAT performed prior to SBT (if both done)?
+    sat_before_sbt =
+      ifelse(!icu_day | !on_sedation_icu | !on_mv_icu |
+               !(!is.na(satperformed_f) & satperformed_f == "Yes") |
+               !(!is.na(sbtperformed_f) & sbtperformed_f == "Yes"),
+             NA,
+             !is.na(satsbt_f) & satsbt_f == "Yes")
+
   )
 
