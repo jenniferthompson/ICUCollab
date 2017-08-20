@@ -228,6 +228,15 @@ compliance <- compliance %>%
                          sedative_1 | sedative_2),
     on_sedation_icu = ifelse(!icu_day, NA, on_sedation),
 
+    ## Did patient have an SAT/safety screen? (combine missing with "not doc")
+    had_satscreen = ifelse(!on_sedation, NA,
+                           !(is.na(satscreen_f) |
+                              satscreen_f == "Not performed/Not documented")),
+    had_satscreen_icu = ifelse(!icu_day, NA, had_satscreen),
+    had_sat = ifelse(!on_sedation, NA,
+                     !is.na(satperformed_f) & satperformed_f == "Yes"),
+    had_sat_icu = ifelse(!icu_day, NA, had_sat),
+
     ## Compliance, SAT:
     ## - Both screen and performance must be documented in database
     ## - If safety screen failed, performance must be "No, failed screen..."
@@ -252,7 +261,17 @@ compliance <- compliance %>%
                         (!is.na(satperformed_f) & satperformed_f == "Yes")),
 
     ## Was patient in the ICU and on MV?
+    on_mv = ifelse(is.na(venttoday_f), NA, venttoday_f == "Yes"),
     on_mv_icu = ifelse(!icu_day | is.na(venttoday_f), NA, venttoday_f == "Yes"),
+
+    ## Did patient have an SBT/safety screen? (combine missing with "not doc")
+    had_sbtscreen = ifelse(!on_mv, NA,
+                           !(is.na(sbtscreen_f) |
+                               sbtscreen_f == "Not performed/Not documented")),
+    had_sbtscreen_icu = ifelse(!icu_day, NA, had_sbtscreen),
+    had_sbt = ifelse(!on_mv, NA,
+                     !is.na(sbtperformed_f) & sbtperformed_f == "Yes"),
+    had_sbt_icu = ifelse(!icu_day, NA, had_sbt),
 
     ## Compliance, SBT:
     ## - Both screen and performance must be documented in database
@@ -278,13 +297,13 @@ compliance <- compliance %>%
                         (!is.na(sbtperformed_f) & sbtperformed_f == "Yes")),
 
     ## Was SAT performed prior to SBT (if both done)?
-    sat_before_sbt =
-      ifelse(!icu_day | !on_sedation_icu | !on_mv_icu |
+    sat_sbt =
+      ifelse(!on_sedation | (!is.na(on_mv) & !on_mv) |
                !(!is.na(satperformed_f) & satperformed_f == "Yes") |
                !(!is.na(sbtperformed_f) & sbtperformed_f == "Yes"),
              NA,
-             !is.na(satsbt_f) & satsbt_f == "Yes")
-
+             !is.na(satsbt_f) & satsbt_f == "Yes"),
+    sat_sbt_icu = ifelse(!icu_day | !on_sedation_icu | !on_mv_icu, NA, sat_sbt)
   )
 
 ## -- C: Choice of analgesia and sedation --------------------------------------
@@ -466,3 +485,71 @@ compliance <- compliance %>%
     comp_prop = ifelse(!icu_day, NA, elements_comp / elements_elig),
     perf_prop = ifelse(!icu_day, NA, elements_perf / elements_elig)
   )
+
+## -- Some T/F variables would be better as factors for later purposes ---------
+make_tf_factor <- function(vname, vlevels){
+  if(!(inherits(vlevels, "character") & length(vlevels == 2))){
+    stop("vlevels should be a character vector of length 2", call. = FALSE)
+  }
+
+  factor(as.numeric(vname), levels = 0:1, labels = vlevels)
+}
+
+compliance <- compliance %>%
+  mutate(
+    sigpain_verbal = make_tf_factor(
+      sigpain_verbal,
+      c("No significant pain", ">=1 asmt with self-reported pain")
+    ),
+    sigpain_valid = make_tf_factor(
+      sigpain_valid,
+      c("No significant pain", ">=1 asmt with significant pain per BPS")
+    ),
+    sigpain_verbal_icu = make_tf_factor(
+      sigpain_verbal_icu,
+      c("No significant pain", ">=1 asmt with self-reported pain")
+    ),
+    sigpain_valid_icu = make_tf_factor(
+      sigpain_valid_icu,
+      c("No significant pain", ">=1 asmt with significant pain per BPS")
+    ),
+    sigpain = make_tf_factor(
+      sigpain,
+      c("No significant pain", "Significant pain (self-report or BPS)")
+    ),
+    sigpain_icu = make_tf_factor(
+      sigpain_icu,
+      c("No significant pain", "Significant pain (self-report or BPS)")
+    ),
+    on_sedation = make_tf_factor(
+      on_sedation,
+      c("No or PRN sedation only", "Continuous/intermittent sedation")
+    ),
+    on_sedation_icu = make_tf_factor(
+      on_sedation_icu,
+      c("No or PRN sedation only", "Continuous/intermittent sedation")
+    ),
+    had_satscreen = make_tf_factor(
+      had_satscreen, c("No screen documented", "SAT screen documented")
+    ),
+    had_satscreen_icu = make_tf_factor(
+      had_satscreen_icu, c("No screen documented", "SAT screen documented")
+    ),
+    had_sat = make_tf_factor(had_sat, c("No SAT documented", "SAT documented")),
+    had_sat_icu = make_tf_factor(
+      had_sat_icu, c("No SAT documented", "SAT documented")
+    ),
+    on_mv = make_tf_factor(on_mv, c("Not on MV", "Received MV")),
+    on_mv_icu = make_tf_factor(on_mv_icu, c("Not on MV", "Received MV")),
+    had_sbtscreen = make_tf_factor(
+      had_sbtscreen, c("No screen documented", "SBT screen documented")
+    ),
+    had_sbtscreen_icu = make_tf_factor(
+      had_sbtscreen_icu, c("No screen documented", "SBT screen documented")
+    ),
+    had_sbt = make_tf_factor(had_sbt, c("No SBT documented", "SBT documented")),
+    had_sbt_icu = make_tf_factor(
+      had_sbt_icu, c("No SBT documented", "SBT documented")
+    )
+  )
+
