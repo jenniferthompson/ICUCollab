@@ -179,7 +179,11 @@ subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
 
 ## -- Data management for compliance form --------------------------------------
 ## Variables related to each bundle element done in separate chunks for easier
-## changes later
+## changes later.
+##
+## Create all indicators as logicals (TRUE/FALSE); this saves space here and
+## will make defining overall compliance/performance variables easier. Later,
+## for some, we'll make them factors with specific labels.
 
 ## -- A: Assess, prevent, and manage pain --------------------------------------
 compliance <- compliance %>%
@@ -332,4 +336,46 @@ compliance <- compliance %>%
     perf_d = comp_d
   )
 
+## -- E: Exercise and early mobility -------------------------------------------
+compliance <- compliance %>%
+  mutate(
+    ## Indicator for whether patient was physically restrained
+    on_restraints = restraints_f == "Yes",
+    on_restraints_icu = ifelse(!icu_day, NA, on_restraints),
 
+    ## Compliance:
+    ## - Mobility screen, performance, and highest level (if mobility performed)
+    ##   all documented
+    ## - If safety screen failed, performed must be "no, failed screen..."
+    ## - If safety screen passed, highest level must be > active ROM
+    ## - If safety screen not documented, performed must be "no, failed
+    ##   screen..." OR highest level must be > active ROM
+    comp_e =
+      ifelse(!icu_day, NA,
+      ifelse(is.na(mobilityscreen_f) |
+               is.na(mobilityperformed_f) |
+               (mobilityperformed_f == "Yes" & is.na(mobilityhighest_f)),
+             FALSE,
+      ifelse(mobilityscreen_f == "Failed" &
+               mobilityperformed_f == "No, patient failed the safety screen/contraindicated",
+             TRUE,
+      ifelse(mobilityscreen_f == "Passed" &
+               !(is.na(mobilityhighest_f) |
+                   mobilityhighest_f %in%
+                   c("Not documented /unclear", "Active ROM - in bed")),
+             TRUE,
+      ifelse(mobilityscreen_f == "Not performed/not documented" &
+               (mobilityperformed_f == "No, patient failed the safety screen/contraindicated" |
+                  !(is.na(mobilityhighest_f) |
+                      mobilityhighest_f %in%
+                      c("Not documented /unclear", "Active ROM - in bed"))),
+             TRUE,
+             FALSE))))),
+
+    ## Performance: Highest level of mobility is documented and is > active ROM
+    ## (ignores safety screen)
+    perf_e = ifelse(!icu_day, NA,
+                    !is.na(mobilityhighest_f) &
+                      !(mobilityhighest_f %in%
+                          c("Not documented /unclear", "Active ROM - in bed")))
+  )
