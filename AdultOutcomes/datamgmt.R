@@ -412,6 +412,19 @@ compliance <- compliance %>%
     family_present = !is.na(familyvisit_f) & familyvisit_f == "Yes",
     family_present_icu = ifelse(!icu_day, NA, family_present),
 
+    ## Indicators for whether family took part in various activities
+    ## Took part in rounds or conference
+    family_rounds_icu = ifelse(!family_present_icu, NA,
+                               familyinvite_2 | familyinvite_3),
+    ## Participated in care
+    family_care_icu = ifelse(!family_present_icu, NA,
+                             familyparticipate_1 | familyparticipate_2),
+    ## Educated on any bundle elements
+    family_edu_icu = ifelse(!family_present_icu, NA,
+                            familyeducate_1 | familyeducate_2 |
+                              familyeducate_3 | familyeducate_4 |
+                              familyeducate_5),
+
     ## Compliance: Family member did at least one of
     ## - Took part in rounds or conference
     ## - Assisted in plan of care or ABCDEF care
