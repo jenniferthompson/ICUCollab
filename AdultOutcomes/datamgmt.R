@@ -176,3 +176,42 @@ demog$hrs_noninvas_mv <- with(demog, {
 subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
   arrange(bmi) %>%
   write_csv(path = "check_bmis.csv")
+
+## -- Data management for compliance form --------------------------------------
+## Variables related to each bundle element done in separate chunks for easier
+## changes later
+
+## A: Assess, prevent, and manage pain
+compliance <- compliance %>%
+  mutate(
+    ## Indicator for whether a day should be included (must be documented as a
+    ## full ICU day)
+    icu_day = !is.na(icu_24_f) & icu_24_f == "Yes",
+
+    ## Compliance: At least one of pain_valid and pain_verbal are present, and
+    ## their total is >=6
+    pain_asmts = ifelse(!is.na(pain_verbal) & !is.na(pain_valid),
+                        pain_verbal + pain_valid,
+                 ifelse(!is.na(pain_verbal), pain_verbal,
+                 ifelse(!is.na(pain_valid), pain_valid, NA))),
+    pain_asmts_icu = ifelse(!icu_day, NA, pain_asmts),
+
+    comp_a = ifelse(!icu_day, NA,
+             ifelse(is.na(pain_asmts), FALSE,
+                    pain_asmts >= 6)),
+
+    ## Performance: Same definition as compliance
+    perf_a = comp_a,
+
+    ## Outcome variable: Did patient experience significant pain (verbal and/or
+    ## validated instrument)?
+    sigpain_verbal = ifelse(is.na(pain_verbal_sig), NA, pain_verbal_sig > 0),
+    sigpain_verbal_icu = ifelse(!icu_day, NA, sigpain_verbal),
+    sigpain_valid = ifelse(is.na(pain_valid_sig), NA, pain_valid_sig > 0),
+    sigpain_valid_icu = ifelse(!icu_day, NA, sigpain_valid),
+    sigpain = ifelse(is.na(sigpain_verbal) & is.na(sigpain_valid), NA,
+                     (!is.na(sigpain_verbal) & sigpain_verbal) |
+                       (!is.na(sigpain_valid) & sigpain_valid)),
+    sigpain_icu = ifelse(!icu_day, NA, sigpain)
+  )
+
