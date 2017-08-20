@@ -315,6 +315,15 @@ compliance <- compliance %>%
                (!is.na(delirium_assess_valid) & delirium_assess_valid < 0), NA,
              delirium_assess_valid),
 
+    ## Did the patient have delirium according to a validated instrument?
+    delirium = ifelse(is.na(delirium_assess_valid) |
+                        delirium_assess_valid < 0 |
+                        is.na(delirium_present_valid_f) |
+                        delirium_present_valid_f == "Not Specified",
+                      NA,
+                      delirium_present_valid_f == "Yes"),
+    delirium_icu = ifelse(!icu_day, NA, delirium),
+
     ## Compliance: Number of assessments is documented and is >=2
     comp_d = ifelse(!icu_day, NA,
                     !is.na(del_assess_valid_icu) & del_assess_valid_icu >= 2),
@@ -322,3 +331,5 @@ compliance <- compliance %>%
     ## Performance: Same definition
     perf_d = comp_d
   )
+
+
