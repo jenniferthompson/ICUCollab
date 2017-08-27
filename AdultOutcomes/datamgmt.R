@@ -63,11 +63,15 @@ demog <- demog %>%
     ## BMI wt (kg) / [height in meters]^2
     ht = as.numeric(ht),
     wt = as.numeric(wt),
-    ## Some of these heights look weird. Assume anything below 90 was
-    ## accidentally entered in inches (90" = 7.5 feet), and convert to cm.
-    ht = ifelse(ht < 90, ht * 2.54, ht),
+    ## Some of these heights look weird. After discussion with clinicians, we
+    ## assume anything below 80 was accidentally entered in inches (80" = 6.5
+    ## feet; amputees could legitimately be <90cm), and convert to cm.
+    ht = ifelse(ht < 80, ht * 2.54, ht),
     bmi = ifelse(is.na(ht) | ht == 0 | is.na(wt) | wt == 0, NA,
                  wt / ((ht / 100)^2)),
+    ## Change implausible BMIs to NA. We chose a minimum of 7 (based on anorexia
+    ## data) and a maximum of 204 (highest ever recorded).
+    bmi = ifelse(bmi < 7 | bmi > 204, NA, bmi),
 
     ## Admission diagnosis: trauma, surgery, sepsis/pneumonia, everything else
     admitdx = factor(
