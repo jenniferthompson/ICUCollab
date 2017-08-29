@@ -181,6 +181,145 @@ subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
   arrange(bmi) %>%
   write_csv(path = "check_bmis.csv")
 
+## -- Admission diagnoses ------------------------------------------------------
+## Categories from MB, agreed to by others:
+## Sepsis/septic shock (option 1: "Sepsis /Septic shock")
+## ARDS without infection (option 2: "ARDS without infection")
+## Respiratory (airway protection/obstruction, COPD/asthma, Pneumonia, PE/DVT)
+## - option 3: "Airway protection/obstruction"
+## - option 4: "COPD / Asthma"
+## - option 5: "Pneumonia"
+## - option 6: "Pulmonary embolism/DVT"
+## Neurologic (neurological disease, TBI, change in mental status)
+## - option 18: "Neurological disease"
+## - option 19: "Traumatic Brain Injury"
+## - option 20: "Change in Mental Status"
+## - option 28: "Traumatic Brain Injury (isolated)"
+## Cardiac (CHF, Acute MI/cardiogenic shock arrhythmia)
+## - option 7: "Congestive Heart Failure"
+## - option 8: "Acute MI/Cardiogenic shock"
+## - option 9: "Arrhythmia"
+## Gastrointestinal (GI bleed, cirrhosis/hepatic failure, pancreatitis)
+## - option 11: "GI Bleed"
+## - option 15: "Cirrhosis/Hepatic failure"
+## - option 17: "Pancreatitis"
+## Genitourinary (renal failure, metabolic/endocrine/electrolyte disturbances)
+## - option 12: "Renal Failure"
+## - option 14: "Metabolic / Endocrine / Electrolyte Disturbances"
+## Surgery (vascular, abdominal, transplant, urologic, orthopedic, ENT, OB/GYN)
+## - option 21: "Vascular surgery"
+## - option 22: "Abdominal surgery"
+## - option 23: "Transplant surgery"
+## - option 24: "Urologic surgery"
+## - option 25: "Orthopedic surgery"
+## - option 26: "ENT surgery"
+## - option 27: "OB/GYN surgery"
+## Trauma (multi trauma, hemorrhagic shock)
+## - option 29: "Multi-Trauma"
+## - option 13: "Hemorrhagic shock"
+## Other (drug overdose/withdrawal, other infectious diseases, malignancy, other)
+## - option 30: "Drug Overdose/Withdrawal"
+## - option 31: "Other Infectious Diseases"
+## - option 16: "Malignancy"
+## - option 99: "Other"
+
+## Function to determine if any of specified diagnosis options are checked
+sum_admitdx <- function(dxnums, df = demog){
+  if(length(dxnums) == 1){
+    df[,paste0("icu_dx_", dxnums)] > 0
+  } else{
+    rowSums(df[,paste0("icu_dx_", dxnums)]) > 0
+  }
+}
+
+## Create indicators for each diagnosis category
+demog$admit_sepsis <- sum_admitdx(1)
+demog$admit_ards <- sum_admitdx(2)
+demog$admit_resp <- sum_admitdx(3:6)
+demog$admit_neuro <- sum_admitdx(c(18:20, 28))
+demog$admit_cardiac <- sum_admitdx(7:9)
+demog$admit_gi <- sum_admitdx(c(11, 15, 17))
+demog$admit_gu <- sum_admitdx(c(12, 14))
+demog$admit_surg <- sum_admitdx(21:27)
+demog$admit_trauma <- sum_admitdx(c(29, 13))
+demog$admit_other <- sum_admitdx(c(30, 31, 16, 99))
+
+## Data checks
+# ## Function to make sure admission diagnoses are captured correctly
+# check_admissiondx <- function(dxnums, dxvar, df = demog){
+#   tmp <- demog[,c(paste0("icu_dx_", dxnums), dxvar)] %>%
+#     gather(key = raw_dx, value = had_dx, starts_with("icu_dx")) %>%
+#     filter(had_dx == 1)
+#
+#   ggplot(data = tmp, aes(x = raw_dx)) +
+#     facet_wrap(as.formula(paste("~", dxvar))) +
+#     geom_bar(stat = "count")
+# }
+#
+# check_admissiondx(dxnums = 1, dxvar = "admit_sepsis")
+# check_admissiondx(dxnums = 2, dxvar = "admit_ards")
+# check_admissiondx(dxnums = 3:6, dxvar = "admit_resp")
+# check_admissiondx(dxnums = c(18:20, 28), dxvar = "admit_neuro")
+# check_admissiondx(dxnums = 7:9, dxvar = "admit_cardiac")
+# check_admissiondx(dxnums = c(11, 15, 17), dxvar = "admit_gi")
+# check_admissiondx(dxnums = c(12, 14), dxvar = "admit_gu")
+# check_admissiondx(dxnums = 21:27, dxvar = "admit_surg")
+# check_admissiondx(dxnums = c(29, 13), dxvar = "admit_trauma")
+# check_admissiondx(dxnums = c(30, 31, 16, 99), dxvar = "admit_other")
+
+# ## How many patients had *multiple* admission diagnosis categories?
+# ## Make an upset plot (http://vcg.github.io/upset/)
+#
+# admitdx_cols <- grep("^admit_", colnames(admissiondx), value = TRUE)
+# upset_list <- map(admitdx_cols, ~ admissiondx[admissiondx[,.], "id"])
+# names(upset_list) <- admitdx_cols
+#
+# pdf(file = "admissiondx_upset.pdf", width = 9, height = 7)
+# UpSetR::upset(
+#   UpSetR::fromList(upset_list),
+#   order.by = "freq",
+#   nsets = length(admitdx_cols)
+# )
+# dev.off()
+
+# table(rowSums(demog[,admitdx_cols]))
+
+## Calculate final "primary admission diagnosis" variable, prioritizing
+## diagnoses as follows:
+## 1. Sepsis/septic shock
+## 2. ARDS
+## 3. Respiratory
+## 4. Neurologic
+## 5. Cardiac
+## 6. GI
+## 7. Trauma
+## 8. Genitourinary
+## 9. Surgery
+## 10. Other (will use this as reference - most common overall)
+demog$primary_admit <- with(demog, {
+  factor(ifelse(admit_sepsis, 2,
+         ifelse(admit_ards, 3,
+         ifelse(admit_resp, 4,
+         ifelse(admit_neuro, 5,
+         ifelse(admit_cardiac, 6,
+         ifelse(admit_gi, 7,
+         ifelse(admit_trauma, 8,
+         ifelse(admit_gu, 9,
+         ifelse(admit_surg, 10,
+         ifelse(admit_other, 1, NA)))))))))),
+         levels = 1:10,
+         labels = c("Other",
+                    "Sepsis/septic shock",
+                    "ARDS without infection",
+                    "Respiratory",
+                    "Neurologic",
+                    "Cardiac",
+                    "GI",
+                    "Trauma",
+                    "Genitourinary",
+                    "Surgery"))
+})
+
 ## -- Data management for compliance form --------------------------------------
 ## Variables related to each bundle element done in separate chunks for easier
 ## changes later.
