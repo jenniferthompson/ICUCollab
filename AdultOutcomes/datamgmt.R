@@ -519,7 +519,13 @@ compliance <- compliance %>%
                     !is.na(sed_assess_valid_icu) & sed_assess_valid_icu >= 6),
 
     ## Performance: Same definition
-    perf_c = comp_c
+    perf_c = comp_c,
+
+    ## Received benzos, opioids, dex, propofol
+    rcvd_benzo_icu = ifelse(!icu_day, NA, meds_2),
+    rcvd_opioid_icu = ifelse(!icu_day, NA, meds_1),
+    rcvd_propofol_icu = ifelse(!icu_day, NA, meds_3),
+    rcvd_dex_icu = ifelse(!icu_day, NA, meds_4)
   )
 
 ## -- D: Assess, prevent and manage delirium -----------------------------------
@@ -561,6 +567,11 @@ compliance <- compliance %>%
     on_restraints = restraints_f == "Yes",
     on_restraints_icu = ifelse(!icu_day, NA, on_restraints),
 
+    ## Did patient have mobility safety screen? (combine missing with "not doc")
+    had_mobscreen = !(is.na(mobilityscreen_f) |
+                        mobilityscreen_f == "Not performed/not documented"),
+    had_mobscreen_icu = ifelse(!icu_day, NA, had_mobscreen),
+
     ## Highest level of mobility done on ICU days
     mobilityhighest_icu = factor(
       ifelse(!icu_day, NA,
@@ -585,6 +596,13 @@ compliance <- compliance %>%
                  "Walk in hall",
                  "No level documented")
     ),
+
+    ## Had mobility if mobility was performed at higher level than active ROM
+    had_mobility_icu =
+      ifelse(!icu_day, NA,
+             !is.na(mobilityhighest_icu) &
+               !(mobilityhighest_icu %in%
+                   c("Active ROM in bed", "No level documented"))),
 
     ## Compliance:
     ## - Mobility screen, performance, and highest level (if mobility performed)
@@ -617,10 +635,7 @@ compliance <- compliance %>%
 
     ## Performance: Highest level of mobility is documented and is > active ROM
     ## (ignores safety screen)
-    perf_e = ifelse(!icu_day, NA,
-                    !is.na(mobilityhighest_f) &
-                      !(mobilityhighest_f %in%
-                          c("Not documented /unclear", "Active ROM - in bed")))
+    perf_e = ifelse(!icu_day, NA, !is.na(mobilityhighest_f) & had_mobility_icu)
   )
 
 ## -- F: Family engagement and empowerment -------------------------------------
@@ -631,6 +646,9 @@ compliance <- compliance %>%
     family_present_icu = ifelse(!icu_day, NA, family_present),
 
     ## Indicators for whether family took part in various activities
+    ## *Invited* to participate in rounds and/or conference
+    family_invited_icu = ifelse(!family_present_icu, NA,
+                                familyinvite_1 | familyinvite_2 | familyinvite_3),
     ## Took part in rounds or conference
     family_rounds_icu = ifelse(!family_present_icu, NA,
                                familyinvite_2 | familyinvite_3),
@@ -684,6 +702,11 @@ compliance <- compliance %>%
     comp_prop = ifelse(!icu_day, NA, elements_comp / elements_elig),
     perf_prop = ifelse(!icu_day, NA, elements_perf / elements_elig)
   )
+
+## ICU version of comfort care
+compliance$comfort_care_icu <- with(compliance, {
+  ifelse(!icu_day, NA, comfort_care_f == "Yes")
+})
 
 ## -- Some T/F variables would be better as factors for later purposes ---------
 make_tf_factor <- function(vname, vlevels){
