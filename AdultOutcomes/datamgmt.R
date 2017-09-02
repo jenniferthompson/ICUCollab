@@ -781,7 +781,7 @@ tsdata <- compliance %>%
 ## Denominator for B - SBT: on_mv_icu
 ## Denominator for F: family_present_icu
 
-write_csv(tsdata, path = "iculib_tsdata.csv", na = "")
+write_csv(tsdata, path = "AnalysisData/iculib_tsdata.csv", na = "")
 
 ## -- Some T/F variables would be better as factors for later purposes ---------
 make_tf_factor <- function(vname, vlevels){
@@ -942,3 +942,5 @@ compliance <- compliance %>%
     comfort_care_icu = make_tf_factor_yn(comfort_care_icu)
   )
 
+## -- Save final datasets ------------------------------------------------------
+save(demog, compliance, tsdata, file = "AnalysisData/iculib.Rdata")
