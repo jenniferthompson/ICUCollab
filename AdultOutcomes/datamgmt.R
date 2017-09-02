@@ -16,6 +16,16 @@ source("RawData/compliance_redcap.R")
 names(compliance) <-
   gsub("_+", "_", gsub("\\.factor$", "_f", names(compliance)))
 
+## Raw data for ICU type via Christina (edited and saved to CSV by me)
+icutypes <- read_csv(
+  "RawData/iculib_icutypes.csv",
+  col_names = c("hosp_f", "icu_type")
+)
+
+## Make sure every site has a type listed
+# icutypes$hosp_f %in% unique(demog$hosp_f)
+# unique(demog$hosp_f) %in% icutypes$hosp_f
+
 ## -- We're only going to use Months 1-20 (length of official Collab). ---------
 ## -- Add Month to compliance data and restrict both datasets. -----------------
 keep_months <- paste("Month", 1:20)
@@ -28,13 +38,41 @@ demog <- filter(demog, month_f %in% keep_months)
 
 ## -- Data management for demographic form -------------------------------------
 demog <- demog %>%
+  ## Merge on ICU type from Christina
+  left_join(icutypes, by = "hosp_f") %>%
   mutate(
-    ## ICU type - temporary till I get a key from Christina
-    icu_type = factor(ifelse(stri_endswith_fixed(demog$hosp_f, "MICU"), 1,
-                      ifelse(stri_endswith_fixed(demog$hosp_f, "SICU"), 2, 3)),
-                      levels = 1:3,
-                      labels = c("MICU", "SICU", "Other")),
-
+    ## ICU type - combine as listed by Michele:
+    ## - General: ICU, medical & surgical ICU, critical care unit, adult ICU,
+    ##            + adult critical care unit??
+    ## - Medical: Medical ICU, medical critical care unit
+    ## - Surgical/trauma: Surgical ICU, trauma and life support center,
+    ##                    + trauma ICU???
+    ## - Neuro: Neuro ICU
+    ## - Cardiac/surgery: Adult surgical heart unit, cardiac surgical ICU,
+    ##                    cardiothoracic ICU, cardiovascular ICU
+    ## - Other cardiac: cardio neuro ICU, cardio ICU
+    icu_type_comb = factor(
+      case_when(icu_type %in% c("ICU", "Medical & Surgical ICU",
+                                "Critical Care Unit", "Adult ICU",
+                                "Adult Critical Care Unit") ~ 1,
+                icu_type %in% c("Medical ICU", "Medical Critical Care Unit") ~ 2,
+                icu_type %in% c("Surgical ICU", "Trauma and Life Support Center",
+                                "Trauma ICU") ~ 3,
+                icu_type %in% c("Neuro ICU") ~ 4,
+                icu_type %in% c("Adult Surgical Heart Unit",
+                                "Cardiac Surgical ICU", "Cardiothoracic ICU",
+                                "Cardiovascular ICU") ~ 5,
+                icu_type %in% c("Cardio-Neuro ICU", "Cardio ICU") ~ 6,
+                TRUE ~ 7),
+      levels = 1:7,
+      labels = c("General",
+                 "Medical",
+                 "Surgical/trauma",
+                 "Neuro",
+                 "Cardiac/surgical",
+                 "Cardiac/neuro",
+                 "Unclassified")
+    ),
     ## Race
     race_cat = factor(ifelse(race_1 + race_2 + race_3 + race_4 + race_5 + race_6 > 1, 7,
                       ifelse(race_1, 1,
@@ -169,6 +207,11 @@ demog$hrs_noninvas_mv <- with(demog, {
 subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
   arrange(bmi) %>%
   write_csv(path = "check_bmis.csv")
+
+# ## Look at ICU types
+# ggplot(data = demog, aes(x = icu_type_comb)) +
+#   geom_bar(stat = "count") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ## -- Admission diagnoses ------------------------------------------------------
 ## Categories from MB, agreed to by others:
