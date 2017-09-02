@@ -406,6 +406,12 @@ compliance <- compliance %>%
     ## Performance: Same definition as compliance
     perf_a = comp_a,
 
+    ## Any pain assessment done: At least one of pain_valid and pain_verbal
+    ## are present and > 0
+    had_painasmt = !is.na(pain_asmts) & pain_asmts > 0,
+    had_painasmt_icu = ifelse(!icu_day, NA,
+                              !is.na(pain_asmts_icu) & pain_asmts_icu > 0),
+
     ## Outcome variable: Did patient experience significant pain (verbal and/or
     ## validated instrument)?
     sigpain_verbal = ifelse(is.na(pain_verbal_sig), NA, pain_verbal_sig > 0),
@@ -514,6 +520,10 @@ compliance <- compliance %>%
       ifelse(!icu_day | (!is.na(sed_assess_valid) & sed_assess_valid < 0), NA,
              sed_assess_valid),
 
+    ## Had any sedation assessments with validated instrument
+    had_sedasmt = !is.na(sed_assess_valid_icu) & sed_assess_valid_icu > 0,
+    had_sedasmt_icu = ifelse(!icu_day, NA, had_sedasmt),
+
     ## Compliance: Number of assessments is documented and is >=6
     comp_c = ifelse(!icu_day, NA,
                     !is.na(sed_assess_valid_icu) & sed_assess_valid_icu >= 6),
@@ -542,6 +552,10 @@ compliance <- compliance %>%
       ifelse(!icu_day |
                (!is.na(delirium_assess_valid) & delirium_assess_valid < 0), NA,
              delirium_assess_valid),
+
+    ## Had any delirium assessments with validated instrument
+    had_delasmt = !is.na(del_assess_valid_icu) & del_assess_valid_icu > 0,
+    had_delasmt_icu = ifelse(!icu_day, NA, had_delasmt),
 
     ## Did the patient have delirium according to a validated instrument?
     delirium = ifelse(is.na(delirium_assess_valid) |
@@ -708,6 +722,67 @@ compliance$comfort_care_icu <- with(compliance, {
   ifelse(!icu_day, NA, comfort_care_f == "Yes")
 })
 
+## -- Calculate summary variables to add to demog ------------------------------
+## Among all ICU days only,
+## - total number and proportion of days:
+##   - in ICU
+##   - compliant, performed (overall + each element)
+##   - had pain assessed, had significant pain
+##   - on sedation, had SAT screen, had SAT
+##   - on MV, had SBT screen, had SBT
+##   - on benzos/opioids/propofol/dex, had sedation assessed
+##   - had delirium assessed, had delirium
+##   - had mobility screen, had mobility performed
+##   - family present, invited, participated, educated
+compliance_icu_bypt <- compliance %>%
+  filter(icu_day) %>%
+  dplyr::select(id, icu_day,
+                matches("^comp\\_[^prop]"), matches("^perf\\_[^prop]"),
+                had_painasmt_icu, sigpain_icu,
+                on_sedation_icu, had_satscreen_icu, had_sat_icu,
+                on_mv_icu, had_sbtscreen_icu, had_sbt_icu, sat_sbt_icu,
+                rcvd_benzo_icu, rcvd_opioid_icu, rcvd_propofol_icu, rcvd_dex_icu,
+                had_sedasmt_icu,
+                had_delasmt_icu, delirium_icu,
+                had_mobscreen_icu, had_mobility_icu,
+                matches("^family\\_.+\\_icu$")) %>%
+  group_by(id) %>%
+  summarise_all(funs(days = sum, prop = mean), na.rm = TRUE) %>%
+  ungroup() %>%
+  dplyr::select(-icu_day_prop) ## meaningless, 100% for everyone
+
+## Merge onto demog
+demog <- left_join(demog, compliance_icu_bypt, by = "id")
+
+## -- Dataset for Alai - time series analysis ----------------------------------
+## One row per month with numerator, denominator columns
+## Numerator = number of days/elements compliant and/or performed
+## Denominator = number of days/elements eligible to be compliant/performed
+
+tsdata <- compliance %>%
+  filter(icu_day) %>%
+  dplyr::select(month_f,
+                icu_day,
+                starts_with("elements_"),
+                on_sedation_icu, on_mv_icu, family_present_icu,
+                matches("^comp\\_[^prop]"), matches("^perf\\_[^prop]")) %>%
+  group_by(month_f) %>%
+  summarise_all(sum, na.rm = TRUE) %>%
+  ungroup()
+
+## Numerator for overall compliance/performance: comp_yn, perf_yn
+## Numerator for compliance/performance "dose": elements_comp, elements_perf
+## Numerator for individual bundle element compliance: comp_[a/b_sat/b_sbt/c/d/e/f]
+## Numerator for individual bundle element performance: perf_[a/b_sat/b_sbt/c/d/e/f]
+
+## Denominator for overall compliance/performance, A, C, D, E: icu_day
+## Denominator for compliance/performance "dose": elements_elig
+## Denominator for B - SAT: on_sedation_icu
+## Denominator for B - SBT: on_mv_icu
+## Denominator for F: family_present_icu
+
+write_csv(tsdata, path = "iculib_tsdata.csv", na = "")
+
 ## -- Some T/F variables would be better as factors for later purposes ---------
 make_tf_factor <- function(vname, vlevels){
   if(!(inherits(vlevels, "character") & length(vlevels == 2))){
@@ -717,8 +792,47 @@ make_tf_factor <- function(vname, vlevels){
   factor(as.numeric(vname), levels = 0:1, labels = vlevels)
 }
 
+## Wrapper functions for common levels
+make_tf_factor_comp <- function(vname){
+  make_tf_factor(vname, vlevels = c("Noncompliant", "Compliant"))
+}
+
+make_tf_factor_perf <- function(vname){
+  make_tf_factor(vname, vlevels = c("Not performed", "Performed"))
+}
+
+make_tf_factor_yn <- function(vname){
+  make_tf_factor(vname, vlevels = c("No", "Yes"))
+}
+
+make_tf_factor_asmt <- function(vname){
+  make_tf_factor(vname, vlevels = c("No assessment", ">=1 assessment"))
+}
+
 compliance <- compliance %>%
   mutate(
+    ## All compliance/performance variables
+    comp_a = make_tf_factor_comp(comp_a),
+    comp_b_sat = make_tf_factor_comp(comp_b_sat),
+    comp_b_sbt = make_tf_factor_comp(comp_b_sbt),
+    comp_c = make_tf_factor_comp(comp_c),
+    comp_d = make_tf_factor_comp(comp_d),
+    comp_e = make_tf_factor_comp(comp_e),
+    comp_f = make_tf_factor_comp(comp_f),
+    comp_yn = make_tf_factor_comp(comp_yn),
+
+    perf_a = make_tf_factor_perf(perf_a),
+    perf_b_sat = make_tf_factor_perf(perf_b_sat),
+    perf_b_sbt = make_tf_factor_perf(perf_b_sbt),
+    perf_c = make_tf_factor_perf(perf_c),
+    perf_d = make_tf_factor_perf(perf_d),
+    perf_e = make_tf_factor_perf(perf_e),
+    perf_f = make_tf_factor_perf(perf_f),
+    perf_yn = make_tf_factor_perf(perf_yn),
+
+    ## A: Assess, prevent and manage pain
+    had_painasmt = make_tf_factor_asmt(had_painasmt),
+    had_painasmt_icu = make_tf_factor_asmt(had_painasmt_icu),
     sigpain_verbal = make_tf_factor(
       sigpain_verbal,
       c("No significant pain", ">=1 asmt with self-reported pain")
@@ -743,6 +857,9 @@ compliance <- compliance %>%
       sigpain_icu,
       c("No significant pain", "Significant pain (self-report or BPS)")
     ),
+
+    ## B: Both SAT and SBT
+    ## Sedation/SAT
     on_sedation = make_tf_factor(
       on_sedation,
       c("No or PRN sedation only", "Continuous/intermittent sedation")
@@ -761,6 +878,8 @@ compliance <- compliance %>%
     had_sat_icu = make_tf_factor(
       had_sat_icu, c("No SAT documented", "SAT documented")
     ),
+
+    ## MV/SBT
     on_mv = make_tf_factor(on_mv, c("Not on MV", "Received MV")),
     on_mv_icu = make_tf_factor(on_mv_icu, c("Not on MV", "Received MV")),
     had_sbtscreen = make_tf_factor(
@@ -772,6 +891,54 @@ compliance <- compliance %>%
     had_sbt = make_tf_factor(had_sbt, c("No SBT documented", "SBT documented")),
     had_sbt_icu = make_tf_factor(
       had_sbt_icu, c("No SBT documented", "SBT documented")
-    )
+    ),
+
+    sat_sbt = make_tf_factor(sat_sbt, c("Not paired", "Paired")),
+    sat_sbt_icu = make_tf_factor(sat_sbt_icu, c("Not paired", "Paired")),
+
+    ## C: Choice of analgesia and sedation
+    had_sedasmt = make_tf_factor_asmt(had_sedasmt),
+    had_sedasmt_icu = make_tf_factor_asmt(had_sedasmt_icu),
+
+    ## D: Delirium - assess, prevent and manage
+    coma_icu = make_tf_factor_yn(coma_icu),
+    had_delasmt = make_tf_factor_asmt(had_delasmt),
+    had_delasmt_icu = make_tf_factor_asmt(had_delasmt_icu),
+    delirium = make_tf_factor_yn(delirium),
+    delirium_icu = make_tf_factor_yn(delirium_icu),
+
+    ## E: Exercise/early mobility
+    on_restraints = make_tf_factor_yn(on_restraints),
+    on_restraints_icu = make_tf_factor_yn(on_restraints_icu),
+    had_mobscreen = make_tf_factor(
+      had_mobscreen, c("No screen documented", "Mobility screen documented")
+    ),
+    had_mobscreen_icu = make_tf_factor(
+      had_mobscreen_icu, c("No screen documented", "Mobility screen documented")
+    ),
+    had_mobility_icu = make_tf_factor(
+      had_mobility_icu,
+      c("No or low mobility documented", "Mobility > active ROM documented")
+    ),
+    family_present = make_tf_factor(
+      family_present, c("Not documented present", "Present")
+    ),
+    family_present_icu = make_tf_factor(
+      family_present_icu, c("Not documented present", "Present")
+    ),
+    family_invited_icu = make_tf_factor(
+      family_invited_icu, c("No invitation documented", "Invited to participate")
+    ),
+    family_rounds_icu = make_tf_factor(
+      family_rounds_icu, c("Did not participate", "Participated in rounds")
+    ),
+    family_care_icu = make_tf_factor(
+      family_care_icu, c("Did not participate", "Participated in care")
+    ),
+    family_edu_icu = make_tf_factor(
+      family_edu_icu, c("No education documented", "Educated")
+    ),
+
+    comfort_care_icu = make_tf_factor_yn(comfort_care_icu)
   )
 
