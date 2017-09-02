@@ -73,17 +73,6 @@ demog <- demog %>%
     ## data) and a maximum of 204 (highest ever recorded).
     bmi = ifelse(bmi < 7 | bmi > 204, NA, bmi),
 
-    ## Admission diagnosis: trauma, surgery, sepsis/pneumonia, everything else
-    admitdx = factor(
-      ifelse(rowSums(demog[,paste0("icu_dx_", c(1:9, 11:31, 99))]) == 0, NA,
-      ifelse(icu_dx_1 | icu_dx_5, 1,
-      ifelse(icu_dx_18 | icu_dx_19 | icu_dx_20 | icu_dx_28 | icu_dx_29, 2,
-      ifelse(icu_dx_21 | icu_dx_22 | icu_dx_23 | icu_dx_24 | icu_dx_25 |
-               icu_dx_26 | icu_dx_27, 3, 4)))),
-      levels = 1:4,
-      labels = c("Sepsis/pneumonia", "Trauma/neurological",
-                 "Surgery", "Anything else")),
-
     ## Severity of illness:
     ## - Indicator for whether any score available
     ## - Variable denoting _which_ score available
@@ -317,9 +306,32 @@ demog$primary_admit <- with(demog, {
                     "Surgery"))
 })
 
-ggplot(data = demog, aes(x = primary_admit)) +
-  geom_bar(stat = "count") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# ggplot(data = demog, aes(x = primary_admit)) +
+#   geom_bar(stat = "count") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# ## What categories make up most of "other"?
+# otherdx <- demog %>%
+#   filter(primary_admit == "Other") %>%
+#   dplyr::select(paste0("icu_dx_", c(30, 31, 16, 99))) %>%
+#   gather(key = other_type, other_has) %>%
+#   filter(other_has == 1) %>%
+#   mutate(other_type_f = factor(
+#     ifelse(other_type == "icu_dx_30", 1,
+#     ifelse(other_type == "icu_dx_31", 2,
+#     ifelse(other_type == "icu_dx_16", 3,
+#     ifelse(other_type == "icu_dx_99", 4, NA)))),
+#     levels = 1:4,
+#     labels = c("Drug overdose/withdrawal",
+#                "Other infectious diseases",
+#                "Malignancy",
+#                "Other")
+#   )
+#   )
+#
+# ggplot(data = otherdx, aes(x = other_type_f)) +
+#   geom_bar(stat = "count") +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ## -- Data management for compliance form --------------------------------------
 ## Variables related to each bundle element done in separate chunks for easier
