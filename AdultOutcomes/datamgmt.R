@@ -183,8 +183,8 @@ subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
 
 ## -- Admission diagnoses ------------------------------------------------------
 ## Categories from MB, agreed to by others:
-## Sepsis/septic shock (option 1: "Sepsis /Septic shock")
-## ARDS without infection (option 2: "ARDS without infection")
+## Sepsis/septic shock (option 1: "Sepsis /Septic shock") *OR*
+##   ARDS without infection (option 2: "ARDS without infection")
 ## Respiratory (airway protection/obstruction, COPD/asthma, Pneumonia, PE/DVT)
 ## - option 3: "Airway protection/obstruction"
 ## - option 4: "COPD / Asthma"
@@ -286,31 +286,28 @@ demog$admit_other <- sum_admitdx(c(30, 31, 16, 99))
 
 ## Calculate final "primary admission diagnosis" variable, prioritizing
 ## diagnoses as follows:
-## 1. Sepsis/septic shock
-## 2. ARDS
-## 3. Respiratory
-## 4. Neurologic
-## 5. Cardiac
-## 6. GI
-## 7. Trauma
-## 8. Genitourinary
-## 9. Surgery
-## 10. Other (will use this as reference - most common overall)
+## 1. Sepsis/septic shock *or* ARDS
+## 2. Respiratory
+## 3. Neurologic
+## 4. Cardiac
+## 5. GI
+## 6. Trauma
+## 7. Genitourinary
+## 8. Surgery
+## 9. Other (will use this as reference - most common overall)
 demog$primary_admit <- with(demog, {
-  factor(ifelse(admit_sepsis, 2,
-         ifelse(admit_ards, 3,
-         ifelse(admit_resp, 4,
-         ifelse(admit_neuro, 5,
-         ifelse(admit_cardiac, 6,
-         ifelse(admit_gi, 7,
-         ifelse(admit_trauma, 8,
-         ifelse(admit_gu, 9,
-         ifelse(admit_surg, 10,
-         ifelse(admit_other, 1, NA)))))))))),
-         levels = 1:10,
+  factor(ifelse(admit_sepsis | admit_ards, 2,
+         ifelse(admit_resp, 3,
+         ifelse(admit_neuro, 4,
+         ifelse(admit_cardiac, 5,
+         ifelse(admit_gi, 6,
+         ifelse(admit_trauma, 7,
+         ifelse(admit_gu, 8,
+         ifelse(admit_surg, 9,
+         ifelse(admit_other, 1, NA))))))))),
+         levels = 1:9,
          labels = c("Other",
-                    "Sepsis/septic shock",
-                    "ARDS without infection",
+                    "Sepsis/septic shock or ARDS",
                     "Respiratory",
                     "Neurologic",
                     "Cardiac",
@@ -319,6 +316,10 @@ demog$primary_admit <- with(demog, {
                     "Genitourinary",
                     "Surgery"))
 })
+
+ggplot(data = demog, aes(x = primary_admit)) +
+  geom_bar(stat = "count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ## -- Data management for compliance form --------------------------------------
 ## Variables related to each bundle element done in separate chunks for easier
