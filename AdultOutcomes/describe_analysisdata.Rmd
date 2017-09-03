@@ -1,0 +1,91 @@
+---
+title: "Check Analysis Datasets"
+output: html_notebook
+---
+
+The entire purpose of this notebook is to check our analysis datasets for weird
+values, mistakes, etc.
+
+```{r setup}
+load("AnalysisData/iculib.Rdata")
+
+library(Hmisc)
+options(grType = "plotly")
+
+```
+
+```{r describe_objs}
+## Raw data from REDCap - mostly just checking for extremes
+desc_demog_rc <-
+  describe(demog[,1:grep("demographic_and_discharge_form_complete_f",
+                         names(demog),
+                         fixed = TRUE)])
+
+## Calculated variables
+desc_demog_calc <-
+  describe(demog[,(grep("demographic_and_discharge_form_complete_f",
+                        names(demog),
+                        fixed = TRUE) + 1):ncol(demog)])
+
+desc_compliance_rc <- 
+  describe(compliance[,1:grep("daily_compliance_form_complete_f",
+                              names(compliance),
+                              fixed = TRUE)])
+desc_compliance_calc <- 
+  describe(compliance[,(grep("daily_compliance_form_complete_f",
+                             names(compliance),
+                             fixed = TRUE) + 1):ncol(compliance)])
+
+desc_tsdata <- describe(tsdata)
+
+```
+
+# Descriptives of `demog` dataset (one record per patient)
+
+## Raw variables from REDCap
+
+```{r print_desc_demog_rc}
+html(desc_demog_rc, size=80, scroll=TRUE)
+
+plot(desc_demog_rc)
+
+```
+
+## Calculated variables
+
+```{r print_desc_demog_calc}
+html(desc_demog_calc, size=80, scroll=TRUE)
+
+plot(desc_demog_calc)
+
+```
+
+# Descriptives of `compliance` dataset (many records per patient)
+
+## Raw variables from REDCap
+
+```{r print_desc_compliance_rc}
+html(desc_compliance_rc, size=80, scroll=TRUE)
+
+plot(desc_compliance_rc)
+
+```
+
+## Calculated variables
+
+```{r print_desc_compliance_calc}
+html(desc_compliance_calc, size=80, scroll=TRUE)
+
+plot(desc_compliance_calc)
+
+```
+
+# Descriptives of `tsdata` dataset (one record per month)
+
+```{r print_desc_tsdata}
+html(desc_tsdata, size=80, scroll=TRUE)
+
+plot(desc_tsdata)
+
+```
+
