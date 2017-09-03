@@ -90,6 +90,28 @@ demog <- demog %>%
                                  "Other or not specified",
                                  "Multiple races",
                                  "No race data entered")),
+    ## For models, combine categories with <1% and make "no data" NA
+    ## 1 = White (mode) (option 3)
+    ## 2 = AA/Black (option 2)
+    ## 3 = Asian (option 4)
+    ## 4 = Other, specified (American Indian/AK native, HI/Pac Islander) (1, 5)
+    ## 5 = Other, multiple races, or not specified (but documented) (6, sum > 1)
+    race_cat_mod = factor(
+      ifelse(race_6 | (race_1 + race_2 + race_3 + race_4 + race_5 + race_6 > 1),
+             5,
+      ifelse(race_1 | race_5, 4,
+      ifelse(race_2, 2,
+      ifelse(race_3, 1,
+      ifelse(race_4, 3,
+             NA))))),
+      levels = 1:5,
+      labels = c("White",
+                 "Black/African-American",
+                 "Asian",
+                 "Amer Indian/AK Native or HI/Pacific Isl",
+                 "Other race, multiple races, or not specified")
+    ),
+
     ## Ethnicity
     hisp_cat = factor(ifelse(is.na(hispanic_f), 3,
                       ifelse(hispanic_f == "Yes", 1, 2)),
@@ -97,6 +119,11 @@ demog <- demog %>%
                       labels = c("Hispanic",
                                  "Non-Hispanic",
                                  "No ethnicity entered")),
+    ## Version for model - "none entered" = NA
+    hisp_cat_mod = factor(ifelse(is.na(hispanic_f), NA,
+                          ifelse(hispanic_f == "Yes", 1, 2)),
+                          levels = 1:2,
+                          labels = c("Hispanic", "Non-Hispanic")),
 
     ## BMI wt (kg) / [height in meters]^2
     ht = as.numeric(ht),
@@ -749,10 +776,65 @@ compliance_icu_bypt <- compliance %>%
   group_by(id) %>%
   summarise_all(funs(days = sum, prop = mean), na.rm = TRUE) %>%
   ungroup() %>%
-  dplyr::select(-icu_day_prop) ## meaningless, 100% for everyone
+  ## B-SAT, B-SBT, F shd only have values if >0 days sedation/MV/family present
+  mutate(had_satscreen_icu_days =
+           ifelse(on_sedation_icu_days == 0, NA, had_satscreen_icu_days),
+         had_satscreen_icu_prop =
+           ifelse(on_sedation_icu_days == 0, NA, had_satscreen_icu_prop),
+         had_sat_icu_days =
+           ifelse(on_sedation_icu_days == 0, NA, had_sat_icu_days),
+         had_sat_icu_prop =
+           ifelse(on_sedation_icu_days == 0, NA, had_sat_icu_prop),
+         comp_b_sat_days =
+           ifelse(on_sedation_icu_days == 0, NA, comp_b_sat_days),
+         comp_b_sat_prop =
+           ifelse(on_sedation_icu_days == 0, NA, comp_b_sat_prop),
+         perf_b_sat_days =
+           ifelse(on_sedation_icu_days == 0, NA, perf_b_sat_days),
+         perf_b_sat_prop =
+           ifelse(on_sedation_icu_days == 0, NA, perf_b_sat_prop),
+         had_sbtscreen_icu_days =
+           ifelse(on_mv_icu_days == 0, NA, had_sbtscreen_icu_days),
+         had_sbtscreen_icu_prop =
+           ifelse(on_mv_icu_days == 0, NA, had_sbtscreen_icu_prop),
+         had_sbt_icu_days = ifelse(on_mv_icu_days == 0, NA, had_sbt_icu_days),
+         had_sbt_icu_prop = ifelse(on_mv_icu_days == 0, NA, had_sbt_icu_prop),
+         comp_b_sbt_days = ifelse(on_mv_icu_days == 0, NA, comp_b_sbt_days),
+         comp_b_sbt_prop = ifelse(on_mv_icu_days == 0, NA, comp_b_sbt_prop),
+         perf_b_sbt_days = ifelse(on_mv_icu_days == 0, NA, perf_b_sbt_days),
+         perf_b_sbt_prop = ifelse(on_mv_icu_days == 0, NA, perf_b_sbt_prop),
+         family_invited_icu_days =
+           ifelse(family_present_icu_days == 0, NA, family_invited_icu_days),
+         family_invited_icu_prop =
+           ifelse(family_present_icu_days == 0, NA, family_invited_icu_prop),
+         family_rounds_icu_days =
+           ifelse(family_present_icu_days == 0, NA, family_rounds_icu_days),
+         family_rounds_icu_prop =
+           ifelse(family_present_icu_days == 0, NA, family_rounds_icu_prop),
+         family_care_icu_days =
+           ifelse(family_present_icu_days == 0, NA, family_care_icu_days),
+         family_care_icu_prop =
+           ifelse(family_present_icu_days == 0, NA, family_care_icu_prop),
+         family_edu_icu_days =
+           ifelse(family_present_icu_days == 0, NA, family_edu_icu_days),
+         family_edu_icu_prop =
+           ifelse(family_present_icu_days == 0, NA, family_edu_icu_prop),
+         comp_f_days =
+           ifelse(family_present_icu_days == 0, NA, comp_f_days),
+         comp_f_prop =
+           ifelse(family_present_icu_days == 0, NA, comp_f_prop),
+         perf_f_days =
+           ifelse(family_present_icu_days == 0, NA, perf_f_days),
+         perf_f_prop =
+           ifelse(family_present_icu_days == 0, NA, perf_f_prop)
+  ) %>%
+  dplyr::select(-icu_day_prop) %>% ## meaningless, 100% for everyone
+  rename(icu_days = icu_day_days)
 
-## Merge onto demog
-demog <- left_join(demog, compliance_icu_bypt, by = "id")
+## Merge onto demog; if icu_days is NA, indicates that patient never had a
+## day with icu_day = Yes to include in above -> set to 0
+demog <- left_join(demog, compliance_icu_bypt, by = "id") %>%
+  mutate(icu_days = ifelse(is.na(icu_days), 0, icu_days))
 
 ## -- Dataset for Alai - time series analysis ----------------------------------
 ## One row per month with numerator, denominator columns
@@ -899,6 +981,10 @@ compliance <- compliance %>%
     ## C: Choice of analgesia and sedation
     had_sedasmt = make_tf_factor_asmt(had_sedasmt),
     had_sedasmt_icu = make_tf_factor_asmt(had_sedasmt_icu),
+    rcvd_benzo_icu = make_tf_factor_yn(rcvd_benzo_icu),
+    rcvd_opioid_icu = make_tf_factor_yn(rcvd_opioid_icu),
+    rcvd_propofol_icu = make_tf_factor_yn(rcvd_propofol_icu),
+    rcvd_dex_icu = make_tf_factor_yn(rcvd_dex_icu),
 
     ## D: Delirium - assess, prevent and manage
     coma_icu = make_tf_factor_yn(coma_icu),
