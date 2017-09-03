@@ -1,0 +1,58 @@
+---
+title: "ICU Liberation: ABCDEF Bundle vs ICU Outcomes"
+author: "Jennifer Thompson, MPH for Society of Critical Care Medicine"
+output:
+  html_notebook:
+    code_folding: hide
+    theme: journal
+    toc: true
+    toc_float: true
+    toc_depth: 2
+---
+
+```{r setup}
+library(tidyverse, quietly = TRUE)
+library(rms, quietly = TRUE)
+
+load("AnalysisData/iculib.Rdata")
+
+```
+
+# Overview & Purpose
+
+This report aims to:
+
+1. Describe the cohort of patients in the [SCCM ICU Liberation ABCDEF Bundle Improvement Collaborative](http://www.iculiberation.org/About/collaborative/Pages/default.aspx)
+1. Describe the implementation of the [ABCDEF Bundle](http://www.iculiberation.org/Bundles/Pages/default.aspx) over the course of the Collaborative
+1. Describe the association between compliance and performance of the ABCDEF Bundle and important ICU outcomes *(outcomes will be detailed in a later section)*
+
+The Collaborative enrolled patients at `r length(unique(demog$hosp_f))` ICUs
+across the United States, collecting data during a six-month **baseline** period
+and a 14-month **implementation** period. During the six months of baseline data
+collection, no changes in usual care were prescribed; during the 14 months of
+implementation, sites were encouraged to use the ABCDEF Bundle. Our hypotheses
+are that implementation rates improved over the course of data collection, and
+that increased compliance with and performance of the ABCDEF Bundle is
+associated with better in-hospital outcomes.
+
+Our analysis plan was specified *a priori* and can be found [here](https://docs.google.com/document/d/1GebrA6Lt-rEh70Aw9r4mrhRlggWUfgUl_LaQePOCWZA/edit?usp=sharing), including a history of all changes.
+
+# Definitions of Compliance and Performance
+
+There are six main elements of the ABCDEF Bundle, with element B comprised of
+two main components. Definitions of "compliance" (completely following the ABCDEF Bundle protocol as specified, with documentation of each step) and "performance" (performing the main component of the Bundle element, possibly without complete documentation) are detailed below, referring to any single day. For each element,
+compliance and performance are only measured if the patient was in the ICU the
+full 24 hours; additional eligibility for specific elements are detailed below.
+
+| Bundle element    | Days eligible | Compliant if: | Performed if: |
+|-------------------|---------------|---------------|---------------|
+| **A: Assess, prevent and manage pain**  | | >=6 documented pain assessments using a validated instrument | *same* |
+| **B: Both SAT and SBT** |   |   |   |
+| &nbsp;&nbsp;&nbsp;SAT | Received continuous/ intermittent sedation | **If safety screen documented:**<br>If screen failed, SAT not performed; if screen passed, SAT was performed<br>**If safety screen not documented:**<br>SAT marked not done due to  failed screen/contraindication | SAT performed and documented |
+| &nbsp;&nbsp;&nbsp;SBT | On mechanical ventilation | **If safety screen documented:**<br>If screen failed, SBT not performed; if screen passed, SBT was performed<br>**If safety screen not documented:**<br>SBT marked not done due to  failed screen/contraindication | SBT performed and documented |
+| **C: Choice of analgesia and sedation** | | >=6 documented sedation assessments using a validated instrument | *same* |
+| **D: Delirium - assess, prevent and manage** | | >=2 documented delirium assessments using a validated instrument | *same* |
+| **E: Exercise and early mobility** | | **If safety screen documented:**<br>If screen failed, mobility not performed; if screen passed, mobility higher than active range of motion was performed<br>**If safety screen not documented:**<br>Mobility marked not done due to failed screen/contraindication | Mobility higher than active range of motion performed and documented |
+| **F: Family engagement and empowerment** | Family present | Family member was educated on ABCDEF bundle and/or participated in at least one of: rounds; conference; plan of care; ABCDEF care | *same* |
+| **Overall (complete)** | | All elements eligible to be compliant are compliant | All elements eligible to be performed are performed |
+| **Overall (dose)** | | Elements compliant / elements eligible to be compliant | Elements performed / elements eligible to be performed |
