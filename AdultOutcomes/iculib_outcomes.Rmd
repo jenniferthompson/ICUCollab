@@ -13,8 +13,22 @@ output:
 ```{r setup}
 library(tidyverse, quietly = TRUE)
 library(rms, quietly = TRUE)
+library(captioner, quietly = TRUE)
 
 load("AnalysisData/iculib.Rdata")
+
+```
+
+```{r tablesfigs, results = "hide"}
+table_nums <- captioner(prefix = "Table")
+table_nums(
+  name = "descbase", caption = "Baseline and Demographic Characteristics"
+)
+table_nums(
+  name = "descinhosp", caption = "In-Hospital and Discharge Characteristics"
+)
+
+figure_nums <- captioner(prefix = "Figure")
 
 ```
 
@@ -56,3 +70,77 @@ full 24 hours; additional eligibility for specific elements are detailed below.
 | **F: Family engagement and empowerment** | Family present | Family member was educated on ABCDEF bundle and/or participated in at least one of: rounds; conference; plan of care; ABCDEF care | *same* |
 | **Overall (complete)** | | All elements eligible to be compliant are compliant | All elements eligible to be performed are performed |
 | **Overall (dose)** | | Elements compliant / elements eligible to be compliant | Elements performed / elements eligible to be performed |
+
+# Description of Cohort
+
+`r table_nums("descbase", display = "cite")` describes the demographic and ICU admission characteristics of the patients enrolled during Months 1-20 of data
+collection; `r table_nums("descinhosp", display = "cite")` describes in-hospital and discharge characteristics. **Note:** Only patients with at least one day fully in the ICU will be included in the analyses; this reduces the total N to
+`r format(sum(demog$icu_days > 0, na.rm = TRUE), big.mark = ",")` patients.
+
+```{r descbase}
+## Add labels to variables we want to describe - labels don't play well with
+## tidyverse so copy a separate data.frame
+demog_desc <- demog
+label(demog_desc$age_f) <- "Age category"
+label(demog_desc$sex_f) <- "Sex"
+label(demog_desc$race_cat) <- "Race"
+label(demog_desc$hisp_cat) <- "Hispanic"
+label(demog_desc$bmi) <- "BMI"
+label(demog_desc$home_preadmit) <- "Residence pre-admission"
+label(demog_desc$mob_preadmit) <- "Mobility pre-admission"
+label(demog_desc$primary_admit) <- "Primary admission diagnosis"
+label(demog_desc$icu_type_comb) <- "ICU type"
+label(demog_desc$any_soi) <- "Any severity of illness score available"
+label(demog_desc$apacheii_avail) <- "APACHE II available"
+label(demog_desc$apacheii_score) <- "APACHE II score"
+label(demog_desc$apacheiii_avail) <- "APACHE III available"
+label(demog_desc$apacheiii_score) <- "APACHE III score"
+label(demog_desc$apacheiv_avail) <- "APACHE IV available"
+label(demog_desc$apacheiv_score) <- "APACHE IV score"
+label(demog_desc$sofa_avail) <- "SOFA available"
+label(demog_desc$sofa_score) <- "SOFA score"
+label(demog_desc$othersoi_avail) <- "Other SOI available"
+label(demog_desc$ever_invas_mv) <- "Ever on invasive MV"
+label(demog_desc$hrs_invas_mv) <- "Hours on invasive MV"
+label(demog_desc$ever_noninvas_mv) <- "Ever on noninvasive MV"
+label(demog_desc$hrs_noninvas_mv) <- "Hours on noninvasive MV"
+label(demog_desc$icu_los) <- "ICU length of stay"
+label(demog_desc$ever_readmit_icu) <- "Ever readmitted to ICU"
+label(demog_desc$hosp_los) <- "Hospital length of stay"
+label(demog_desc$home_posticu) <- "Residence post-ICU"
+label(demog_desc$mob_posticu) <- "Mobility post-ICU"
+label(demog_desc$dc_status_f) <- "Discharge status"
+label(demog_desc$dc_loc_f) <- "Discharge location"
+
+```
+
+`r table_nums("descbase")`
+```{r print_descbase}
+html(summaryM(age_f + sex_f + race_cat + hisp_cat + bmi + home_preadmit +
+                mob_preadmit + primary_admit + icu_type_comb + any_soi +
+                apacheii_score + apacheiii_score + apacheiv_score +
+                sofa_score ~ 1,
+              data = demog_desc,
+              continuous = 5),
+     what = "%",
+     npct = "both",
+     digits = 2,
+     long = TRUE,
+     caption = "Demographic and Baseline Characteristics")
+
+```
+
+`r table_nums("descinhosp")`
+```{r print_descinhosp}
+html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
+                hrs_noninvas_mv + icu_los + ever_readmit_icu + hosp_los +
+                home_posticu + mob_posticu + dc_status_f + dc_loc_f ~ 1,
+              data = demog_desc,
+              continuous = 5),
+     what = "%",
+     npct = "both",
+     digits = 2,
+     long = TRUE,
+     caption = "In-Hospital and Discharge Characteristics")
+
+```
