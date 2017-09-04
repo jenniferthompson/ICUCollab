@@ -75,7 +75,15 @@ full 24 hours; additional eligibility for specific elements are detailed below.
 | **Overall (complete)** | | All elements eligible to be compliant are compliant | All elements eligible to be performed are performed |
 | **Overall (dose)** | | Elements compliant / elements eligible to be compliant | Elements performed / elements eligible to be performed |
 
-# Description of Cohort
+# Additional Variable Calculation Information
+
+- **BMI:** BMI was calculated as `weight / (height / 100)^2`, where weight was entered in kg and height was entered in cm. We assumed that any height below 80 was accidentally entered in inches rather than cm, and converted those heights to cm (original height * 2.54). After calculating BMI, some values were implausible; we assumed that any BMI < 7 (based on anorexia data) or > 204 (based on highest recorded BMI) was due to data entry error, and these values (along with anyone for whom weight and/or height were missing or equal to 0) were forced to be missing.
+
+Full details on how many calculated variables are determined from raw data, including definitions of compliance and performance, are in the [analysis plan](https://docs.google.com/document/d/1GebrA6Lt-rEh70Aw9r4mrhRlggWUfgUl_LaQePOCWZA/edit?usp=sharing).
+
+# Descriptive Statistics
+
+## Description of Cohort
 
 `r table_nums("descbase", display = "cite")` describes the demographic and ICU admission characteristics of the patients enrolled during Months 1-20 of data
 collection; `r table_nums("descinhosp", display = "cite")` describes in-hospital and discharge characteristics. **Note:** Only patients with at least one day fully in the ICU will be included in the analyses; this reduces the total N to
@@ -274,7 +282,7 @@ painasmt_quants <- quantile(comp_desc$pain_asmts_icu, na.rm = TRUE)
 
 ```
 
-## `r table_nums("descbase")`
+### `r table_nums("descbase")`
 
 Continuous variables are described by the 25th, 50th and 75th percentiles, in
 that order (50th percentile = median). For example, 25% of patients had a BMI of
@@ -299,7 +307,7 @@ html(summaryM(age_f + sex_f + race_cat + hisp_cat + bmi + home_preadmit +
 
 ```
 
-## `r table_nums("descinhosp")`
+### `r table_nums("descinhosp")`
 
 Continuous variables are described by the 25th, 50th and 75th percentiles, in
 that order (50th percentile = median). For example, 25% of patients had
@@ -344,9 +352,9 @@ html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
 
 ```
 
-# Description of ICU Patient-Days
+## Description of ICU Patient-Days
 
-## `r table_nums("descicudays")`
+### `r table_nums("descicudays")`
 
 `r table_nums("descicudays", display = "cite")` presents descriptive statistics
 by **day** for all days which were completely in the ICU.
