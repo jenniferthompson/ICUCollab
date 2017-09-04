@@ -27,6 +27,7 @@ table_nums(
 table_nums(
   name = "descinhosp", caption = "In-Hospital and Discharge Characteristics"
 )
+table_nums(name = "descicudays", caption = "ICU Day Characteristics")
 table_nums(
   name = "descabcdef", caption = "Bundle Compliance and Performance, Overall"
 )
@@ -147,9 +148,85 @@ label(demog_desc$mob_posticu) <- "Mobility post-ICU"
 label(demog_desc$dc_status_f) <- "Discharge status"
 label(demog_desc$dc_loc_f) <- "Discharge location"
 
+## Only describe days fully in ICU
+comp_desc <- compliance %>% filter(icu_day)
+
+label(comp_desc$pain_asmts_icu) <-
+  "Number of pain assessments with validated tool"
+label(comp_desc$had_painasmt_icu) <-
+  "Had >=1 pain assessment with validated tool"
+label(comp_desc$comp_a) <- "Element A: compliant"
+label(comp_desc$perf_a) <- "Element A: performed"
+label(comp_desc$sigpain_verbal_icu) <- "Significant pain self-reported"
+label(comp_desc$sigpain_valid_icu) <- "Significant pain using validated tool"
+label(comp_desc$sigpain_icu) <- "Significant pain, either method"
+
+label(comp_desc$on_sedation_icu) <- "On continuous/intermittent sedation"
+label(comp_desc$had_satscreen_icu) <- "SAT safety screen documented"
+label(comp_desc$had_sat_icu) <- "SAT documented"
+label(comp_desc$comp_b_sat) <- "Element B - SAT: compliant"
+label(comp_desc$perf_b_sat) <- "Element B - SAT: performed"
+
+label(comp_desc$on_mv_icu) <- "On mechanical ventilation"
+label(comp_desc$had_sbtscreen_icu) <- "SBT safety screen documented"
+label(comp_desc$had_sbt_icu) <- "SBT documented"
+label(comp_desc$comp_b_sbt) <- "Element B - SBT: compliant"
+label(comp_desc$perf_b_sbt) <- "Element B - SBT: performed"
+label(comp_desc$sat_sbt_icu) <- "SAT performed before SBT"
+
+label(comp_desc$sed_assess_valid_icu) <-
+  "Number of sedation assessments with validated tool"
+label(comp_desc$had_sedasmt_icu) <-
+  "Had >=1 sedation assessment with validated tool"
+label(comp_desc$comp_c) <- "Element C: compliant"
+label(comp_desc$perf_c) <- "Element C: performed"
+label(comp_desc$rcvd_benzo_icu) <- "Received benzodiazepines"
+label(comp_desc$rcvd_opioid_icu) <- "Received opioids"
+label(comp_desc$rcvd_propofol_icu) <- "Received propofol"
+label(comp_desc$rcvd_dex_icu) <- "Received dexmedetomidine"
+
+label(comp_desc$del_assess_valid_icu) <-
+  "Number of delirium assessments with validated tool"
+label(comp_desc$had_delasmt_icu) <-
+  "Had >=1 delirium assessment with validated tool"
+label(comp_desc$comp_d) <- "Element D: compliant"
+label(comp_desc$perf_d) <- "Element D: performed"
+label(comp_desc$delirium_icu) <- "Delirious, per validated tool"
+label(comp_desc$coma_icu) <- "Comatose"
+
+label(comp_desc$on_restraints_icu) <- "On physical restraints"
+label(comp_desc$had_mobscreen_icu) <- "Mobility safety screen documented"
+label(comp_desc$had_mobility_icu) <- "Mobility > active ROM documented"
+label(comp_desc$mobilityhighest_icu) <- "Highest level of mobility"
+label(comp_desc$comp_e) <- "Element E: compliant"
+label(comp_desc$perf_e) <- "Element E: performed"
+
+label(comp_desc$family_present_icu) <- "Family present"
+label(comp_desc$family_invited_icu) <-
+  "Family invited to participate in rounds/conference"
+label(comp_desc$family_rounds_icu) <- "Family participated in rounds"
+label(comp_desc$family_care_icu) <-
+  "Family participated in plan of care/ABCDEF care"
+label(comp_desc$family_edu_icu) <-
+  "Family educated on ABCDEF bundle/related topics"
+label(comp_desc$comp_f) <- "Element F: compliant"
+label(comp_desc$perf_f) <- "Element F: performed"
+
+label(comp_desc$comfort_care_icu) <- "On comfort care"
+
+label(comp_desc$comp_yn) <- "Overall ABCDEF compliance"
+label(comp_desc$perf_yn) <- "Overall ABCDEF performance"
+label(comp_desc$elements_elig) <-
+  "Number of ABCDEF elements eligible to be performed/compliant"
+label(comp_desc$elements_comp) <- "Number of elements compliant"
+label(comp_desc$comp_prop) <- "Proportion of elements compliant"
+label(comp_desc$elements_perf) <- "Number of elements performed"
+label(comp_desc$perf_prop) <- "Proportion of elements performed"
+
 ## Example for percentiles for each table
 bmi_quants <- quantile(demog$bmi, na.rm = TRUE)
 hrsmv_quants <- quantile(demog$hrs_invas_mv, na.rm = TRUE)
+painasmt_quants <- quantile(comp_desc$pain_asmts_icu, na.rm = TRUE)
 
 ```
 
@@ -207,6 +284,44 @@ html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
      caption = "In-Hospital and Discharge Characteristics",
      insert.bottom =
        'Note: "Days in ICU" refers to days the patient was in the ICU all 24h')
+
+```
+
+# Description of ICU Patient-Days
+
+## `r table_nums("descicudays")`
+
+`r table_nums("descicudays", display = "cite")` presents descriptive statistics
+by **day** for all days which were completely in the ICU.
+
+Continuous variables are described by the 25th, 50th and 75th percentiles, in
+that order (50th percentile = median). For example, 25% of patient-days had
+`r round(painasmt_quants["25%"])` or fewer pain assessments with validated
+tools; 50% of patient-days had `r round(painasmt_quants["50%"])` or fewer assessments; and 75% of patient-days had `r round(painasmt_quants["75%"])` or
+fewer assessments.
+
+```{r print_descicudays}
+html(summaryM(pain_asmts_icu + had_painasmt_icu + comp_a + perf_a +
+                sigpain_verbal_icu + sigpain_valid_icu + sigpain_icu +
+                on_sedation_icu + had_satscreen_icu + had_sat_icu + comp_b_sat +
+                perf_b_sat + on_mv_icu + had_sbtscreen_icu + had_sbt_icu +
+                comp_b_sbt + perf_b_sbt + sat_sbt_icu + sed_assess_valid_icu +
+                had_sedasmt_icu + comp_c + perf_c + rcvd_benzo_icu +
+                rcvd_opioid_icu + rcvd_propofol_icu + rcvd_dex_icu +
+                del_assess_valid_icu + had_delasmt_icu + comp_d + perf_d +
+                delirium_icu + coma_icu + on_restraints_icu +
+                had_mobscreen_icu + had_mobility_icu + mobilityhighest_icu +
+                comp_e + perf_e + family_present_icu + family_invited_icu +
+                family_rounds_icu + family_care_icu + family_edu_icu + comp_f +
+                perf_f + comfort_care_icu + comp_yn + perf_yn + elements_elig +
+                elements_comp + comp_prop + elements_perf + perf_prop ~ 1,
+              data = comp_desc,
+              continuous = 5),
+     what = "%",
+     npct = "both",
+     digits = 2,
+     long = TRUE,
+     caption = "Characteristics of ICU Days")
 
 ```
 
