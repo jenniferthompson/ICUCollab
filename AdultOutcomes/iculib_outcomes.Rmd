@@ -7,7 +7,7 @@ output:
     theme: journal
     toc: true
     toc_float: true
-    toc_depth: 2
+    toc_depth: 4
 ---
 
 ```{r setup}
@@ -95,6 +95,10 @@ For full definitions of compliance and performance, see [Definitions](#definitio
 ## Add labels to variables we want to describe - labels don't play well with
 ## tidyverse so copy a separate data.frame
 demog_desc <- demog
+
+demog_desc$hosp_f <- as.factor(demog_desc$hosp_f)
+
+label(demog_desc$hosp_f) <- "Study site"
 label(demog_desc$age_f) <- "Age category"
 label(demog_desc$sex_f) <- "Sex"
 label(demog_desc$race_cat) <- "Race"
@@ -293,9 +297,9 @@ that order (50th percentile = median). For example, 25% of patients had a BMI of
 For full definitions of compliance and performance, see [Definitions](#definitions).
 
 ```{r print_descbase}
-html(summaryM(age_f + sex_f + race_cat + hisp_cat + bmi + home_preadmit +
-                mob_preadmit + primary_admit + icu_type_comb + any_soi +
-                apacheii_score + apacheiii_score + apacheiv_score +
+html(summaryM(hosp_f + age_f + sex_f + race_cat + hisp_cat + bmi +
+                home_preadmit + mob_preadmit + primary_admit + icu_type_comb +
+                any_soi + apacheii_score + apacheiii_score + apacheiv_score +
                 sofa_score ~ 1,
               data = demog_desc,
               continuous = 5),
