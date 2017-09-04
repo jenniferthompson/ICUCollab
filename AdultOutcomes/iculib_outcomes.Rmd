@@ -17,6 +17,21 @@ library(captioner, quietly = TRUE)
 
 load("AnalysisData/iculib.Rdata")
 
+## Combine months 1-6 (baseline); keep implementation months separate
+demog$month_cat <- with(demog, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("Baseline", paste("Implementation", 1:14)))
+})
+
+compliance$month_cat <- with(compliance, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("Baseline", paste("Implementation", 1:14)))
+})
+
 ```
 
 ```{r tablesfigs, results = "hide"}
@@ -99,6 +114,7 @@ demog_desc <- demog
 demog_desc$hosp_f <- as.factor(demog_desc$hosp_f)
 
 label(demog_desc$hosp_f) <- "Study site"
+label(demog_desc$month_cat) <- "Time period"
 label(demog_desc$age_f) <- "Age category"
 label(demog_desc$sex_f) <- "Sex"
 label(demog_desc$race_cat) <- "Race"
@@ -297,7 +313,7 @@ that order (50th percentile = median). For example, 25% of patients had a BMI of
 For full definitions of compliance and performance, see [Definitions](#definitions).
 
 ```{r print_descbase}
-html(summaryM(hosp_f + age_f + sex_f + race_cat + hisp_cat + bmi +
+html(summaryM(hosp_f + month_cat + age_f + sex_f + race_cat + hisp_cat + bmi +
                 home_preadmit + mob_preadmit + primary_admit + icu_type_comb +
                 any_soi + apacheii_score + apacheiii_score + apacheiv_score +
                 sofa_score ~ 1,
