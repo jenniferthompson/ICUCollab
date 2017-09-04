@@ -947,7 +947,7 @@ compliance <- compliance %>%
       on_sedation,
       c("No or PRN sedation only", "Continuous/intermittent sedation")
     ),
-    on_sedation_icu = make_tf_factor(
+    on_sedation_icu_f = make_tf_factor(
       on_sedation_icu,
       c("No or PRN sedation only", "Continuous/intermittent sedation")
     ),
@@ -964,7 +964,7 @@ compliance <- compliance %>%
 
     ## MV/SBT
     on_mv = make_tf_factor(on_mv, c("Not on MV", "Received MV")),
-    on_mv_icu = make_tf_factor(on_mv_icu, c("Not on MV", "Received MV")),
+    on_mv_icu_f = make_tf_factor(on_mv_icu, c("Not on MV", "Received MV")),
     had_sbtscreen = make_tf_factor(
       had_sbtscreen, c("No screen documented", "SBT screen documented")
     ),
@@ -1010,7 +1010,7 @@ compliance <- compliance %>%
     family_present = make_tf_factor(
       family_present, c("Not documented present", "Present")
     ),
-    family_present_icu = make_tf_factor(
+    family_present_icu_f = make_tf_factor(
       family_present_icu, c("Not documented present", "Present")
     ),
     family_invited_icu = make_tf_factor(
