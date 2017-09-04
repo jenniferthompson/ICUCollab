@@ -893,24 +893,25 @@ make_tf_factor_asmt <- function(vname){
 
 compliance <- compliance %>%
   mutate(
-    ## All compliance/performance variables
-    comp_a = make_tf_factor_comp(comp_a),
-    comp_b_sat = make_tf_factor_comp(comp_b_sat),
-    comp_b_sbt = make_tf_factor_comp(comp_b_sbt),
-    comp_c = make_tf_factor_comp(comp_c),
-    comp_d = make_tf_factor_comp(comp_d),
-    comp_e = make_tf_factor_comp(comp_e),
-    comp_f = make_tf_factor_comp(comp_f),
-    comp_yn = make_tf_factor_comp(comp_yn),
+    ## All compliance/performance variables - make separate variables for
+    ## descriptive tables, keep T/F for calculations
+    comp_a_f = make_tf_factor_comp(comp_a),
+    comp_b_sat_f = make_tf_factor_comp(comp_b_sat),
+    comp_b_sbt_f = make_tf_factor_comp(comp_b_sbt),
+    comp_c_f = make_tf_factor_comp(comp_c),
+    comp_d_f = make_tf_factor_comp(comp_d),
+    comp_e_f = make_tf_factor_comp(comp_e),
+    comp_f_f = make_tf_factor_comp(comp_f),
+    comp_yn_f = make_tf_factor_comp(comp_yn),
 
-    perf_a = make_tf_factor_perf(perf_a),
-    perf_b_sat = make_tf_factor_perf(perf_b_sat),
-    perf_b_sbt = make_tf_factor_perf(perf_b_sbt),
-    perf_c = make_tf_factor_perf(perf_c),
-    perf_d = make_tf_factor_perf(perf_d),
-    perf_e = make_tf_factor_perf(perf_e),
-    perf_f = make_tf_factor_perf(perf_f),
-    perf_yn = make_tf_factor_perf(perf_yn),
+    perf_a_f = make_tf_factor_perf(perf_a),
+    perf_b_sat_f = make_tf_factor_perf(perf_b_sat),
+    perf_b_sbt_f = make_tf_factor_perf(perf_b_sbt),
+    perf_c_f = make_tf_factor_perf(perf_c),
+    perf_d_f = make_tf_factor_perf(perf_d),
+    perf_e_f = make_tf_factor_perf(perf_e),
+    perf_f_f = make_tf_factor_perf(perf_f),
+    perf_yn_f = make_tf_factor_perf(perf_yn),
 
     ## A: Assess, prevent and manage pain
     had_painasmt = make_tf_factor_asmt(had_painasmt),
