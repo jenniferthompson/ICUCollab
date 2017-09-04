@@ -113,6 +113,8 @@ label(demog_desc$hrs_noninvas_mv) <- "Hours on noninvasive MV"
 label(demog_desc$icu_los) <- "ICU length of stay"
 label(demog_desc$icu_days) <- "Days all 24h in ICU"
 label(demog_desc$ever_readmit_icu) <- "Ever readmitted to ICU"
+label(demog_desc$had_painasmt_icu_days) <-
+  "Days in ICU with >=1 pain assessment with validated tool"
 label(demog_desc$sigpain_icu_days) <- "Days in ICU with significant pain"
 label(demog_desc$on_sedation_icu_days) <-
   "Days in ICU on continuous/intermittent sedation"
