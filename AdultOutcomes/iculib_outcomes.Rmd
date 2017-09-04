@@ -55,7 +55,7 @@ associated with better in-hospital outcomes.
 
 Our analysis plan was specified *a priori* and can be found [here](https://docs.google.com/document/d/1GebrA6Lt-rEh70Aw9r4mrhRlggWUfgUl_LaQePOCWZA/edit?usp=sharing), including a history of all changes.
 
-# Definitions of Compliance and Performance
+# Definitions of Compliance and Performance {#definitions}
 
 There are six main elements of the ABCDEF Bundle, with element B comprised of
 two main components. Definitions of "compliance" (completely following the ABCDEF Bundle protocol as specified, with documentation of each step) and "performance" (performing the main component of the Bundle element, possibly without complete documentation) are detailed below, referring to any single day. For each element,
@@ -80,6 +80,8 @@ full 24 hours; additional eligibility for specific elements are detailed below.
 `r table_nums("descbase", display = "cite")` describes the demographic and ICU admission characteristics of the patients enrolled during Months 1-20 of data
 collection; `r table_nums("descinhosp", display = "cite")` describes in-hospital and discharge characteristics. **Note:** Only patients with at least one day fully in the ICU will be included in the analyses; this reduces the total N to
 `r format(sum(demog$icu_days > 0, na.rm = TRUE), big.mark = ",")` patients.
+
+For full definitions of compliance and performance, see [Definitions](#definitions).
 
 ```{r descbase}
 ## Add labels to variables we want to describe - labels don't play well with
@@ -147,6 +149,46 @@ label(demog_desc$home_posticu) <- "Residence post-ICU"
 label(demog_desc$mob_posticu) <- "Mobility post-ICU"
 label(demog_desc$dc_status_f) <- "Discharge status"
 label(demog_desc$dc_loc_f) <- "Discharge location"
+label(demog_desc$comp_a_days) <- "ICU days Element A compliant"
+label(demog_desc$comp_a_prop) <- "Proportion of ICU days Element A compliant"
+label(demog_desc$perf_a_days) <- "ICU days Element A performed"
+label(demog_desc$perf_a_prop) <- "Proportion of ICU days Element A performed"
+label(demog_desc$comp_b_sat_days) <- "ICU days Element B - SAT compliant"
+label(demog_desc$comp_b_sat_prop) <-
+  "Proportion of sedation ICU days Element B - SAT compliant"
+label(demog_desc$perf_b_sat_days) <- "ICU days Element B - SAT performed"
+label(demog_desc$perf_b_sat_prop) <-
+  "Proportion of sedation ICU days Element B - SAT performed"
+label(demog_desc$comp_b_sbt_days) <- "ICU days Element B - SBT compliant"
+label(demog_desc$comp_b_sbt_prop) <-
+  "Proportion of MV ICU days Element B - SBT compliant"
+label(demog_desc$perf_b_sbt_days) <- "ICU days Element B - SBT performed"
+label(demog_desc$perf_b_sbt_prop) <-
+  "Proportion of MV ICU days Element B - SBT performed"
+label(demog_desc$comp_c_days) <- "ICU days Element C compliant"
+label(demog_desc$comp_c_prop) <- "Proportion of ICU days Element C compliant"
+label(demog_desc$perf_c_days) <- "ICU days Element C performed"
+label(demog_desc$perf_c_prop) <- "Proportion of ICU days Element C performed"
+label(demog_desc$comp_d_days) <- "ICU days Element D compliant"
+label(demog_desc$comp_d_prop) <- "Proportion of ICU days Element D compliant"
+label(demog_desc$perf_d_days) <- "ICU days Element D performed"
+label(demog_desc$perf_d_prop) <- "Proportion of ICU days Element D performed"
+label(demog_desc$comp_e_days) <- "ICU days Element E compliant"
+label(demog_desc$comp_e_prop) <- "Proportion of ICU days Element E compliant"
+label(demog_desc$perf_e_days) <- "ICU days Element E performed"
+label(demog_desc$perf_e_prop) <- "Proportion of ICU days Element E performed"
+label(demog_desc$comp_f_days) <- "ICU days Element F compliant"
+label(demog_desc$comp_f_prop) <-
+  "Proportion of family ICU days Element F compliant"
+label(demog_desc$perf_f_days) <- "ICU days Element F performed"
+label(demog_desc$perf_f_prop) <-
+  "Proportion of family ICU days Element F performed"
+label(demog_desc$comp_yn_days) <- "ICU days entire bundle compliant"
+label(demog_desc$comp_yn_prop) <-
+  "Proportion of ICU days entire bundle compliant"
+label(demog_desc$perf_yn_days) <- "ICU days entire bundle performed"
+label(demog_desc$perf_yn_prop) <-
+  "Proportion of ICU days entire bundle performed"
 
 ## Only describe days fully in ICU
 comp_desc <- compliance %>% filter(icu_day)
@@ -238,6 +280,8 @@ that order (50th percentile = median). For example, 25% of patients had a BMI of
 `r round(bmi_quants["50%"])` or less; and 75% of patients had a BMI of
 `r round(bmi_quants["75%"])` or less.
 
+For full definitions of compliance and performance, see [Definitions](#definitions).
+
 ```{r print_descbase}
 html(summaryM(age_f + sex_f + race_cat + hisp_cat + bmi + home_preadmit +
                 mob_preadmit + primary_admit + icu_type_comb + any_soi +
@@ -261,20 +305,31 @@ that order (50th percentile = median). For example, 25% of patients had
 patients had `r round(hrsmv_quants["50%"])` or fewer hours on MV; and 75% of
 patients had `r round(hrsmv_quants["75%"])` or fewer hours on MV.
 
+For full definitions of compliance and performance, see [Definitions](#definitions).
+
 ```{r print_descinhosp}
 html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
                 hrs_noninvas_mv + icu_los + ever_readmit_icu +
-                sigpain_icu_days + on_sedation_icu_days +
-                had_satscreen_icu_days + had_sat_icu_days + on_mv_icu_days +
-                had_sbtscreen_icu_days + had_sbt_icu_days + sat_sbt_icu_days +
-                rcvd_benzo_icu_days + rcvd_opioid_icu_days +
+                had_painasmt_icu_days + sigpain_icu_days + comp_a_days +
+                comp_a_prop + perf_a_days + perf_a_prop +
+                on_sedation_icu_days + had_satscreen_icu_days +
+                had_sat_icu_days + comp_b_sat_days + comp_b_sat_prop +
+                perf_b_sat_days + perf_b_sat_prop +
+                on_mv_icu_days + had_sbtscreen_icu_days + had_sbt_icu_days +
+                sat_sbt_icu_days + comp_b_sbt_days + comp_b_sbt_prop +
+                perf_b_sbt_days + perf_b_sbt_prop +
+                had_sedasmt_icu_days + comp_c_days + comp_c_prop + perf_c_days +
+                perf_c_prop + rcvd_benzo_icu_days + rcvd_opioid_icu_days +
                 rcvd_propofol_icu_days + rcvd_dex_icu_days +
-                had_sedasmt_icu_days + had_delasmt_icu_days +
-                delirium_icu_days + had_mobscreen_icu_days +
-                had_mobility_icu_days + family_present_icu_days +
-                family_invited_icu_days + family_rounds_icu_days +
-                family_care_icu_days + family_edu_icu_days + hosp_los +
-                home_posticu + mob_posticu + dc_status_f + dc_loc_f ~ 1,
+                had_delasmt_icu_days + delirium_icu_days + comp_d_days +
+                comp_d_prop + perf_d_days + perf_d_prop +
+                had_mobscreen_icu_days + had_mobility_icu_days + comp_e_days +
+                comp_e_prop + perf_e_days + perf_e_prop +
+                family_present_icu_days + family_invited_icu_days +
+                family_rounds_icu_days + family_care_icu_days +
+                family_edu_icu_days + comp_f_days + comp_f_prop + perf_f_days +
+                perf_f_prop + hosp_los + home_posticu + mob_posticu +
+                dc_status_f + dc_loc_f ~ 1,
               data = demog_desc,
               continuous = 5),
      what = "%",
@@ -299,6 +354,8 @@ that order (50th percentile = median). For example, 25% of patient-days had
 `r round(painasmt_quants["25%"])` or fewer pain assessments with validated
 tools; 50% of patient-days had `r round(painasmt_quants["50%"])` or fewer assessments; and 75% of patient-days had `r round(painasmt_quants["75%"])` or
 fewer assessments.
+
+For full definitions of compliance and performance, see [Definitions](#definitions).
 
 ```{r print_descicudays}
 html(summaryM(pain_asmts_icu + had_painasmt_icu + comp_a + perf_a +
