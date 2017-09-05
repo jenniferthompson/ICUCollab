@@ -14,6 +14,7 @@ output:
 library(tidyverse, quietly = TRUE)
 library(rms, quietly = TRUE)
 library(captioner, quietly = TRUE)
+library(plotly, quietly = TRUE)
 
 load("AnalysisData/iculib.Rdata")
 
@@ -22,15 +23,37 @@ demog$month_cat <- with(demog, {
   factor(ifelse(month_f %in% paste("Month", 1:6), 1,
                 as.numeric(gsub("^Month ", "", month_f)) - 5),
          levels = 1:15,
-         labels = c("Baseline", paste("Implementation", 1:14)))
+         labels = c("Baseline", paste("Imp", 1:14)))
+})
+demog$month_cat_short <- with(demog, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("BL", paste0("I", 1:14)))
 })
 
 compliance$month_cat <- with(compliance, {
   factor(ifelse(month_f %in% paste("Month", 1:6), 1,
                 as.numeric(gsub("^Month ", "", month_f)) - 5),
          levels = 1:15,
-         labels = c("Baseline", paste("Implementation", 1:14)))
+         labels = c("Baseline", paste("Imp", 1:14)))
 })
+compliance$month_cat_short <- with(compliance, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("BL", paste0("I", 1:14)))
+})
+
+## Vector of hex colors from magnifying glass in slide templates
+## (via colorcodepicker.com)
+magglass_colors <- c("a" = "#E16725",
+                     "b" = "#FBA724",
+                     "c" = "#698C36",
+                     "d" = "#07A7B4",
+                     "e" = "#138CBD",
+                     "f" = "#293F90",
+                     "overall" = "black")
 
 ```
 
@@ -48,6 +71,8 @@ table_nums(
 )
 
 figure_nums <- captioner(prefix = "Figure")
+figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
+figure_nums(name = "run_perf", caption = "ABCDEF Performance Over Time")
 
 ```
 
@@ -227,31 +252,31 @@ label(comp_desc$pain_asmts_icu) <-
   "Number of pain assessments with validated tool"
 label(comp_desc$had_painasmt_icu) <-
   "Had >=1 pain assessment with validated tool"
-label(comp_desc$comp_a) <- "Element A: compliant"
-label(comp_desc$perf_a) <- "Element A: performed"
+label(comp_desc$comp_a_f) <- "Element A: compliant"
+label(comp_desc$perf_a_f) <- "Element A: performed"
 label(comp_desc$sigpain_verbal_icu) <- "Significant pain self-reported"
 label(comp_desc$sigpain_valid_icu) <- "Significant pain using validated tool"
 label(comp_desc$sigpain_icu) <- "Significant pain, either method"
 
-label(comp_desc$on_sedation_icu) <- "On continuous/intermittent sedation"
+label(comp_desc$on_sedation_icu_f) <- "On continuous/intermittent sedation"
 label(comp_desc$had_satscreen_icu) <- "SAT safety screen documented"
 label(comp_desc$had_sat_icu) <- "SAT documented"
-label(comp_desc$comp_b_sat) <- "Element B - SAT: compliant"
-label(comp_desc$perf_b_sat) <- "Element B - SAT: performed"
+label(comp_desc$comp_b_sat_f) <- "Element B - SAT: compliant"
+label(comp_desc$perf_b_sat_f) <- "Element B - SAT: performed"
 
-label(comp_desc$on_mv_icu) <- "On mechanical ventilation"
+label(comp_desc$on_mv_icu_f) <- "On mechanical ventilation"
 label(comp_desc$had_sbtscreen_icu) <- "SBT safety screen documented"
 label(comp_desc$had_sbt_icu) <- "SBT documented"
-label(comp_desc$comp_b_sbt) <- "Element B - SBT: compliant"
-label(comp_desc$perf_b_sbt) <- "Element B - SBT: performed"
+label(comp_desc$comp_b_sbt_f) <- "Element B - SBT: compliant"
+label(comp_desc$perf_b_sbt_f) <- "Element B - SBT: performed"
 label(comp_desc$sat_sbt_icu) <- "SAT performed before SBT"
 
 label(comp_desc$sed_assess_valid_icu) <-
   "Number of sedation assessments with validated tool"
 label(comp_desc$had_sedasmt_icu) <-
   "Had >=1 sedation assessment with validated tool"
-label(comp_desc$comp_c) <- "Element C: compliant"
-label(comp_desc$perf_c) <- "Element C: performed"
+label(comp_desc$comp_c_f) <- "Element C: compliant"
+label(comp_desc$perf_c_f) <- "Element C: performed"
 label(comp_desc$rcvd_benzo_icu) <- "Received benzodiazepines"
 label(comp_desc$rcvd_opioid_icu) <- "Received opioids"
 label(comp_desc$rcvd_propofol_icu) <- "Received propofol"
@@ -261,8 +286,8 @@ label(comp_desc$del_assess_valid_icu) <-
   "Number of delirium assessments with validated tool"
 label(comp_desc$had_delasmt_icu) <-
   "Had >=1 delirium assessment with validated tool"
-label(comp_desc$comp_d) <- "Element D: compliant"
-label(comp_desc$perf_d) <- "Element D: performed"
+label(comp_desc$comp_d_f) <- "Element D: compliant"
+label(comp_desc$perf_d_f) <- "Element D: performed"
 label(comp_desc$delirium_icu) <- "Delirious, per validated tool"
 label(comp_desc$coma_icu) <- "Comatose"
 
@@ -270,10 +295,10 @@ label(comp_desc$on_restraints_icu) <- "On physical restraints"
 label(comp_desc$had_mobscreen_icu) <- "Mobility safety screen documented"
 label(comp_desc$had_mobility_icu) <- "Mobility > active ROM documented"
 label(comp_desc$mobilityhighest_icu) <- "Highest level of mobility"
-label(comp_desc$comp_e) <- "Element E: compliant"
-label(comp_desc$perf_e) <- "Element E: performed"
+label(comp_desc$comp_e_f) <- "Element E: compliant"
+label(comp_desc$perf_e_f) <- "Element E: performed"
 
-label(comp_desc$family_present_icu) <- "Family present"
+label(comp_desc$family_present_icu_f) <- "Family present"
 label(comp_desc$family_invited_icu) <-
   "Family invited to participate in rounds/conference"
 label(comp_desc$family_rounds_icu) <- "Family participated in rounds"
@@ -281,13 +306,13 @@ label(comp_desc$family_care_icu) <-
   "Family participated in plan of care/ABCDEF care"
 label(comp_desc$family_edu_icu) <-
   "Family educated on ABCDEF bundle/related topics"
-label(comp_desc$comp_f) <- "Element F: compliant"
-label(comp_desc$perf_f) <- "Element F: performed"
+label(comp_desc$comp_f_f) <- "Element F: compliant"
+label(comp_desc$perf_f_f) <- "Element F: performed"
 
 label(comp_desc$comfort_care_icu) <- "On comfort care"
 
-label(comp_desc$comp_yn) <- "Overall ABCDEF compliance"
-label(comp_desc$perf_yn) <- "Overall ABCDEF performance"
+label(comp_desc$comp_yn_f) <- "Overall ABCDEF compliance"
+label(comp_desc$perf_yn_f) <- "Overall ABCDEF performance"
 label(comp_desc$elements_elig) <-
   "Number of ABCDEF elements eligible to be performed/compliant"
 label(comp_desc$elements_comp) <- "Number of elements compliant"
@@ -388,19 +413,20 @@ fewer assessments.
 For full definitions of compliance and performance, see [Definitions](#definitions).
 
 ```{r print_descicudays}
-html(summaryM(pain_asmts_icu + had_painasmt_icu + comp_a + perf_a +
+html(summaryM(pain_asmts_icu + had_painasmt_icu + comp_a_f + perf_a_f +
                 sigpain_verbal_icu + sigpain_valid_icu + sigpain_icu +
-                on_sedation_icu + had_satscreen_icu + had_sat_icu + comp_b_sat +
-                perf_b_sat + on_mv_icu + had_sbtscreen_icu + had_sbt_icu +
-                comp_b_sbt + perf_b_sbt + sat_sbt_icu + sed_assess_valid_icu +
-                had_sedasmt_icu + comp_c + perf_c + rcvd_benzo_icu +
-                rcvd_opioid_icu + rcvd_propofol_icu + rcvd_dex_icu +
-                del_assess_valid_icu + had_delasmt_icu + comp_d + perf_d +
-                delirium_icu + coma_icu + on_restraints_icu +
-                had_mobscreen_icu + had_mobility_icu + mobilityhighest_icu +
-                comp_e + perf_e + family_present_icu + family_invited_icu +
-                family_rounds_icu + family_care_icu + family_edu_icu + comp_f +
-                perf_f + comfort_care_icu + comp_yn + perf_yn + elements_elig +
+                on_sedation_icu_f + had_satscreen_icu + had_sat_icu +
+                comp_b_sat_f + perf_b_sat_f + on_mv_icu_f + had_sbtscreen_icu +
+                had_sbt_icu + comp_b_sbt_f + perf_b_sbt_f + sat_sbt_icu +
+                sed_assess_valid_icu + had_sedasmt_icu + comp_c_f + perf_c_f +
+                rcvd_benzo_icu + rcvd_opioid_icu + rcvd_propofol_icu +
+                rcvd_dex_icu + del_assess_valid_icu + had_delasmt_icu +
+                comp_d_f + perf_d_f + delirium_icu + coma_icu +
+                on_restraints_icu + had_mobscreen_icu + had_mobility_icu +
+                mobilityhighest_icu + comp_e_f + perf_e_f +
+                family_present_icu_f + family_invited_icu + family_rounds_icu +
+                family_care_icu + family_edu_icu + comp_f_f + perf_f_f +
+                comfort_care_icu + comp_yn_f + perf_yn_f + elements_elig +
                 elements_comp + comp_prop + elements_perf + perf_prop ~ 1,
               data = comp_desc,
               continuous = 5),
@@ -412,3 +438,263 @@ html(summaryM(pain_asmts_icu + had_painasmt_icu + comp_a + perf_a +
 
 ```
 
+# ABCDEF Implementation & Drug Use Over Time
+
+The following runcharts present rates of ABCDEF Bundle compliance and
+performance, both overall and by individual element, over the course of data
+collection, as well as rates of sedative and analgesic use. Months 1-6 are
+grouped together as our Baseline period; Months 7-20 are shown individually.
+Numerators and denominators for each point can be seen in tooltips (hover over
+the point of interest). For full definitions of compliance and performance, see
+[Definitions](#definitions).
+
+```{r runchart_prep}
+## -- Elements common to both runcharts ----------------------------------------
+element_suffixes <- c("a", "b_sat", "b_sbt", "c", "d", "e", "f", "yn")
+element_tracenames <- c("A", "B: SAT", "B: SBT", "C", "D", "E", "F", "Overall")
+element_cols <- c("a", "b", "b", "c", "d", "e", "f", "overall")
+
+## Create list of plot titles, X/Y coordinates
+runchart_titles <- c("A: Assess, prevent, manage pain",
+                     "B: SAT",
+                     "B: SBT",
+                     "C: Choice of analgesia & sedation",
+                     "D: Delirium",
+                     "E: Exercise/early mobility",
+                     "F: Family",
+                     "Entire ABCDEF Bundle")
+
+runchart_xes <- c(0.01, 0.27, 0.52, rep(0.77, 4), 0.02)
+runchart_ys <- c(rep(0.24, 3), 1.05, 0.775, 0.54, 0.24, 1.05)
+runchart_titlesize <- c(rep(8, 7), 12)
+
+## Create list of annotations - will substitute for plot titles
+## (plotly will only allow one title per plot, not one per subplot)
+make_annotate_item <- function(title, title_size, xval, yval){
+  list(x = xval, xanchor = "left", xref = "paper",
+       y = yval, yanchor = "top", yref = "paper",
+       text = paste0("<b>", title, "</b>"),
+       font = list(size = title_size, family = "sans-serif"),
+       showarrow = FALSE)
+}
+
+title_list <- pmap(.l = list("title" = runchart_titles,
+                             "title_size" = runchart_titlesize,
+                             "xval" = runchart_xes,
+                             "yval" = runchart_ys),
+                   .f = make_annotate_item)
+
+## -- Function to create a plotly object for each element/overall --------------
+create_plotly_runchart <- function(df, tracename, tracecol){
+  if(tracename == "Overall"){
+    ts <- 16
+    fs <- 10
+    tvals <- c("BL", paste0("I", 1:14))
+    ms <- 6
+  } else{
+    ts <- 11
+    fs <- 6
+    tvals <- c("BL", paste0("I", seq(1, 13, 2)))
+    ms <- 4
+  }
+
+  plot_ly(
+    data = df,
+    x = ~ month_cat_short,
+    y = ~ pct_yes,
+    name = tracename,
+    line = list(color = magglass_colors[tracecol]),
+    marker = list(color = magglass_colors[tracecol], size = ms),
+    text = ~ tt_text,
+    type = "scatter",
+    mode = "lines+markers"
+  ) %>%
+    layout(titlefont = list(size = ts),
+           xaxis = list(title = "",
+                        tickfont = list(size = fs),
+                        tickmode = "array",
+                        tickvals = tvals),
+           yaxis = list(title = "% Eligible Days",
+                        range = c(0, 100),
+                        tickmode = "array",
+                        tickvals = seq(0, 100, 25),
+                        ticksuffix = "%",
+                        tickfont = list(size = fs)),
+           font = list(family = "sans-serif"),
+           showlegend = FALSE)
+}
+
+## Wrapper function to avoid tidyeval
+filter_and_plot <- function(el, name, col, df){
+  filter(df, element == el) %>%
+    create_plotly_runchart(tracename = name, tracecol = col)
+}
+
+## -- Compliance runcharts -----------------------------------------------------
+## Create dataset for overall compliance (y/n)
+comp_yn_data <- compliance %>%
+  dplyr::select(month_cat_short,
+                ## Denominators
+                icu_day, on_sedation_icu, on_mv_icu,
+                family_present_icu, elements_elig,
+                ## Numerators
+                paste0("comp_", element_suffixes), elements_comp) %>%
+  group_by(month_cat_short) %>%
+  summarise_all(funs(days = sum), na.rm = TRUE) %>%
+  ungroup() %>%
+  gather(key = element, value = comp_days, comp_a_days:elements_comp_days) %>%
+  mutate(elig_days =
+           case_when(element == "comp_b_sat_days" ~ on_sedation_icu_days,
+                     element == "comp_b_sbt_days" ~ on_mv_icu_days,
+                     element == "comp_f_days" ~ family_present_icu_days,
+                     element == "elements_comp_days" ~
+                       as.integer(elements_elig_days),
+                     TRUE ~ icu_day_days),
+         pct_yes = round((comp_days / elig_days) * 100),
+         dose_yn = ifelse(element == "elements_comp_days", " dose", ""),
+         elig_text =
+           case_when(element == "comp_b_sat_days" ~ "ICU days on sedation",
+                     element == "comp_b_sbt_days" ~ "ICU days on MV",
+                     element == "comp_f_days" ~ "ICU days family present",
+                     element == "elements_comp_days" ~ "Elements eligible",
+                     TRUE ~ "ICU days"),
+         eldays_text = ifelse(element == "elements_comp_days",
+                              "Elements", "Days"),
+         tt_text = sprintf("Compliance%s: %s%%<br>%s compliant: %s<br>%s: %s",
+                           dose_yn, round(pct_yes), eldays_text, comp_days,
+                           elig_text, elig_days))
+
+## Create list of all plots
+comp_elements <- unique(comp_yn_data$element)
+comp_elements <- comp_elements[grep("^comp", comp_elements)]
+
+comp_plots <- purrr::pmap(
+  list("el" = comp_elements, "name" = element_tracenames, "col" = element_cols),
+  filter_and_plot,
+  df = comp_yn_data
+)
+names(comp_plots) <- comp_elements
+
+## Add a trace for "dose" to overall plot
+comp_plots$comp_yn_days <- comp_plots$comp_yn_days %>%
+  add_trace(
+    data = filter(comp_yn_data, element == "elements_comp_days"),
+    x = ~ month_cat_short,
+    y = ~ pct_yes,
+    name = "Dose of compliance",
+    line = list(color = "black", dash = "dash"),
+    marker = list(color = "black", size = 6),
+    text = ~ tt_text,
+    type = "scatter",
+    mode = "lines+markers"
+  )
+
+## Make one big plot using subplots
+## Overall --- C
+## Overall --- D
+## Overall --- E
+## A BSAT BSBT F
+
+comp_horiz <- subplot(comp_plots$comp_a_days, comp_plots$comp_b_sat_days,
+                      comp_plots$comp_b_sbt_days, comp_plots$comp_f_days,
+                      nrows = 1, shareY = TRUE, margin = 0.01)
+comp_vert <- subplot(comp_plots$comp_c_days, comp_plots$comp_d_days,
+                     comp_plots$comp_e_days,
+                     nrows = 3, shareX = TRUE, margin = 0.04) %>%
+  layout(xaxis = list(showticklabels = FALSE))
+comp_toprow <- subplot(comp_plots$comp_yn_days, comp_vert,
+                       nrows = 1, widths = c(0.75, 0.25))
+
+plotly_comp <- subplot(comp_toprow, comp_horiz,
+                       nrows = 2, heights = c(0.75, 0.25), margin = 0.05)
+
+## -- Performance runcharts ----------------------------------------------------
+## Create dataset for overall performance (y/n)
+perf_yn_data <- compliance %>%
+  dplyr::select(month_cat_short,
+                ## Denominators
+                icu_day, on_sedation_icu, on_mv_icu,
+                family_present_icu, elements_elig,
+                ## Numerators
+                paste0("perf_", element_suffixes), elements_perf) %>%
+  group_by(month_cat_short) %>%
+  summarise_all(funs(days = sum), na.rm = TRUE) %>%
+  ungroup() %>%
+  gather(key = element, value = perf_days, perf_a_days:elements_perf_days) %>%
+  mutate(elig_days =
+           case_when(element == "perf_b_sat_days" ~ on_sedation_icu_days,
+                     element == "perf_b_sbt_days" ~ on_mv_icu_days,
+                     element == "perf_f_days" ~ family_present_icu_days,
+                     element == "elements_perf_days" ~
+                       as.integer(elements_elig_days),
+                     TRUE ~ icu_day_days),
+         pct_yes = round((perf_days / elig_days) * 100),
+         dose_yn = ifelse(element == "elements_perf_days", " dose", ""),
+         elig_text =
+           case_when(element == "perf_b_sat_days" ~ "ICU days on sedation",
+                     element == "perf_b_sbt_days" ~ "ICU days on MV",
+                     element == "perf_f_days" ~ "ICU days family present",
+                     element == "elements_perf_days" ~ "Elements eligible",
+                     TRUE ~ "ICU days"),
+         eldays_text = ifelse(element == "elements_perf_days",
+                              "Elements", "Days"),
+         tt_text = sprintf("Performance%s: %s%%<br>%s performed: %s<br>%s: %s",
+                           dose_yn, round(pct_yes), eldays_text, perf_days,
+                           elig_text, elig_days))
+
+## Create list of all plots
+perf_elements <- unique(perf_yn_data$element)
+perf_elements <- perf_elements[grep("^perf", perf_elements)]
+
+perf_plots <- purrr::pmap(
+  list("el" = perf_elements, "name" = element_tracenames, "col" = element_cols),
+  filter_and_plot,
+  df = perf_yn_data
+)
+names(perf_plots) <- perf_elements
+
+## Add a trace for "dose" to overall plot
+perf_plots$perf_yn_days <- perf_plots$perf_yn_days %>%
+  add_trace(
+    data = filter(perf_yn_data, element == "elements_perf_days"),
+    x = ~ month_cat_short,
+    y = ~ pct_yes,
+    name = "Dose of performance",
+    line = list(color = "black", dash = "dash"),
+    marker = list(color = "black", size = 6),
+    text = ~ tt_text,
+    type = "scatter",
+    mode = "lines+markers"
+  )
+
+## Make one big plot using subplots
+perf_horiz <- subplot(perf_plots$perf_a_days, perf_plots$perf_b_sat_days,
+                      perf_plots$perf_b_sbt_days, perf_plots$perf_f_days,
+                      nrows = 1, shareY = TRUE, margin = 0.01)
+perf_vert <- subplot(perf_plots$perf_c_days, perf_plots$perf_d_days,
+                     perf_plots$perf_e_days,
+                     nrows = 3, shareX = TRUE, margin = 0.04) %>%
+  layout(xaxis = list(showticklabels = FALSE))
+perf_toprow <- subplot(perf_plots$perf_yn_days, perf_vert,
+                       nrows = 1, widths = c(0.75, 0.25))
+
+plotly_perf <- subplot(perf_toprow, perf_horiz,
+                       nrows = 2, heights = c(0.75, 0.25), margin = 0.05)
+
+```
+
+## `r figure_nums("run_comp")`
+
+```{r print_comprun, fig.width = 7, fig.height = 5}
+plotly_comp %>%
+  layout(annotations = title_list)
+
+```
+
+## `r figure_nums("run_perf")`
+
+```{r print_perfrun, fig.width = 7, fig.height = 5}
+plotly_perf %>%
+  layout(annotations = title_list)
+
+```
