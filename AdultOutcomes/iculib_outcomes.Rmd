@@ -10,11 +10,11 @@ output:
     toc_depth: 4
 ---
 
-```{r setup}
-library(tidyverse, quietly = TRUE)
-library(rms, quietly = TRUE)
-library(captioner, quietly = TRUE)
-library(plotly, quietly = TRUE)
+```{r setup, results = "hide"}
+suppressPackageStartupMessages(library(tidyverse, quietly = TRUE))
+suppressPackageStartupMessages(library(rms, quietly = TRUE))
+suppressPackageStartupMessages(library(captioner, quietly = TRUE))
+suppressPackageStartupMessages(library(plotly, quietly = TRUE))
 
 load("AnalysisData/iculib.Rdata")
 
