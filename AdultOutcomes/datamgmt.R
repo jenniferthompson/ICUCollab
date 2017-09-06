@@ -26,6 +26,14 @@ icutypes <- read_csv(
 # icutypes$hosp_f %in% unique(demog$hosp_f)
 # unique(demog$hosp_f) %in% icutypes$hosp_f
 
+## Raw data for hospital type, region via Christina (edited, saved to CSV by me)
+hosp_info <- read_csv("RawData/hospital_types_regions.csv") %>%
+  filter(hosp.code != '') %>%
+  mutate(hosp.type = factor(gsub(' +', '', hosp.type)),
+         hosp.name = gsub(' +', '', hosp.name)) %>%
+  rename(hosp.f = hosp.redcap)
+names(hosp_info) <- gsub(".", "_", names(hosp_info), fixed = TRUE)
+
 ## -- We're only going to use Months 1-20 (length of official Collab). ---------
 ## -- Add Month to compliance data and restrict both datasets. -----------------
 keep_months <- paste("Month", 1:20)
@@ -38,8 +46,9 @@ demog <- filter(demog, month_f %in% keep_months)
 
 ## -- Data management for demographic form -------------------------------------
 demog <- demog %>%
-  ## Merge on ICU type from Christina
+  ## Merge on ICU type, hospital info from Christina
   left_join(icutypes, by = "hosp_f") %>%
+  left_join(hosp_info, by = "hosp_f") %>%
   mutate(
     ## ICU type - combine as listed by Michele:
     ## - General: ICU, medical & surgical ICU, critical care unit, adult ICU,
@@ -54,10 +63,10 @@ demog <- demog %>%
     icu_type_comb = factor(
       case_when(icu_type %in% c("ICU", "Medical & Surgical ICU",
                                 "Critical Care Unit", "Adult ICU",
-                                "Adult Critical Care Unit") ~ 1,
+                                "Adult Critical Care Unit",
+                                "Trauma and Life Support Center") ~ 1,
                 icu_type %in% c("Medical ICU", "Medical Critical Care Unit") ~ 2,
-                icu_type %in% c("Surgical ICU", "Trauma and Life Support Center",
-                                "Trauma ICU") ~ 3,
+                icu_type %in% c("Surgical ICU", "Trauma ICU") ~ 3,
                 icu_type %in% c("Neuro ICU") ~ 4,
                 icu_type %in% c("Adult Surgical Heart Unit",
                                 "Cardiac Surgical ICU", "Cardiothoracic ICU",
@@ -65,13 +74,25 @@ demog <- demog %>%
                 icu_type %in% c("Cardio-Neuro ICU", "Cardio ICU") ~ 6,
                 TRUE ~ 7),
       levels = 1:7,
-      labels = c("General",
+      labels = c("Mixed medical/surgical",
                  "Medical",
                  "Surgical/trauma",
                  "Neuro",
                  "Cardiac/surgical",
-                 "Cardiac/neuro",
+                 "Cardiac",
                  "Unclassified")
+    ),
+    ## Age: combine two youngest, two oldest categories for model
+    age_cat_mod = factor(
+      ifelse(is.na(age_f), NA,
+      ifelse(age_f %in% c("< 18", "18-29"), 1,
+      ifelse(age_f == "30-39", 2,
+      ifelse(age_f == "40-49", 3,
+      ifelse(age_f == "50-59", 4,
+      ifelse(age_f == "60-69", 5,
+      ifelse(age_f == "70-79", 6, 7))))))),
+      levels = 1:7,
+      labels = c("<=29", "30-39", "40-49", "50-59", "60-69", "70-79", "80+")
     ),
     ## Race
     race_cat = factor(ifelse(race_1 + race_2 + race_3 + race_4 + race_5 + race_6 > 1, 7,
@@ -276,8 +297,8 @@ subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
 ## Trauma (multi trauma, hemorrhagic shock)
 ## - option 29: "Multi-Trauma"
 ## - option 13: "Hemorrhagic shock"
-## Other (drug overdose/withdrawal, other infectious diseases, malignancy, other)
-## - option 30: "Drug Overdose/Withdrawal"
+## Drug overdose/withdrawal (option 30)
+## Other (other infectious diseases, malignancy, other)
 ## - option 31: "Other Infectious Diseases"
 ## - option 16: "Malignancy"
 ## - option 99: "Other"
@@ -301,9 +322,10 @@ demog$admit_gi <- sum_admitdx(c(11, 15, 17))
 demog$admit_gu <- sum_admitdx(c(12, 14))
 demog$admit_surg <- sum_admitdx(21:27)
 demog$admit_trauma <- sum_admitdx(c(29, 13))
-demog$admit_other <- sum_admitdx(c(30, 31, 16, 99))
+demog$admit_odwd <- sum_admitdx(30)
+demog$admit_other <- sum_admitdx(c(31, 16, 99))
 
-## Data checks
+# Data checks
 # ## Function to make sure admission diagnoses are captured correctly
 # check_admissiondx <- function(dxnums, dxvar, df = demog){
 #   tmp <- demog[,c(paste0("icu_dx_", dxnums), dxvar)] %>%
@@ -314,7 +336,7 @@ demog$admit_other <- sum_admitdx(c(30, 31, 16, 99))
 #     facet_wrap(as.formula(paste("~", dxvar))) +
 #     geom_bar(stat = "count")
 # }
-#
+
 # check_admissiondx(dxnums = 1, dxvar = "admit_sepsis")
 # check_admissiondx(dxnums = 2, dxvar = "admit_ards")
 # check_admissiondx(dxnums = 3:6, dxvar = "admit_resp")
@@ -324,13 +346,14 @@ demog$admit_other <- sum_admitdx(c(30, 31, 16, 99))
 # check_admissiondx(dxnums = c(12, 14), dxvar = "admit_gu")
 # check_admissiondx(dxnums = 21:27, dxvar = "admit_surg")
 # check_admissiondx(dxnums = c(29, 13), dxvar = "admit_trauma")
-# check_admissiondx(dxnums = c(30, 31, 16, 99), dxvar = "admit_other")
+# check_admissiondx(dxnums = c(30), dxvar = "admit_odwd")
+# check_admissiondx(dxnums = c(31, 16, 99), dxvar = "admit_other")
 
 # ## How many patients had *multiple* admission diagnosis categories?
 # ## Make an upset plot (http://vcg.github.io/upset/)
 #
-# admitdx_cols <- grep("^admit_", colnames(admissiondx), value = TRUE)
-# upset_list <- map(admitdx_cols, ~ admissiondx[admissiondx[,.], "id"])
+# admitdx_cols <- grep("^admit_", colnames(demog), value = TRUE)
+# upset_list <- map(admitdx_cols, ~ demog[demog[,.], "id"])
 # names(upset_list) <- admitdx_cols
 #
 # pdf(file = "admissiondx_upset.pdf", width = 9, height = 7)
@@ -353,6 +376,7 @@ demog$admit_other <- sum_admitdx(c(30, 31, 16, 99))
 ## 6. Trauma
 ## 7. Genitourinary
 ## 8. Surgery
+## 9. Overdose/withdrawal
 ## 9. Other (will use this as reference - most common overall)
 demog$primary_admit <- with(demog, {
   factor(ifelse(admit_sepsis | admit_ards, 2,
@@ -363,8 +387,9 @@ demog$primary_admit <- with(demog, {
          ifelse(admit_trauma, 7,
          ifelse(admit_gu, 8,
          ifelse(admit_surg, 9,
-         ifelse(admit_other, 1, NA))))))))),
-         levels = 1:9,
+         ifelse(admit_odwd, 10,
+         ifelse(admit_other, 1, NA)))))))))),
+         levels = 1:10,
          labels = c("Other",
                     "Sepsis/septic shock or ARDS",
                     "Respiratory",
@@ -373,7 +398,8 @@ demog$primary_admit <- with(demog, {
                     "GI",
                     "Trauma",
                     "Genitourinary",
-                    "Surgery"))
+                    "Surgery",
+                    "Overdose/withdrawal"))
 })
 
 # ggplot(data = demog, aes(x = primary_admit)) +
@@ -387,13 +413,11 @@ demog$primary_admit <- with(demog, {
 #   gather(key = other_type, other_has) %>%
 #   filter(other_has == 1) %>%
 #   mutate(other_type_f = factor(
-#     ifelse(other_type == "icu_dx_30", 1,
-#     ifelse(other_type == "icu_dx_31", 2,
-#     ifelse(other_type == "icu_dx_16", 3,
-#     ifelse(other_type == "icu_dx_99", 4, NA)))),
-#     levels = 1:4,
-#     labels = c("Drug overdose/withdrawal",
-#                "Other infectious diseases",
+#     ifelse(other_type == "icu_dx_31", 1,
+#     ifelse(other_type == "icu_dx_16", 2,
+#     ifelse(other_type == "icu_dx_99", 3, NA))),
+#     levels = 1:3,
+#     labels = c("Other infectious diseases",
 #                "Malignancy",
 #                "Other")
 #   )
