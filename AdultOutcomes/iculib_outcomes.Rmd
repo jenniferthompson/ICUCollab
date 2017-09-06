@@ -115,9 +115,31 @@ full 24 hours; additional eligibility for specific elements are detailed below.
 | **Overall (complete)** | | All elements eligible to be compliant are compliant | All elements eligible to be performed are performed |
 | **Overall (dose)** | | Elements compliant / elements eligible to be compliant | Elements performed / elements eligible to be performed |
 
-# Additional Variable Calculation Information
+# Variable Calculation
 
+- **Age:** For descriptive purposes, all age data is left as entered; however,
+due to low numbers in our most extreme categories, we combined patients <18 with 18-29-year-olds and patients >90 with 80-89-year-olds in the age variable included in our models.
+- **Race:** For descriptive purposes, all race data is left as entered; however,
+for modeling, we combined categories with <1% representation. Patients with races of American Indian/Alaskan Native and Native Hawaiian/Pacific Islander are combined, and the very few patients with multiple races marked are combined with patients with "Other" race marked.
 - **BMI:** BMI was calculated as `weight / (height / 100)^2`, where weight was entered in kg and height was entered in cm. We assumed that any height below 80 was accidentally entered in inches rather than cm, and converted those heights to cm (original height * 2.54). After calculating BMI, some values were implausible; we assumed that any BMI < 7 (based on anorexia data) or > 204 (based on highest recorded BMI) was due to data entry error, and these values (along with anyone for whom weight and/or height were missing or equal to 0) were forced to be missing.
+- **ICU type:** Site self-descriptions were combined as follows:
+    - Mixed medical/surgical: *ICU, medical & surgical ICU, critical care unit, adult ICU, adult critical care unit, trauma & life support center*
+    - Medical: *medical ICU, medical critical care unit*
+    - Surgical/trauma: *surgical ICU, trauma ICU*
+    - Neuro: *neuro ICU*
+    - Cardiac/surgical: *adult surgical heart unit, cardiac surgical ICU, cardiothoracic ICU, cardiovascular ICU*
+    - Cardiac: *cardio-neuro ICU, cardio ICU*
+- **Primary admission diagnoses:** Patients could be admitted with multiple admission diagnoses; therefore, we prioritized diagnoses to capture the most important information relevant to this particular project. Diagnoses were categorized and prioritized as following (ie, a patient admitted with both sepsis and pneumonia would be in the sepsis category):
+    1. Sepsis/septic shock or ARDS: *sepsis/septic shock; ARDS without infection*
+    1. Respiratory: *airway protection/obstruction; COPD/asthma; pneumonia; pulmonary embolism/DVT*
+    1. Neurologic: *neurological disease; traumatic brain injury; change in mental status; traumatic brain injury (isolated)*
+    1. Cardiac: *congestive heart failure; acute MI/cardiogenic shock; arrhythmia*
+    1. Gastrointestinal: *GI bleed; cirrhosis/hepatic failure; pancreatitis*
+    1. Genitourinary: *renal failure; metabolic/endocrine/electrolyte disturbances*
+    1. Surgery: *vascular; abdominal; transplant; urologic; orthopedic; ENT; OB/GYN*
+    1. Trauma: *multi-trauma; hemorrhagic shock*
+    1. Drug overdose/withdrawal
+    1. Other: *other infectious diseases; malignancy; "other"*
 
 Full details on how many calculated variables are determined from raw data, including definitions of compliance and performance, are in the [analysis plan](https://docs.google.com/document/d/1GebrA6Lt-rEh70Aw9r4mrhRlggWUfgUl_LaQePOCWZA/edit?usp=sharing).
 
@@ -139,6 +161,7 @@ demog_desc <- demog
 demog_desc$hosp_f <- as.factor(demog_desc$hosp_f)
 
 label(demog_desc$hosp_f) <- "Study site"
+label(demog_desc$hosp_type) <- "Hospital type"
 label(demog_desc$month_cat) <- "Time period"
 label(demog_desc$age_f) <- "Age category"
 label(demog_desc$sex_f) <- "Sex"
@@ -338,10 +361,10 @@ that order (50th percentile = median). For example, 25% of patients had a BMI of
 For full definitions of compliance and performance, see [Definitions](#definitions).
 
 ```{r print_descbase}
-html(summaryM(hosp_f + month_cat + age_f + sex_f + race_cat + hisp_cat + bmi +
-                home_preadmit + mob_preadmit + primary_admit + icu_type_comb +
-                any_soi + apacheii_score + apacheiii_score + apacheiv_score +
-                sofa_score ~ 1,
+html(summaryM(hosp_f + hosp_type + month_cat + age_f + sex_f + race_cat +
+                hisp_cat + bmi + home_preadmit + mob_preadmit + primary_admit +
+                icu_type_comb + any_soi + apacheii_score + apacheiii_score +
+                apacheiv_score + sofa_score ~ 1,
               data = demog_desc,
               continuous = 5),
      what = "%",
