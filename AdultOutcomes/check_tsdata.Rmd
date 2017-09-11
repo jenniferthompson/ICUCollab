@@ -1,0 +1,173 @@
+---
+title: "ICU Liberation: Data Checks"
+output: html_notebook
+---
+
+The plots below double-check that the time series data matches expectations as
+calculated from the daily compliance data set.
+
+```{r setup}
+load("AnalysisData/iculib.Rdata")
+```
+
+```{r prep_compliance}
+compliance$month_cat_short <- with(compliance, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("BL", paste0("I", 1:14)))
+})
+
+## -- Compliance data ----------------------------------------------------------
+## Create dataset for overall compliance (y/n)
+comp_yn_data <- compliance %>%
+  dplyr::select(month_cat_short,
+                ## Denominators
+                icu_day, on_sedation_icu, on_mv_icu,
+                family_present_icu, elements_elig,
+                ## Numerators
+                paste0("comp_", element_suffixes), elements_comp) %>%
+  group_by(month_cat_short) %>%
+  summarise_all(funs(days = sum), na.rm = TRUE) %>%
+  ungroup() %>%
+  gather(key = element, value = comp_days, comp_a_days:elements_comp_days) %>%
+  mutate(elig_days =
+           case_when(element == "comp_b_sat_days" ~ on_sedation_icu_days,
+                     element == "comp_b_sbt_days" ~ on_mv_icu_days,
+                     element == "comp_f_days" ~ family_present_icu_days,
+                     element == "elements_comp_days" ~
+                       as.integer(elements_elig_days),
+                     TRUE ~ icu_day_days),
+         pct_yes = round((comp_days / elig_days) * 100))
+
+## Create dataset for overall performance (y/n)
+perf_yn_data <- compliance %>%
+  dplyr::select(month_cat_short,
+                ## Denominators
+                icu_day, on_sedation_icu, on_mv_icu,
+                family_present_icu, elements_elig,
+                ## Numerators
+                paste0("perf_", element_suffixes), elements_perf) %>%
+  group_by(month_cat_short) %>%
+  summarise_all(funs(days = sum), na.rm = TRUE) %>%
+  ungroup() %>%
+  gather(key = element, value = perf_days, perf_a_days:elements_perf_days) %>%
+  mutate(elig_days =
+           case_when(element == "perf_b_sat_days" ~ on_sedation_icu_days,
+                     element == "perf_b_sbt_days" ~ on_mv_icu_days,
+                     element == "perf_f_days" ~ family_present_icu_days,
+                     element == "elements_perf_days" ~
+                       as.integer(elements_elig_days),
+                     TRUE ~ icu_day_days),
+         pct_yes = round((perf_days / elig_days) * 100))
+
+```
+
+```{r prep_ts}
+tsdata <- tsdata %>%
+  ## Combine months 1-6
+  mutate(
+    month_cat_short = factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                                    as.numeric(gsub("^.+ ", "", month_f)) - 5),
+                             levels = 1:15, labels = c("BL", paste0("I", 1:14)))
+  ) %>%
+  dplyr::select(-month_f) %>%
+  group_by(month_cat_short) %>%
+  summarise_all(sum, na.rm = TRUE) %>%
+  ungroup() %>%
+  gather(key = element, value = yes_days,
+         comp_a:perf_yn, elements_comp, elements_perf) %>%
+  mutate(
+    elig_days =
+      case_when(element %in% paste0(c("comp", "perf"), "_b_sat") ~
+                  on_sedation_icu,
+                element %in% paste0(c("comp", "perf"), "_b_sbt") ~ on_mv_icu,
+                element %in% paste0(c("comp", "perf"), "_f") ~
+                  family_present_icu,
+                element %in% c("elements_comp", "elements_perf") ~
+                  as.integer(elements_elig),
+                TRUE ~ icu_day),
+    pct_yes = round((yes_days / elig_days) * 100)
+  )
+
+```
+
+```{r plotfxns}
+## -- Function for a given element ---------------------------------------------
+plot_comp_element <- function(elem){
+  ggplot(data = subset(comp_yn_data, element == paste0(elem, "_days")),
+         aes(x = month_cat_short, y = pct_yes)) +
+    geom_point() +
+    geom_line(group = 1) +
+    geom_line(data = subset(tsdata, element == elem),
+              group = 1, linetype = "dotted", color = "red")
+}
+
+plot_perf_element <- function(elem){
+  ggplot(data = subset(perf_yn_data, element == paste0(elem, "_days")),
+         aes(x = month_cat_short, y = pct_yes)) +
+    geom_point() +
+    geom_line(group = 1) +
+    geom_line(data = subset(tsdata, element == elem),
+              group = 1, linetype = "dotted", color = "red")
+}
+
+```
+
+```{r a}
+plot_comp_element("comp_a")
+plot_perf_element("perf_a")
+
+```
+```{r b_sat}
+plot_comp_element("comp_b_sat")
+plot_perf_element("perf_b_sat")
+
+```
+
+```{r b_sbt}
+plot_comp_element("comp_b_sbt")
+plot_perf_element("perf_b_sbt")
+
+```
+
+```{r c}
+plot_comp_element("comp_c")
+plot_perf_element("perf_c")
+
+```
+
+```{r d}
+plot_comp_element("comp_d")
+plot_perf_element("perf_d")
+
+```
+
+```{r e}
+plot_comp_element("comp_e")
+plot_perf_element("perf_e")
+
+```
+
+```{r f}
+plot_comp_element("comp_f")
+plot_perf_element("perf_f")
+
+```
+
+```{r dose}
+ggplot(data = subset(comp_yn_data, element == "elements_comp_days"),
+       aes(x = month_cat_short, y = pct_yes)) +
+  geom_point() +
+  geom_line(group = 1) +
+  geom_line(data = subset(tsdata, element == "elements_comp"),
+            group = 1, linetype = "dotted", color = "red")
+
+ggplot(data = subset(perf_yn_data, element == "elements_perf_days"),
+       aes(x = month_cat_short, y = pct_yes)) +
+  geom_point() +
+  geom_line(group = 1) +
+  geom_line(data = subset(tsdata, element == "elements_perf"),
+            group = 1, linetype = "dotted", color = "red")
+
+```
