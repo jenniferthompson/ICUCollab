@@ -1055,3 +1055,6 @@ compliance <- compliance %>%
 
 ## -- Save final datasets ------------------------------------------------------
 save(demog, compliance, tsdata, file = "AnalysisData/iculib.Rdata")
+
+## Write time series data to CSV for Alai; will write separate README for that
+write_csv(tsdata, path = "iculib_tsdata.csv")
