@@ -728,3 +728,108 @@ plotly_perf %>%
   layout(annotations = title_list)
 
 ```
+
+## `r figure_nums("run_meds")`
+
+`r figure_nums("run_meds", display = "cite")` shows the percentage of ICU days
+with each medication used over time.
+
+```{r runchart_meds, fig.width = 7, fig.height = 5}
+## Vector of medication names
+med_names <- c("Benzodiazepines", "Opioids", "Propofol", "Dexmedetomidine")
+
+prop_yes <- function(x){
+  mean(x == "Yes", na.rm = TRUE) * 100
+}
+days_yes <- function(x){
+  sum(x == "Yes", na.rm = TRUE)
+}
+
+## Note: Tried to also do % of days on continuous/intermittent sedation,
+## but proportions were >1, I assume because patients received these medications
+## PRN as well as continuously.
+
+rundata_meds <- compliance %>%
+  filter(icu_day) %>%
+  dplyr::select(month_cat_short, matches("^rcvd\\_[a-z]+\\_icu$")) %>%
+  group_by(month_cat_short) %>%
+  summarise_all(funs(days = days_yes)) %>%
+  ungroup() %>%
+  gather(key = med, value = days_med, matches("^rcvd")) %>%
+  left_join(
+    distinct(dplyr::select(comp_yn_data, month_cat_short, icu_day_days)),
+    by = "month_cat_short") %>%
+  mutate(
+    med = gsub("^rcvd\\_", "", gsub("\\_icu\\_days$", "", med)),
+    med_f = case_when(med == "benzo" ~ "Benzodiazepines",
+                      med == "dex" ~ "Dexmedetomidine",
+                      med == "opioid" ~ "Opioids",
+                      med == "propofol" ~ "Propofol",
+                      TRUE ~ "Other"),
+    prop_med = round((days_med / icu_day_days) * 100),
+    tt_text = sprintf("Received on %s / %s ICU days", days_med, icu_day_days)
+  )
+
+## -- Function to create a plotly object for each medication -------------------
+create_plotly_medchart <- function(df = rundata_meds, tracename, tracecol){
+  df <- df %>% filter(med_f == tracename)
+  
+  ts <- 14
+  fs <- 10
+  tvals <- c("BL", paste0("I", seq(1, 13, 2)))
+  ms <- 4
+
+  plot_ly(
+    data = df,
+    x = ~ month_cat_short,
+    y = ~ prop_med,
+    name = tracename,
+    line = list(color = magglass_colors[tracecol]),
+    marker = list(color = magglass_colors[tracecol], size = ms),
+    text = ~ tt_text,
+    type = "scatter",
+    mode = "lines+markers"
+  ) %>%
+    layout(titlefont = list(size = ts),
+           xaxis = list(title = "",
+                        tickfont = list(size = fs),
+                        tickmode = "array",
+                        tickvals = tvals),
+           yaxis = list(title = "% ICU Days",
+                        range = c(0, 100),
+                        tickmode = "array",
+                        tickvals = seq(0, 100, 25),
+                        ticksuffix = "%",
+                        tickfont = list(size = fs)),
+           font = list(family = "sans-serif"),
+           showlegend = FALSE)
+}
+
+runchart_med_args <- list(
+  "tracename" = med_names, "tracecol" = c("b", "c", "d", "f")
+)
+
+runcharts_meds <- pmap(.l = runchart_med_args, .f = create_plotly_medchart)
+names(runcharts_meds) <- med_names
+
+runchart_meds <- subplot(
+  runcharts_meds,
+  nrows = 2,
+  shareX = TRUE, shareY = TRUE,
+  titleX = FALSE,
+  margin = c(0.01, 0.01, 0.05, 0.05)
+)
+
+## Create list of plot titles, X/Y coordinates
+runchart_meds_xes <- c(0.01, 0.51, 0.01, 0.51)
+runchart_meds_ys <- c(1.05, 1.05, 0.51, 0.51)
+
+med_title_list <- pmap(.l = list("title" = med_names,
+                             "xval" = runchart_meds_xes,
+                             "yval" = runchart_meds_ys),
+                   .f = make_annotate_item,
+                   title_size = 14)
+
+runchart_meds %>% layout(annotations = med_title_list)
+
+```
