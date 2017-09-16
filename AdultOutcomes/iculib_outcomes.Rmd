@@ -73,6 +73,7 @@ table_nums(
 figure_nums <- captioner(prefix = "Figure")
 figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
 figure_nums(name = "run_perf", caption = "ABCDEF Performance Over Time")
+figure_nums(name = "run_meds", caption = "Medication Use Over Time")
 
 ```
 
@@ -510,12 +511,12 @@ title_list <- pmap(.l = list("title" = runchart_titles,
 ## -- Function to create a plotly object for each element/overall --------------
 create_plotly_runchart <- function(df, tracename, tracecol){
   if(tracename == "Overall"){
-    ts <- 16
+    ts <- 18
     fs <- 10
     tvals <- c("BL", paste0("I", 1:14))
     ms <- 6
   } else{
-    ts <- 11
+    ts <- 14
     fs <- 6
     tvals <- c("BL", paste0("I", seq(1, 13, 2)))
     ms <- 4
@@ -605,7 +606,7 @@ comp_plots$comp_yn_days <- comp_plots$comp_yn_days %>%
     x = ~ month_cat_short,
     y = ~ pct_yes,
     name = "Dose of compliance",
-    line = list(color = "black", dash = "dash"),
+    line = list(color = "black", dash = "dot"),
     marker = list(color = "black", size = 6),
     text = ~ tt_text,
     type = "scatter",
@@ -683,7 +684,7 @@ perf_plots$perf_yn_days <- perf_plots$perf_yn_days %>%
     x = ~ month_cat_short,
     y = ~ pct_yes,
     name = "Dose of performance",
-    line = list(color = "black", dash = "dash"),
+    line = list(color = "black", dash = "dot"),
     marker = list(color = "black", size = 6),
     text = ~ tt_text,
     type = "scatter",
@@ -708,6 +709,9 @@ plotly_perf <- subplot(perf_toprow, perf_horiz,
 
 ## `r figure_nums("run_comp")`
 
+For overall compliance, the dotted line indicates **dose** of compliance; the
+solid line indicates total (yes/no) compliance.
+
 ```{r print_comprun, fig.width = 7, fig.height = 5}
 plotly_comp %>%
   layout(annotations = title_list)
@@ -715,6 +719,9 @@ plotly_comp %>%
 ```
 
 ## `r figure_nums("run_perf")`
+
+For overall performance, the dotted line indicates **dose** of performance; the
+solid line indicates total (yes/no) performance.
 
 ```{r print_perfrun, fig.width = 7, fig.height = 5}
 plotly_perf %>%
