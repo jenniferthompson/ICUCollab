@@ -582,11 +582,13 @@ compliance <- compliance %>%
     ## Performance: Same definition
     perf_c = comp_c,
 
-    ## Received benzos, opioids, dex, propofol
+    ## Received benzos, opioids, dex, propofol,
+    ##   antipsychotics (typical and/or atypical)
     rcvd_benzo_icu = ifelse(!icu_day, NA, meds_2),
     rcvd_opioid_icu = ifelse(!icu_day, NA, meds_1),
     rcvd_propofol_icu = ifelse(!icu_day, NA, meds_3),
-    rcvd_dex_icu = ifelse(!icu_day, NA, meds_4)
+    rcvd_dex_icu = ifelse(!icu_day, NA, meds_4),
+    rcvd_antipsyc_icu = ifelse(!icu_day, NA, meds_6 | meds_7)
   )
 
 ## -- D: Assess, prevent and manage delirium -----------------------------------
