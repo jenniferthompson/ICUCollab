@@ -12,6 +12,7 @@ output:
 
 ```{r setup, results = "hide"}
 suppressPackageStartupMessages(library(tidyverse, quietly = TRUE))
+suppressPackageStartupMessages(library(forcats, quietly = TRUE))
 suppressPackageStartupMessages(library(rms, quietly = TRUE))
 suppressPackageStartupMessages(library(captioner, quietly = TRUE))
 suppressPackageStartupMessages(library(plotly, quietly = TRUE))
@@ -117,7 +118,7 @@ full 24 hours; additional eligibility for specific elements are detailed below.
 | **Overall (complete)** | | All elements eligible to be compliant are compliant | All elements eligible to be performed are performed |
 | **Overall (dose)** | | Elements compliant / elements eligible to be compliant | Elements performed / elements eligible to be performed |
 
-# Variable Calculation
+# Variable Calculation {#variables}
 
 - **Age:** For descriptive purposes, all age data is left as entered; however,
 due to low numbers in our most extreme categories, we combined patients <18 with 18-29-year-olds and patients >90 with 80-89-year-olds in the age variable included in our models.
@@ -835,12 +836,63 @@ runchart_meds %>% layout(annotations = med_title_list)
 
 ```
 
-# Missing Data Characteristics: "ABCDEF Bundle vs ___ Tomorrow" Models
+# In-ICU Outcomes
 
-Several of our aims involve looking at measures of ABCDEF bundle compliance and
-performance on a given day vs some outcome the following day. For example, these
-models will help us answer the question "Among patients still alive and in the ICU, is total ABCDEF bundle compliance on a given ICU day associated with lower
-likelihood of being on mechanical ventilation the following day?"
+The following sections look at the relationships between daily ABCDEF bundle compliance/performance and the following outcomes while the patient is still in
+the ICU:
+
+- Occurrence of delirium
+- Occurrence of coma
+- Mechanical ventilation
+- Significant pain
+- Physical restraints
+
+For example, these models will help us answer the question "*Among patients
+still alive and in the ICU*, is total ABCDEF bundle compliance on a given ICU day associated with lower likelihood of being on mechanical ventilation the
+following day?"
+
+## Analysis Method and Covariates
+
+The relationship between ABCDEF bundle compliance and performance on a given ICU day and each of the above outcomes the *following* ICU day will be assessed
+using logistic regression models; variance will be adjusted using Huber-White
+sandwich estimation clustered by patient, to account for within-subject
+correlation among days from the same patient. For each outcome, we will have
+four different models using the following ABCDEF-related exposures:
+
+- Total bundle compliance, yes/no
+- Dose of compliance (# elements compliant / # elements eligible)
+- Total bundle performance, yes/no
+- Dose of performance (# elements performed / # elements eligible)
+
+For more details on compliance and performance, please see
+[Definitions](#definitions).
+
+Each model will adjust for the following potential confounders (please see
+[Variable Calculation](#variables) for more details):
+
+- Demographics
+    - Age category
+    - Sex
+    - Race
+    - Ethnicity (Hispanic vs non-Hispanic)
+    - BMI
+    - Residency prior to admission (home vs facility)
+    - Mobility prior to admission (no restrictions vs any)
+- Admission characteristics
+    - Admission diagnosis category
+    - Hospital type (community vs teaching)
+    - ICU type
+- Daily ICU characteristics on day of ABCDEF bundle measurement
+    - On benzos
+    - On opioids
+    - On propofol
+    - On dex
+    - On typical and/or atypical antipsychotics
+    - On MV
+    - Coma
+    - On comfort care
+
+## Patient Inclusion & Missing Data
 
 ```{r model_datamgmt}
 ## -- Create data set for all "vs XXX the following day" models ----------------
@@ -850,8 +902,8 @@ lead_vars <- c("icu_day", "on_mv_icu_f", "coma_icu", "on_restraints_icu",
 
 ## Vector of baseline covariates
 base_vars <- c("age_cat_mod", "race_cat_mod", "hisp_cat_mod", "bmi",
-               "mob_preadmit", "primary_admit", "home_preadmit", "icu_type",
-               "hosp_type")
+               "mob_preadmit", "primary_admit", "home_preadmit",
+               "icu_type_comb", "hosp_type")
 
 df_logmods <- compliance %>%
   dplyr::select(id, icu_day, redcap_event_name_f,
@@ -871,12 +923,6 @@ df_logmods <- compliance %>%
   ## Merge on baseline covariates
   right_join(dplyr::select(demog, id, one_of(base_vars)), ., by = "id")
 
-## To describe missingness, get only baseline variables for only patients with
-##   >=2 consecutive ICU days
-df_logmods_baseline <- df_logmods %>%
-  dplyr::select(id, one_of(base_vars)) %>%
-  distinct()
-
 # ## Check a few patients
 # ckids <- sample(unique(compliance$id), size = 10)
 # print_vars <- map(lead_vars, ~ c(., paste0(., "_tmw"))) %>% flatten_chr
@@ -885,8 +931,9 @@ df_logmods_baseline <- df_logmods %>%
 #       width = Inf)
 
 npts_total <- length(unique(demog$id))
-npts_modeldays <- length(unique(df_logmods$id))
-pctpts_modeldays <- (npts_modeldays / npts_total) * 100
+npts_logmods <- length(unique(df_logmods$id))
+pctpts_logmods <- (npts_logmods / npts_total) * 100
+ndays_logmods <- nrow(df_logmods)
 
 # ## Common sense check for % patients included in these models
 # ck_icudays <- compliance %>%
@@ -896,135 +943,257 @@ pctpts_modeldays <- (npts_modeldays / npts_total) * 100
 
 ```
 
-We started with `r format(npts_total, big.mark = ",")` patients enrolled in the Collaborative; among these, only `r format(npts_modeldays, big.mark = ",")` (`r round(pctpts_modeldays)`%) had two consecutive days fully in the ICU and will thus have at least one record included in this set of models. **Note:** models with delirium as an outcome will have even fewer patients, due to sparseness of
-data collection for this outcome.
+We started with `r format(npts_total, big.mark = ",")` patients enrolled in the Collaborative; among these, only `r format(npts_logmods, big.mark = ",")` (`r round(pctpts_logmods)`%) had two *consecutive* days fully in the ICU and are
+thus eligible to be included in these models. Thus, it is important to note that
+these results may only be generalizable to this subset of patients, who may be
+different in meaningful ways from patients who had no or only one day in their
+Collaborative ICU admission.
 
-## Missingness for Baseline/Demographic Variables
+Among those `r format(npts_logmods, big.mark = ",")` patients with at least
+two consecutive ICU days, we have `r format(ndays_logmods, big.mark = ",")`
+patient-days eligible for inclusion. Some of these days will be excluded due to
+missing outcome and/or covariate data; the number of patients included in each
+model will be specified with model results.
 
-Among patients included in these logistic models, most baseline variables had
-low rates of missingness, with the exception of mobility status prior to Collaborative admission (`r round(mean(is.na(df_logmods_baseline$mob_preadmit)) * 100)`% missing). A reference line at 5% missingness is included below;
-below this level, we typically don't worry much about missingness.
+### Description of Missingness
 
-```{r logmods_missing_baseline}
-gg_miss_var(df_logmods_baseline %>% dplyr::select(-id), show_pct = TRUE) +
-  geom_hline(yintercept = 5, color = "grey50", linetype = "dotted")
+Among patient-days eligible for inclusion in these models, most *covariates/confounders* had fairly low rates of missingness, with the exception
+of mobility level prior to Collaborative admission (`r round(mean(is.na(df_logmods$mob_preadmit)) * 100)`% of patient-days missing). However, several of our *outcomes* which require assessments to evaluate had high rates of missingness, as shown below. A reference line at 5% missingness is
+included below; below this level, we typically don't worry much about missingness.
 
-```
-
-## Missingness for Daily Variables
-
-Missingness for each model covariate and/or outcome is shown below among the
-`r nrow(df_logmods)` patient-days eligible to be included in this set of models.
-Delirium has by far the most missingness, indicating that delirium was just not
-assessed in this group of patients as often as we'd like. Coma and significant pain - other variables which require assessments - have the next highest rates
-of missingness, though much lower than delirium. All other model covariates had
-low rates of missingness. A reference line at 5% missingness is included below;
-below this level, we typically don't worry much about missingness.
-
-```{r logmods_missing_daily}
-gg_miss_var(df_logmods %>% dplyr::select(-id, -one_of(base_vars)),
-            show_pct = TRUE) +
-  geom_hline(yintercept = 5, color = "grey50", linetype = "dotted")
+```{r logmods_missing, fig.height = 6, fig.width = 5}
+gg_miss_var(df_logmods %>% dplyr::select(-id), show_pct = TRUE) +
+  geom_hline(yintercept = 5, color = "grey50", linetype = "dotted") +
+  labs(title = "Proportion of Patient-Days with Missing Values, In-ICU Outcomes and Covariates",
+       x = "")
 
 ```
 
-## Strategy for Handling Missingness
+### Strategy for Handling Missingness
 
-Often, we would use multiple imputation to handle missingness of a concerning amount; however, this method's effectiveness depends on the *available* data to reliably predict missing values. For the following reasons, we are choosing to limit are analyses to complete cases and not perform multiple imputation:
+Often, we would use multiple imputation to handle missingness of a concerning amount; however, this method's effectiveness depends on the *available* data to reliably predict missing values. For the following reasons, we are choosing to limit our analyses to complete cases and not perform multiple imputation:
 
-- We are missing some key information (eg, severity of illness) which would help predict missing values.
+- Due to differences between units and limits on data collection in deidentified
+studies, we are missing some key information (eg, severity of illness) which
+would help predict missing values.
 - In longitudinal data analysis, multiple imputation for both baseline (ie, should be the same value for every patient) and time-varying (can change daily) variables is complex and time-consuming.
-- Our rates of missingness are generally low, with a few exceptions as noted.
+- Our rates of missingness are generally low, with a few important exceptions as
+noted.
 
-The drawback of complete case analysis is that our results could be biased due to differences in the patients we would *like* to include and patients we are *able* to include. For example, if patients who are sicker are more likely to have delirium assessed on a given day, then the patient population we are able to include in our delirium models is sicker than the population we would ideally generalize to.
+### Potential Bias from Missingness
 
-Therefore, we compare available data on the patients and patient-days who **do** and **do not** have complete outcome and covariate data. Because there is so
-much missing delirium data, we will include missingness both considering and
-ignoring delirium.
+In our case, the biggest drawback of complete case analysis is that our results
+could be biased due to differences in the patient-days we would *like* to
+include and patients we are *able* to include. This is a limitation of our study
+and will need to be kept in mind as we interpret our results. It will be more of
+an issue for some outcomes than others: For example, mechanical ventilation
+status is readily available in most EMR systems and therefore has low rates of
+missingness, so this bias isn't too much of a concern. But because delirium
+requires a proactive assessment that is not yet usual care in all units, it has
+much higher rates of missingness and is therefore more subject to bias.
 
-**Summary**: Whether or not delirium was considered, patients with complete data tended to be slightly older, of white race (vs other/multiple races), and non-Hispanic, with slightly more restricted mobility and lower likelihood of being home prior to admission. They were slightly more likely to be admitted for surgery or sepsis and slightly less likely to be admitted for trauma. None of
-these differences seem large enough to be terribly concerning.
+After looking at missingness in detail, the most problematic aspect of missingness in our study is that so much missingness relates to both our exposures (compliance/performance) and our outcomes, specifically delirium, coma, and pain. (For example, if the patient didn't have a pain assessment, they were both not compliant on the ABCDEF bundle *and* are missing a pain outcome.) So by definition, the patients we include in models for those outcomes are likely to have better compliance and performance on the ABCDEF bundle than patients who are excluded for missing data.
 
-Patient-days with complete data tended to have higher rates of opioid use and lower rates of propofol use; lower use of restraints; higher rates of significant pain; and lower rates of MV and coma. They also tended to have more ABCDEF bundle compliance and performance. These differences are more likely to bias our
-results than baseline/demographic differences.
+Other less concerning ways that patients with incomplete data differ from those with complete data include:
 
-## Detail of Differences between Patient-Days with Missing vs Complete Data
+- Slightly more likely to be of "other" or multiple races or not have race documented in the EMR; to be Hispanic; and to speak a language other than English
+- Slightly more likely to be in a facility prior to admission
+- Slightly more likely to be in cardiac/surgical ICU and less likely to be in medical
+- More likely to be have neuro, trauma diagnoses and less likely to have Other
+- Less likely to have mobility performed
+- More likely to be on both MV and sedation
+- Slightly more likely to be on restraints, benzodiazepines and propofol
+- Slightly less likely to be on opioids and dexmedetomidine
 
-Further details are included below for reference. In figures, black dots indicate at least some missing data, while white dots indicate complete data.
+To save space, more details are currently hidden from view; however, if these are needed they can be easily provided.
 
-```{r logmods_compare_missing_prep}
-## -- Create indicators for missingness among outcomes (with/without -----------
-## -- delirium), covariates, overall (with/without delirium) -------------------
-df_compmissing <- df_logmods
-df_compmissing$comp_outcomes <-
-  rowSums(is.na(df_compmissing[,c("delirium_icu_tmw", "coma_icu_tmw",
-                                  "sigpain_icu_tmw", "on_mv_icu_f_tmw")])) == 0
-df_compmissing$comp_outcomes_nodel <-
-  rowSums(is.na(df_compmissing[,c("sigpain_icu_tmw", "on_mv_icu_f_tmw")])) == 0
-df_compmissing$comp_covars <-
-  rowSums(is.na(df_compmissing[,c(2:10, 13, 15:23, 25:28)])) == 0
+```{r logmods_compare_missing_prep, results = "hide"}
+## -- Create data frame to compare days with complete vs incomplete data -------
+## We want to compare not only model covariates/outcomes, but also other
+## potentially important factors not included in models (eg, restraints, highest
+## level of mobility...)
+## THEREFORE: Merge important baseline + compliance variables and add indicator
+## for whether day had any missingness for these models.
 
-df_compmissing$comp_data <- with(df_compmissing, comp_outcomes & comp_covars)
-df_compmissing$comp_data_f <- with(df_compmissing, {
+## 1. Create indicators for missingness among model covariates/outcomes
+logmods_outcomes <- c("delirium_icu_tmw", "coma_icu_tmw",
+                      "sigpain_icu_tmw", "on_mv_icu_f_tmw")
+logmods_covars_base <- c("age_cat_mod", "race_cat_mod", "hisp_cat_mod", "bmi",
+                         "mob_preadmit", "home_preadmit", "primary_admit",
+                         "icu_type_comb")
+logmods_covars_daily <- c("comfort_care_icu", "on_sedation_icu_f",
+                          "rcvd_benzo_icu", "rcvd_opioid_icu",
+                          "rcvd_propofol_icu", "rcvd_dex_icu",
+                          "rcvd_antipsyc_icu", "on_mv_icu_f", "coma_icu")
+logmods_exposures <- c("comp_yn_f", "perf_yn_f", "comp_prop", "perf_prop")
+logmods_covars <-
+  c(logmods_covars_base, logmods_covars_daily, logmods_exposures)
+
+df_logmods_missing <- df_logmods
+df_logmods_missing$comp_outcomes <-
+  rowSums(is.na(df_logmods_missing[ , logmods_outcomes])) == 0
+df_logmods_missing$comp_covars <-
+  rowSums(is.na(df_logmods_missing[ , logmods_covars])) == 0
+
+df_logmods_missing$comp_data <-
+  with(df_logmods_missing, comp_outcomes & comp_covars)
+df_logmods_missing$comp_data_f <- with(df_logmods_missing, {
   factor(as.numeric(comp_data),
          levels = 0:1,
-         labels = c("Complete data", "Missing data"))
+         labels = c("Incomplete data", "Complete data"))
 })
 
-df_compmissing$comp_data_nodel <-
-  with(df_compmissing, comp_outcomes_nodel & comp_covars)
-df_compmissing$comp_data_nodel_f <- with(df_compmissing, {
-  factor(as.numeric(comp_data_nodel),
-         levels = 0:1,
-         labels = c("Complete data", "Missing data"))
-})
+## 2. Merge on other baseline and daily variables; recode long factor levels
+df_logmods_missing <- df_logmods_missing %>%
+  left_join(dplyr::select(demog, id, english_f, ad_directive_f), by = "id") %>%
+  left_join(dplyr::select(
+    compliance,
+    id, redcap_event_name_f, mobilityperformed_f, family_present_icu_f,
+    had_painasmt_icu, had_sedasmt_icu, had_delasmt_icu, elements_elig
+  ),
+  by = c("id", "redcap_event_name_f")) %>%
+  ## Recode long factor levels
+  mutate(
+    comp_yn_f = fct_recode(comp_yn_f, Comp = "Compliant", Non = "Noncompliant"),
+    perf_yn_f = fct_recode(perf_yn_f,
+                           Perf = "Performed", Not = "Not performed"),
+    english_f = fct_recode(
+      english_f,
+      Eng = "English Speaking", Other = "Non-English Speaking"
+    ),
+    race_cat_mod = fct_recode(
+      race_cat_mod,
+      "Black AA" = "Black/African-American",
+      "AI, AK, HI" = "Amer Indian/AK Native or HI/Pacific Isl",
+      Other = "Other race, multiple races, or not specified"
+    ),
+    hisp_cat_mod = fct_recode(
+      hisp_cat_mod, Hisp = "Hispanic", Non = "Non-Hispanic"
+    ),
+    icu_type_comb = fct_recode(
+      icu_type_comb,
+      Mixed = "Mixed medical/surgical",
+      Med = "Medical",
+      "Surg/Trauma" = "Surgical/trauma",
+      "Cardiac/Surg" = "Cardiac/surgical"
+    ),
+    primary_admit = fct_recode(
+      primary_admit,
+      Sepsis = "Sepsis/septic shock or ARDS",
+      Resp = "Respiratory",
+      Neuro = "Neurologic",
+      GU = "Genitourinary",
+      "OD/WD" = "Overdose/withdrawal"
+    ),
+    family_present_icu_f = fct_recode(
+      family_present_icu_f, No = "Not documented present", Yes = "Present"
+    ),
+    home_preadmit = fct_recode(
+      home_preadmit, No = "Facility pre-admission", Yes = "Home pre-admission"
+    ),
+    mob_preadmit = fct_recode(
+      mob_preadmit,
+      Unrestr = "No restrictions pre-admission",
+      Restr = "Mobility restricted pre-admission"
+    ),
+    had_delasmt_icu = fct_recode(
+      had_delasmt_icu, Yes = ">=1 assessment", No = "No assessment"
+    ),
+    had_painasmt_icu = fct_recode(
+      had_painasmt_icu, Yes = ">=1 assessment", No = "No assessment"
+    ),
+    had_sedasmt_icu = fct_recode(
+      had_sedasmt_icu, Yes = ">=1 assessment", No = "No assessment"
+    ),
+    mobilityperformed_f = fct_recode(
+      mobilityperformed_f,
+      Contra = "No, patient failed the safety screen/contraindicated",
+      No = "Not performed /not documented"
+    ),
+    on_mv_icu_f = fct_recode(
+      on_mv_icu_f, No = "Not on MV", Yes = "Received MV"
+    ),
+    on_mv_icu_f_tmw = fct_recode(
+      on_mv_icu_f_tmw, No = "Not on MV", Yes = "Received MV"
+    ),
+    on_sedation_icu_f = fct_recode(
+      on_sedation_icu_f,
+      Yes = "Continuous/intermittent sedation",
+      "No/PRN" = "No or PRN sedation only"
+    ),
+    sigpain_icu = fct_recode(
+      sigpain_icu,
+      No = "No significant pain",
+      Yes = "Significant pain (self-report or BPS)"
+    ),
+    sigpain_icu_tmw = fct_recode(
+      sigpain_icu_tmw,
+      No = "No significant pain",
+      Yes = "Significant pain (self-report or BPS)"
+    )
+  )
+
+## For categorical variables, we'll do faceted dotcharts
+df_logmods_missing_plotcat <- df_logmods_missing %>%
+  dplyr::select(-one_of("id", "redcap_event_name_f", "bmi", "icu_day",
+                        "icu_day_tmw", "comp_prop", "perf_prop",
+                        "comp_outcomes", "comp_covars",
+                        "comp_data", "elements_elig")) %>%
+  gather(key = varname, value = varvalue, -comp_data_f) %>%
+  group_by(comp_data_f, varname, varvalue) %>%
+  summarise(varvalue_n = n()) %>%
+  mutate(varvalue_prop = ifelse(
+    comp_data_f == "Complete data",
+    varvalue_n / sum(df_logmods_missing$comp_data),
+    varvalue_n / sum(!df_logmods_missing$comp_data))) %>%
+  ungroup()
+
+logmods_miss_cat <-
+  ggplot(data = df_logmods_missing_plotcat,
+         aes(x = varvalue, y = varvalue_prop, fill = comp_data_f)) +
+  facet_wrap(~ varname, scales = "free_x") +
+  geom_bar(stat = "identity", position = "dodge", width = 0.25) +
+  scale_fill_manual(values = as.character(magglass_colors[c("c", "f")])) +
+  scale_y_continuous(name = "Proportion of Patient-Days",
+                     breaks = seq(0, 1, 0.25),
+                     labels = paste0(seq(0, 1, 0.25) * 100, "%")) +
+  theme_minimal() +
+  theme(legend.position = "top",
+        legend.direction = "horizontal",
+        legend.title = element_blank(),
+        axis.text.x = element_text(size = 6, angle = 45, hjust = 1, vjust = 1))
+
+## For continuous-ish variables, we'll do dodged histograms
+df_logmods_missing_plotcont <- df_logmods_missing %>%
+  dplyr::select(comp_data_f, comp_prop, perf_prop, elements_elig) %>%
+  gather(key = varname, value = varvalue, -comp_data_f) %>%
+  mutate(varname = fct_relevel(
+    varname, "elements_elig", "comp_prop", "perf_prop"
+  )
+  )
+
+logmods_miss_cont <-
+  ggplot(data = df_logmods_missing_plotcont,
+         aes(x = varvalue, fill = comp_data_f)) +
+  facet_wrap(~ varname, scales = "free") +
+  geom_histogram(position = "dodge") +
+  scale_fill_manual(values = as.character(magglass_colors[c("c", "f")])) +
+  scale_x_continuous(name = "") +
+  scale_y_continuous(name = "Frequency") +
+  theme_minimal() +
+  theme(legend.position = "top",
+        legend.direction = "horizontal",
+        legend.title = element_blank(),
+        axis.text.x = element_text(size = 8, angle = 45, hjust = 1, vjust = 1))
+  
+```
+
+```{r logmods_missing_cat, fig.height = 8, fig.width = 5}
+# logmods_miss_cat
 
 ```
 
-```{r logmods_compare_missing_incdel, fig.height = 4, fig.width = 7}
-summarize_missing_incdel <- 
-  summaryM(age_cat_mod + race_cat_mod + hisp_cat_mod + bmi + mob_preadmit +
-             primary_admit + home_preadmit + hosp_type +
-             comfort_care_icu + rcvd_benzo_icu + rcvd_opioid_icu +
-             rcvd_propofol_icu + rcvd_dex_icu + rcvd_antipsyc_icu +
-             on_restraints_icu + sigpain_icu + on_mv_icu_f + coma_icu +
-             delirium_icu +
-             comp_yn_f + comp_prop + perf_yn_f + perf_prop ~
-             comp_data_f,
-           data = df_compmissing)
-
-html(summarize_missing_incdel,
-     what = "%",
-     digits = 2,
-     long = TRUE,
-     npct = "both",
-     prmsd = TRUE, brmsd = TRUE,
-     caption = "Characteristics of patients with missing vs complete data, including delirium outcome")
-
-plot.summaryM(summarize_missing_incdel)
-
-```
-
-```{r logmods_compare_missing_notincdel, fig.height = 4, fig.width = 7}
-summarize_missing_notincdel <-
-  summaryM(age_cat_mod + race_cat_mod + hisp_cat_mod + bmi + mob_preadmit +
-             primary_admit + home_preadmit + hosp_type +
-             comfort_care_icu + rcvd_benzo_icu + rcvd_opioid_icu +
-             rcvd_propofol_icu + rcvd_dex_icu + rcvd_antipsyc_icu +
-             on_restraints_icu + sigpain_icu + on_mv_icu_f + coma_icu +
-             delirium_icu +
-             comp_yn_f + comp_prop + perf_yn_f + perf_prop ~
-             comp_data_nodel_f,
-           data = df_compmissing)
-
-html(summarize_missing_notincdel,
-     what = "%",
-     digits = 2,
-     long = TRUE,
-     npct = "both",
-     prmsd = TRUE, brmsd = TRUE,
-     caption = "Characteristics of patients with missing vs complete data, ignoring delirium outcome")
-
-plot.summaryM(summarize_missing_notincdel)
+```{r logmods_missing_cont, fig.height = 3, fig.width = 5}
+# logmods_miss_cont
 
 ```
