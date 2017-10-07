@@ -145,13 +145,17 @@ for modeling, we combined categories with <1% representation. Patients with race
 
 Full details on how many calculated variables are determined from raw data, including definitions of compliance and performance, are in the [analysis plan](https://docs.google.com/document/d/1GebrA6Lt-rEh70Aw9r4mrhRlggWUfgUl_LaQePOCWZA/edit?usp=sharing).
 
-# Descriptive Statistics
+# Descriptive Statistics, Entire Cohort
 
-## Description of Cohort
+This section describes all patients enrolled during Months 1-20 of data
+collection, including demographics and characteristics at ICU admission,
+throughout the hospital stay, and on each patient-day.
 
-`r table_nums("descbase", display = "cite")` describes the demographic and ICU admission characteristics of the patients enrolled during Months 1-20 of data
-collection; `r table_nums("descinhosp", display = "cite")` describes in-hospital and discharge characteristics. **Note:** Only patients with at least one day fully in the ICU will be included in the analyses; this reduces the total N to
+**Note: not all these patients can be included in analyses.** All analyses require that patients spend at least one day fully in
+the ICU to be included; this reduces the total *potential* N to
 `r format(sum(demog$icu_days > 0, na.rm = TRUE), big.mark = ",")` patients.
+Specific numbers of patients included in each analysis will be shown as each
+model is discussed.
 
 For full definitions of compliance and performance, see [Definitions](#definitions).
 
@@ -352,7 +356,7 @@ painasmt_quants <- quantile(comp_desc$pain_asmts_icu, na.rm = TRUE)
 
 ```
 
-### `r table_nums("descbase")`
+## `r table_nums("descbase")`
 
 Continuous variables are described by the 25th, 50th and 75th percentiles, in
 that order (50th percentile = median). For example, 25% of patients had a BMI of
@@ -360,10 +364,8 @@ that order (50th percentile = median). For example, 25% of patients had a BMI of
 `r round(bmi_quants["50%"])` or less; and 75% of patients had a BMI of
 `r round(bmi_quants["75%"])` or less.
 
-For full definitions of compliance and performance, see [Definitions](#definitions).
-
 ```{r print_descbase}
-html(summaryM(hosp_f + hosp_type + month_cat + age_f + sex_f + race_cat +
+html(summaryM(hosp_type + month_cat + age_f + sex_f + race_cat +
                 hisp_cat + bmi + home_preadmit + mob_preadmit + primary_admit +
                 icu_type_comb + any_soi + apacheii_score + apacheiii_score +
                 apacheiv_score + sofa_score ~ 1,
@@ -377,7 +379,7 @@ html(summaryM(hosp_f + hosp_type + month_cat + age_f + sex_f + race_cat +
 
 ```
 
-### `r table_nums("descinhosp")`
+## `r table_nums("descinhosp")`
 
 Continuous variables are described by the 25th, 50th and 75th percentiles, in
 that order (50th percentile = median). For example, 25% of patients had
@@ -422,9 +424,7 @@ html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
 
 ```
 
-## Description of ICU Patient-Days
-
-### `r table_nums("descicudays")`
+## `r table_nums("descicudays")`
 
 `r table_nums("descicudays", display = "cite")` presents descriptive statistics
 by **day** for all days which were completely in the ICU.
@@ -950,10 +950,11 @@ results than baseline/demographic differences.
 
 ## Detail of Differences between Patient-Days with Missing vs Complete Data
 
-Further details are included below for reference. `FALSE` (in column headers) / black dots (in figures) indicate at least some missing data, while `TRUE` / white dots indicate complete data.
+Further details are included below for reference. In figures, black dots indicate at least some missing data, while white dots indicate complete data.
 
 ```{r logmods_compare_missing_prep}
-## -- Create indicators for missingness among outcomes (with/without ----------- ## -- delirium), covariates, overall (with/without delirium) -------------------
+## -- Create indicators for missingness among outcomes (with/without -----------
+## -- delirium), covariates, overall (with/without delirium) -------------------
 df_compmissing <- df_logmods
 df_compmissing$comp_outcomes <-
   rowSums(is.na(df_compmissing[,c("delirium_icu_tmw", "coma_icu_tmw",
@@ -964,12 +965,23 @@ df_compmissing$comp_covars <-
   rowSums(is.na(df_compmissing[,c(2:10, 13, 15:23, 25:28)])) == 0
 
 df_compmissing$comp_data <- with(df_compmissing, comp_outcomes & comp_covars)
+df_compmissing$comp_data_f <- with(df_compmissing, {
+  factor(as.numeric(comp_data),
+         levels = 0:1,
+         labels = c("Complete data", "Missing data"))
+})
+
 df_compmissing$comp_data_nodel <-
   with(df_compmissing, comp_outcomes_nodel & comp_covars)
+df_compmissing$comp_data_nodel_f <- with(df_compmissing, {
+  factor(as.numeric(comp_data_nodel),
+         levels = 0:1,
+         labels = c("Complete data", "Missing data"))
+})
 
 ```
 
-```{r logmods_compare_missing_incdel, fig.height = 7, fig.width = 7}
+```{r logmods_compare_missing_incdel, fig.height = 4, fig.width = 7}
 summarize_missing_incdel <- 
   summaryM(age_cat_mod + race_cat_mod + hisp_cat_mod + bmi + mob_preadmit +
              primary_admit + home_preadmit + hosp_type +
@@ -978,7 +990,7 @@ summarize_missing_incdel <-
              on_restraints_icu + sigpain_icu + on_mv_icu_f + coma_icu +
              delirium_icu +
              comp_yn_f + comp_prop + perf_yn_f + perf_prop ~
-             comp_data,
+             comp_data_f,
            data = df_compmissing)
 
 html(summarize_missing_incdel,
@@ -989,11 +1001,11 @@ html(summarize_missing_incdel,
      prmsd = TRUE, brmsd = TRUE,
      caption = "Characteristics of patients with missing vs complete data, including delirium outcome")
 
-plot.summaryM(summarize_missing_notincdel)
+plot.summaryM(summarize_missing_incdel)
 
 ```
 
-```{r logmods_compare_missing_notincdel, fig.height = 7, fig.width = 7}
+```{r logmods_compare_missing_notincdel, fig.height = 4, fig.width = 7}
 summarize_missing_notincdel <-
   summaryM(age_cat_mod + race_cat_mod + hisp_cat_mod + bmi + mob_preadmit +
              primary_admit + home_preadmit + hosp_type +
@@ -1002,7 +1014,7 @@ summarize_missing_notincdel <-
              on_restraints_icu + sigpain_icu + on_mv_icu_f + coma_icu +
              delirium_icu +
              comp_yn_f + comp_prop + perf_yn_f + perf_prop ~
-             comp_data_nodel,
+             comp_data_nodel_f,
            data = df_compmissing)
 
 html(summarize_missing_notincdel,
