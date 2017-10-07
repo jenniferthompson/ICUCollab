@@ -249,7 +249,7 @@ demog$hrs_invas_mv <- with(demog, {
 
 demog$hrs_noninvas_mv <- with(demog, {
   ifelse(is.na(noninvas_vent_episode) | noninvas_vent_episode == 0, NA,
-         rowSums(demog[,paste0('invas_vent_length_', 1:6)], na.rm = TRUE)) })
+         rowSums(demog[,paste0('noninvas_vent_length_', 1:6)], na.rm = TRUE)) })
 
 ## Write BMIs < 10 or > 100 to CSV for clinicians to check.
 subset(demog, bmi > 100 | bmi < 10, select = c(id, ht, wt, bmi)) %>%
