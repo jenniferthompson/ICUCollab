@@ -1012,6 +1012,7 @@ compliance <- compliance %>%
     rcvd_opioid_icu = make_tf_factor_yn(rcvd_opioid_icu),
     rcvd_propofol_icu = make_tf_factor_yn(rcvd_propofol_icu),
     rcvd_dex_icu = make_tf_factor_yn(rcvd_dex_icu),
+    rcvd_antipsyc_icu = make_tf_factor_yn(rcvd_antipsyc_icu),
 
     ## D: Delirium - assess, prevent and manage
     coma_icu = make_tf_factor_yn(coma_icu),
