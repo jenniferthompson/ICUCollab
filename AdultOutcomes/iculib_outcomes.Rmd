@@ -1406,3 +1406,14 @@ outcome_results_lrm <- function(outcome,
 ## ABCDEF Bundle vs Mechanical Ventilation
 
 We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being on mechanical ventilation the following day.
+
+```{r mvmods, results = "hide"}
+## -- Create dataset with only complete records --------------------------------
+mv_vars <- c("on_mv_icu_f_tmw", logmods_covars_base, logmods_covars_daily)
+df_logmod_mv <- df_logmods
+df_logmod_mv$include <- rowSums(is.na(df_logmod_mv[,mv_vars])) == 0
+
+mv_results <-
+  outcome_results_lrm(outcome = "on_mv_icu_f_tmw", df = df_logmod_mv)
+
+```
