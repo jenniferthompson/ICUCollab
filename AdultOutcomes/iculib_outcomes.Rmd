@@ -13,10 +13,12 @@ output:
 ```{r setup, results = "hide"}
 suppressPackageStartupMessages(library(tidyverse, quietly = TRUE))
 suppressPackageStartupMessages(library(forcats, quietly = TRUE))
+suppressPackageStartupMessages(library(stringr, quietly = TRUE))
 suppressPackageStartupMessages(library(rms, quietly = TRUE))
 suppressPackageStartupMessages(library(captioner, quietly = TRUE))
 suppressPackageStartupMessages(library(plotly, quietly = TRUE))
 suppressPackageStartupMessages(library(naniar, quietly = TRUE))
+suppressPackageStartupMessages(library(JTHelpers, quietly = TRUE))
 
 load("AnalysisData/iculib.Rdata")
 
@@ -888,9 +890,10 @@ Each model will adjust for the following potential confounders (please see
     - On propofol
     - On dex
     - On typical and/or atypical antipsychotics
+    - On comfort care
     - On MV
     - Coma
-    - On comfort care
+    - Delirium, for delirium outcome only (there is too much missing data to justify this covariate for other outcomes)
 
 ## Patient Inclusion & Missing Data
 
@@ -901,7 +904,7 @@ lead_vars <- c("icu_day", "on_mv_icu_f", "coma_icu", "on_restraints_icu",
                "sigpain_icu", "delirium_icu")
 
 ## Vector of baseline covariates
-base_vars <- c("age_cat_mod", "race_cat_mod", "hisp_cat_mod", "bmi",
+base_vars <- c("age_cat_mod", "sex_f", "race_cat_mod", "hisp_cat_mod", "bmi",
                "mob_preadmit", "primary_admit", "home_preadmit",
                "icu_type_comb", "hosp_type")
 
@@ -1018,13 +1021,13 @@ To save space, more details are currently hidden from view; however, if these ar
 ## 1. Create indicators for missingness among model covariates/outcomes
 logmods_outcomes <- c("delirium_icu_tmw", "coma_icu_tmw",
                       "sigpain_icu_tmw", "on_mv_icu_f_tmw")
-logmods_covars_base <- c("age_cat_mod", "race_cat_mod", "hisp_cat_mod", "bmi",
-                         "mob_preadmit", "home_preadmit", "primary_admit",
-                         "icu_type_comb")
-logmods_covars_daily <- c("comfort_care_icu", "on_sedation_icu_f",
-                          "rcvd_benzo_icu", "rcvd_opioid_icu",
-                          "rcvd_propofol_icu", "rcvd_dex_icu",
-                          "rcvd_antipsyc_icu", "on_mv_icu_f", "coma_icu")
+logmods_covars_base <- c("age_cat_mod", "sex_f", "race_cat_mod", "hisp_cat_mod",
+                         "bmi", "mob_preadmit", "home_preadmit", "hosp_type",
+                         "primary_admit", "icu_type_comb")
+logmods_covars_daily <- c("comfort_care_icu", "rcvd_benzo_icu",
+                          "rcvd_opioid_icu", "rcvd_propofol_icu",
+                          "rcvd_dex_icu", "rcvd_antipsyc_icu", "on_mv_icu_f",
+                          "coma_icu")
 logmods_exposures <- c("comp_yn_f", "perf_yn_f", "comp_prop", "perf_prop")
 logmods_covars <-
   c(logmods_covars_base, logmods_covars_daily, logmods_exposures)
@@ -1195,5 +1198,103 @@ logmods_miss_cont <-
 
 ```{r logmods_missing_cont, fig.height = 3, fig.width = 5}
 # logmods_miss_cont
+
+```
+
+## ABCDEF Bundle vs Mechanical Ventilation
+
+We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being on mechanical ventilation the following day.
+
+```{r logmod_prep, results = "hide"}
+## Set datadist. We must always set datadist. Set it to the mother dataset.
+dd_logmods <- datadist(df_logmods)
+options(datadist = "dd_logmods")
+
+## -- Function to fit logistic regression model --------------------------------
+fit_daily_lrm <- function(
+  outcome = c("on_mv_icu_f_tmw", "coma_icu_tmw",
+              "delirium_icu_tmw", "on_restraints_icu_tmw"),
+  exposure = c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
+  covars = c(logmods_covars_base, logmods_covars_daily), df = df_logmods){
+  
+  ## -- Set model formula ------------------------------------------------------
+  ## Add delirium/restraints as a covariate for those outcomes
+  if(outcome %in% c("delirium_icu_tmw", "on_restraints_icu_tmw")){
+    covars <- c(covars, gsub("_tmw", "", outcome, fixed = TRUE))
+  }
+  
+  ## Add exposure to RHS
+  covars <- c(covars, exposure)
+  
+  ## Make BMI, proportion of compliance/performance nonlinear terms
+  covars <- str_replace(
+    covars, "(^bmi|comp\\_prop|perf\\_prop$)", "rcs\\(\\1, 5\\)"
+  )
+  
+  ## Put RHS together
+  rhs <- paste(covars, collapse = " + ")
+  
+  ## Assemble entire formula
+  modform <- as.formula(paste(outcome, rhs, sep = " ~ "))
+  
+  ## -- Fit model using lrm, then adjust SEs using robcov() --------------------
+  mod <- lrm(modform, data = df, x = TRUE, y = TRUE) %>%
+    robcov(cluster = df$id)
+  
+  return(mod)
+}
+
+# ## Test function on a couple of exposures
+# 
+# df_logmod_mv <- df_logmods %>%
+#   dplyr::select(id, on_mv_icu_f_tmw, one_of(logmods_covars))
+# df_logmod_mv$include <-
+#   rowSums(is.na(df_logmod_mv[, 1:ncol(df_logmod_mv)])) == 0
+# 
+# mv_compyn_fxn <- fit_daily_lrm(
+#   outcome = "on_mv_icu_f_tmw",
+#   exposure = "comp_yn_f",
+#   df = subset(df_logmod_mv, include)
+# )
+# mv_compyn_man <- lrm(
+#   on_mv_icu_f_tmw ~
+#     ## Baseline/ICU admission
+#     age_cat_mod + sex_f + race_cat_mod + hisp_cat_mod + mob_preadmit +
+#     home_preadmit + primary_admit + icu_type_comb + hosp_type + rcs(bmi, 5) +
+#     ## Daily
+#     rcvd_benzo_icu + rcvd_opioid_icu + rcvd_propofol_icu + rcvd_dex_icu +
+#     rcvd_antipsyc_icu + on_mv_icu_f + coma_icu + comfort_care_icu +
+#     ## Exposure
+#     comp_yn_f,
+#   data = subset(df_logmod_mv, include),
+#   x = TRUE, y = TRUE
+# ) %>%
+#   robcov(cluster = subset(df_logmod_mv, include)$id)
+# 
+# anova(mv_compyn_fxn)
+# anova(mv_compyn_man)
+# 
+# mv_compdose_fxn <- fit_daily_lrm(
+#   outcome = "on_mv_icu_f_tmw",
+#   exposure = "comp_prop",
+#   df = subset(df_logmod_mv, include)
+# )
+# mv_compdose_man <- lrm(
+#   on_mv_icu_f_tmw ~
+#     ## Baseline/ICU admission
+#     age_cat_mod + sex_f + race_cat_mod + hisp_cat_mod + mob_preadmit +
+#     home_preadmit + primary_admit + icu_type_comb + hosp_type + rcs(bmi, 5) +
+#     ## Daily
+#     rcvd_benzo_icu + rcvd_opioid_icu + rcvd_propofol_icu + rcvd_dex_icu +
+#     rcvd_antipsyc_icu + on_mv_icu_f + coma_icu + comfort_care_icu +
+#     ## Exposure
+#     rcs(comp_prop, 5),
+#   data = subset(df_logmod_mv, include),
+#   x = TRUE, y = TRUE
+# ) %>%
+#   robcov(cluster = subset(df_logmod_mv, include)$id)
+# 
+# anova(mv_compdose_fxn)
+# anova(mv_compdose_man)
 
 ```
