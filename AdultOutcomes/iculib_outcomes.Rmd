@@ -1201,10 +1201,6 @@ logmods_miss_cont <-
 
 ```
 
-## ABCDEF Bundle vs Mechanical Ventilation
-
-We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being on mechanical ventilation the following day.
-
 ```{r logmod_prep, results = "hide"}
 ## Set datadist. We must always set datadist. Set it to the mother dataset.
 dd_logmods <- datadist(df_logmods)
@@ -1297,4 +1293,116 @@ fit_daily_lrm <- function(
 # anova(mv_compdose_fxn)
 # anova(mv_compdose_man)
 
+## -- Function to extract odds ratios from a given model fit -------------------
+get_daily_ors <- function(modobj,
+                          exposure = c("comp_yn_f", "comp_prop",
+                                       "perf_yn_f", "perf_prop"),
+                          df = df_logmods){
+  if(exposure == "comp_yn_f"){
+    reflevel <- "Noncompliant"
+    complevels <- levels(df[,exposure])
+  } else if(exposure == "perf_yn_f"){
+    reflevel <- "Not performed"
+    complevels <- levels(df[,exposure])
+  } else{
+    reflevel <- 0
+    complevels <- as.numeric(
+      quantile(
+        c(df_logmods$comp_prop, df_logmods$perf_prop),
+        probs = seq(0, 1, 0.2),
+        na.rm = TRUE
+      )
+    )
+  }
+  
+  rms_calc_comparisons(
+    rmsObj = modobj,
+    vname = exposure,
+    df = df,
+    refVal = reflevel,
+    compVals = complevels
+  )
+}
+
+## -- Function to extract p-value for an exposure from a given model fit -------
+get_daily_p <- function(modobj,
+                        exposure = c("comp_yn_f", "comp_prop",
+                                     "perf_yn_f", "perf_prop")){
+  anova(modobj)[exposure, "P"]
+}
+
+## -- Function to get ORs/P for a given model fit into tibble ------------------
+daily_outexp_ors <- function(modobj, exposure, df = df_logmods){
+  ors <- get_daily_ors(modobj = modobj, exposure = exposure, df = df)
+  pval <- get_daily_p(modobj = modobj, exposure = exposure)
+  ors$pval <- pval
+  ors
+}
+
+## -- Function to get predicted probs for a continuous exposure into tibble ----
+get_daily_probs <- function(modobj,
+                            exposure = c("comp_prop", "perf_prop"),
+                            df = df_logmods){
+  tmp <- eval(
+    parse(text = sprintf("Predict(modobj, %s = NA, fun = plogis)", exposure))
+  ) %>%
+    as_tibble() %>%
+    dplyr::select(matches(exposure), yhat, lower, upper) %>%
+    mutate(exposure = exposure)
+  names(tmp) <- gsub(exposure, "prop_done", names(tmp), fixed = TRUE)
+  tmp
+}
+
+## -- Wrapper function for a specified outcome: --------------------------------
+## 1. Fit logistic model (returned as "modobj")
+## 2. Get df of odds ratios + p-value (returned as "ors")
+## 3. If continuous, get df of predicted probabilities (returned as "probs")
+fit_results_lrm <- function(outcome = c("on_mv_icu_f_tmw",
+                                        "coma_icu_tmw",
+                                        "delirium_icu_tmw",
+                                        "on_restraints_icu_tmw"),
+                            exposure = c("comp_yn_f", "comp_prop",
+                                         "perf_yn_f", "perf_prop"),
+                            covars = c(logmods_covars_base,
+                                       logmods_covars_daily),
+                            df = df_logmods){
+  
+  mod <- fit_daily_lrm(
+    outcome = outcome, exposure = exposure, covars = covars, df = df
+  )
+  
+  ors <- daily_outexp_ors(mod, exposure, df)
+  
+  if(exposure %in% c("comp_prop", "perf_prop")){
+    probs <- get_daily_probs(mod, exposure, df)
+  } else{
+    probs <- NULL
+  }
+  
+  return(list("mod" = mod, "ors" = ors, "probs" = probs))
+}
+
+## -- Wrapper to do all exposures for a given outcome --------------------------
+outcome_results_lrm <- function(outcome,
+                                covars = c(logmods_covars_base,
+                                           logmods_covars_daily),
+                                df = df_logmods){
+  
+  ## Get list with results of fit_results_lrm() for each exposure
+  modlist <- map(c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
+                 ~ fit_results_lrm(outcome = outcome,
+                                   exposure = .,
+                                   covars = covars, df = df))
+  
+  ## Put like results together (ORs, predicted probs)
+  or_df <- map_df(modlist, "ors")
+  probs_df <- map_df(modlist, "probs")
+  
+  return(list("ors" = or_df, "probs" = probs_df))
+}
+
 ```
+
+## ABCDEF Bundle vs Mechanical Ventilation
+
+We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being on mechanical ventilation the following day.
