@@ -1557,7 +1557,7 @@ mvplot_probs <- ggplot(data = probs, aes(x = prop_done, y = yhat)) +
   scale_fill_manual(values = as.character(magglass_colors[c("f", "c")])) +
   scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
   labs(# title = "ABCDEF Bundle Dose vs Mechanical Ventilation",
-       subtitle = mv_subtitle,
+       # subtitle = mv_subtitle,
        caption = paste0("\nLower probabilities are favorable, indicating a lower likelihood of the outcome the following day.\n\nPoints above are unadjusted, raw data, where patients on MV the following day are at 100% and patients not on MV are at 0%.\n\n", mv_subtitle)) +
   theme_minimal() +
   theme(legend.position = "none",
