@@ -78,6 +78,14 @@ figure_nums <- captioner(prefix = "Figure")
 figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
 figure_nums(name = "run_perf", caption = "ABCDEF Performance Over Time")
 figure_nums(name = "run_meds", caption = "Medication Use Over Time")
+figure_nums(
+  name = "ors_mv",
+  caption = "Adjusted Odds Ratios, ABCDEF Bundle vs Mechanical Ventilation"
+)
+figure_nums(
+  name = "probs_mv",
+  caption = "Adjusted Probabilities of Mechanical Ventilation vs Dose of ABCDEF Bundle"
+)
 
 ```
 
@@ -1407,13 +1415,163 @@ outcome_results_lrm <- function(outcome,
 
 We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being on mechanical ventilation the following day.
 
+### Summary of Results
+
+After adjusting for available confounders, both better compliance and better performance of the ABCDEF Bundle on a given day are associated with a lower likelihood of being on mechanical ventilation the following day among the patients we were able to include in our model.
+
+### Details of Results
+
+Below, we present in `r figure_nums("ors_mv", display = "cite")` odds ratios for all measures of compliance and performance (complete compliance/performance,
+and "dose" = [number of elements done / number of elements eligible]) on a given
+day vs mechanical ventilation the following day. In `r figure_nums("probs_mv", display = "cite")`, we show the adjusted probability of mechanical ventilation the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+
 ```{r mvmods, results = "hide"}
 ## -- Create dataset with only complete records --------------------------------
 mv_vars <- c("on_mv_icu_f_tmw", logmods_covars_base, logmods_covars_daily)
 df_logmod_mv <- df_logmods
 df_logmod_mv$include <- rowSums(is.na(df_logmod_mv[,mv_vars])) == 0
+df_logmod_mv <- subset(df_logmod_mv, include)
 
 mv_results <-
   outcome_results_lrm(outcome = "on_mv_icu_f_tmw", df = df_logmod_mv)
+
+## -- (Will be a) Function to plot odds ratios for compliance & performance ----
+## Info for subtitle: Total number of patients, patient-days included; split
+## between outcome + non-outcome
+mv_pts <- length(unique(df_logmod_mv$id))
+mv_days <- nrow(df_logmod_mv)
+mv_days_outcome <- sum(df_logmod_mv$on_mv_icu_f_tmw == "Received MV")
+mv_days_nooutcome <- sum(!(df_logmod_mv$on_mv_icu_f_tmw == "Received MV"))
+
+mv_subtitle <- sprintf(
+  "%s patients included, with a total of %s records\n%s records had MV the following day; %s did not",
+  format(mv_pts, big.mark = ","),
+  format(mv_days, big.mark = ","),
+  format(mv_days_outcome, big.mark = ","),
+  format(mv_days_nooutcome, big.mark = ",")
+)
+
+ors <- mv_results$ors %>%
+  ## We don't want to plot reference levels
+  filter(!is.ref) %>%
+  mutate(
+    ## Prep for separating into indicators for comp vs perf, y/n vs dose
+    variable = gsub("\\_f$", "", variable),
+    ## We'll order the Y axis labels by this variable later:
+    yval = ifelse(comp.c %in% c("Performed", "Compliant"), 0,
+                  floor((comp + 0.01) * 100)),
+    ## Create text for Y axis labels: comparison + P-value
+    ylabel = ifelse(comp.c %in% c("Performed", "Compliant"),
+                    "Yes vs No",
+                    sprintf("%s%% vs %s%%",
+                            trimws(rndformat(comp * 100, 0)),
+                            trimws(rndformat(ref * 100, 0)))),
+    ## Order so that 100% is on top
+    ylabel = fct_reorder(ylabel, yval),
+    ## Create OR/CI text to place inside figure
+    or_text = sprintf(
+      "%s (%s, %s)", rndformat(effect), rndformat(lcl), rndformat(ucl)
+    )
+  ) %>%
+  ## Get indicators for comp vs perf, y/n vs dose
+  separate(variable, into = c("cp", "yn_prop"), sep = "_") %>%
+  ## Move y/n to top; add p-values to Compliance/Performance labels
+  mutate(
+    yn_prop = factor(ifelse(yn_prop == "yn", 1, 2),
+                     levels = 1:2, labels = c("Overall", "Dose")),
+    cp = factor(
+      ifelse(cp == "comp", 1, 2),
+      levels = 1:2,
+      labels = c(
+        sprintf(
+          "Compliance\n\nP, overall: %s; P, dose: %s",
+          formatp(subset(mv_results$ors, variable == "comp_yn_f")$pval[1]),
+          formatp(subset(mv_results$ors, variable == "comp_prop")$pval[1])
+        ),
+        sprintf(
+          "Performance\n\nP, overall: %s; P, dose: %s",
+          formatp(subset(mv_results$ors, variable == "perf_yn_f")$pval[1]),
+          formatp(subset(mv_results$ors, variable == "perf_prop")$pval[1])
+        )
+      )
+    )
+  )
+
+mvplot_ors <- ggplot(data = ors, aes(x = effect, y = ylabel)) +
+  facet_grid(yn_prop ~ cp, scales = "free_y", space = "free_y") +
+  geom_segment(aes(x = lcl, xend = ucl, yend = ylabel, colour = cp)) +
+  geom_point(aes(colour = cp)) +
+  geom_text(aes(label = or_text),
+            x = -0.55, size = 3, hjust = 0, colour = "grey15") +
+  geom_vline(xintercept = 1, colour = "grey70", linetype = "solid", size = 1) +
+  scale_x_continuous(name = "Adjusted Odds Ratio (95% Confidence Interval)",
+                     limits = c(-0.5, 1.0),
+                     breaks = seq(0, 1, 0.2)) +
+  scale_y_discrete(name = "") +
+  scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
+  labs(title = "ABCDEF Bundle vs Mechanical Ventilation",
+       subtitle = mv_subtitle,
+       caption = "\nOdds ratios below 1 are favorable, indicating a lower likelihood of the outcome the following day.") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        strip.text = element_text(face = "bold"),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        axis.title.x = element_text(vjust = 0),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+
+## -- (Will be a) Function to plot predicted probs for comp/perf doses ---------
+probs <- mv_results$probs %>%
+  mutate(cp = factor(ifelse(exposure == "comp_prop", 1, 2),
+                     levels = 1:2, labels = c("Compliance", "Performance")))
+
+tmp <- df_logmod_mv %>%
+  dplyr::select(comp_prop, perf_prop, on_mv_icu_f_tmw) %>%
+  gather(key = exposure, value = prop_done, comp_prop, perf_prop) %>%
+  mutate(yhat = as.numeric(on_mv_icu_f_tmw == "Received MV"),
+         cp = factor(ifelse(exposure == "comp_prop", 1, 2),
+                     levels = 1:2, labels = c("Compliance", "Performance")))
+
+mvplot_probs <- ggplot(data = probs, aes(x = prop_done, y = yhat)) +
+  facet_wrap( ~ cp, nrow = 1) +
+  geom_point(aes(x = prop_done, y = yhat, colour = cp),
+             position = position_jitter(height = 0.1, width = 0.1),
+             alpha = 0.01,
+             data = tmp) +
+  geom_ribbon(aes(ymin = lower, ymax = upper, fill = cp), alpha = 0.3) +
+  geom_line(aes(colour = cp)) +
+  scale_x_continuous(name = "Percent of Eligible Bundle Elements Done",
+                     limits = 0:1,
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_y_continuous(name = "Adjusted Probability of MV the Following Day",
+                     limits = 0:1,
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_fill_manual(values = as.character(magglass_colors[c("f", "c")])) +
+  scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
+  labs(title = "ABCDEF Bundle Dose vs Mechanical Ventilation",
+       subtitle = mv_subtitle,
+       caption = "\nLower probabilities are favorable, indicating a lower likelihood of the outcome the following day.\n\nPoints above are unadjusted, raw data, where patients on MV the following day are at 100% and patients not on MV are at 0%.") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        strip.text = element_text(face = "bold"),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+
+```
+
+```{r print_mvors, fig.width = 3.5, fig.height = 3}
+mvplot_ors
+
+```
+
+```{r print_mvprobs, fig.width = 3.5, fig.height = 3}
+mvplot_probs
 
 ```
