@@ -78,6 +78,10 @@ table_nums(
   name = "missing_mv",
   caption = "% of Records Excluded from MV Model due to Missingness by Variable"
 )
+table_nums(
+  name = "missing_coma",
+  caption = "% of Records Excluded from Coma Model due to Missingness by Variable"
+)
 
 figure_nums <- captioner(prefix = "Figure")
 figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
@@ -90,6 +94,14 @@ figure_nums(
 figure_nums(
   name = "probs_mv",
   caption = "Adjusted Probabilities of Mechanical Ventilation vs Dose of ABCDEF Bundle"
+)
+figure_nums(
+  name = "ors_coma",
+  caption = "Adjusted Odds Ratios, ABCDEF Bundle vs Coma"
+)
+figure_nums(
+  name = "probs_coma",
+  caption = "Adjusted Probabilities of Coma vs Dose of ABCDEF Bundle"
 )
 
 ```
@@ -116,9 +128,7 @@ Our analysis plan was specified *a priori* and can be found [here](https://docs.
 # Definitions of Compliance and Performance {#definitions}
 
 There are six main elements of the ABCDEF Bundle, with element B comprised of
-two main components. Definitions of "compliance" (completely following the ABCDEF Bundle protocol as specified, with documentation of each step) and "performance" (performing the main component of the Bundle element, possibly without complete documentation) are detailed below, referring to any single day. For each element,
-compliance and performance are only measured if the patient was in the ICU the
-full 24 hours; additional eligibility for specific elements are detailed below.
+two main components. Definitions of "compliance" (completely following the ABCDEF Bundle protocol as specified, with documentation of each step) and "performance" (performing the main component of the Bundle element, possibly without complete documentation) are detailed below, referring to any single day. For each element, compliance and performance are only measured if the patient was in the ICU the full 24 hours; additional eligibility for specific elements are detailed below.
 
 | Bundle element    | Days eligible | Compliant if: | Performed if: |
 |-------------------|---------------|---------------|---------------|
@@ -136,9 +146,9 @@ full 24 hours; additional eligibility for specific elements are detailed below.
 # Variable Calculation {#variables}
 
 - **Age:** For descriptive purposes, all age data is left as entered; however,
-due to low numbers in our most extreme categories, we combined patients <18 with 18-29-year-olds and patients >90 with 80-89-year-olds in the age variable included in our models.
+due to low numbers in our most extreme categories, we combined the two youngest categories and the two oldest categories in our models.
 - **Race:** For descriptive purposes, all race data is left as entered; however,
-for modeling, we combined categories with <1% representation. Patients with races of American Indian/Alaskan Native and Native Hawaiian/Pacific Islander are combined, and the very few patients with multiple races marked are combined with patients with "Other" race marked.
+for modeling, we combined categories with <1% representation. Patients with races of American Indian/Alaskan Native and Native Hawaiian/Pacific Islander are combined, and patients with multiple races marked are combined with patients with "Other" race marked.
 - **BMI:** BMI was calculated as `weight / (height / 100)^2`, where weight was entered in kg and height was entered in cm. We assumed that any height below 80 was accidentally entered in inches rather than cm, and converted those heights to cm (original height * 2.54). After calculating BMI, some values were implausible; we assumed that any BMI < 7 (based on anorexia data) or > 204 (based on highest recorded BMI) was due to data entry error, and these values (along with anyone for whom weight and/or height were missing or equal to 0) were forced to be missing.
 - **ICU type:** Site self-descriptions were combined as follows:
     - Mixed medical/surgical: *ICU, medical & surgical ICU, critical care unit, adult ICU, adult critical care unit, trauma & life support center*
@@ -167,11 +177,7 @@ This section describes all patients enrolled during Months 1-20 of data
 collection, including demographics and characteristics at ICU admission,
 throughout the hospital stay, and on each patient-day.
 
-**Note: not all these patients can be included in analyses.** All analyses require that patients spend at least one day fully in
-the ICU to be included; this reduces the total *potential* N to
-`r format(sum(demog$icu_days > 0, na.rm = TRUE), big.mark = ",")` patients.
-Specific numbers of patients included in each analysis will be shown as each
-model is discussed.
+**Note: not all these patients can be included in analyses.** All analyses require that patients spend at least one day fully in the ICU to be included; this reduces the total *potential* N to `r format(sum(demog$icu_days > 0, na.rm = TRUE), big.mark = ",")` patients. Specific numbers of patients included in each analysis will be shown as each model is discussed.
 
 For full definitions of compliance and performance, see [Definitions](#definitions).
 
@@ -871,10 +877,7 @@ following day?"
 The relationship between ABCDEF bundle compliance and performance on a given ICU day and each of the above outcomes the *following* ICU day will be assessed
 using logistic regression models; variance will be adjusted using Huber-White
 sandwich estimation clustered by patient, to account for within-subject
-correlation among days from the same patient. Continuous variables will be
-allowed to have a nonlinear association with our outcomes using restricted cubic
-splines. For each outcome, we will have four different models using the
-following ABCDEF-related exposures:
+correlation. Continuous variables will be allowed to have a nonlinear association with our outcomes using restricted cubic splines with four knots. For each outcome, we will have four different models using the following ABCDEF-related exposures:
 
 - Total bundle compliance, yes/no
 - Dose of compliance (# elements compliant / # elements eligible)
@@ -992,9 +995,9 @@ gg_miss_var(df_logmods %>% dplyr::select(-id), show_pct = TRUE) +
 Often, we would use multiple imputation to handle missingness of a concerning amount; however, this method's effectiveness depends on the *available* data to reliably predict missing values. For the following reasons, we are choosing to limit our analyses to complete cases and not perform multiple imputation:
 
 - Due to differences between units and limits on data collection in deidentified
-studies, we are missing some key information (eg, severity of illness) which
+studies, we are missing key information (eg, severity of illness) which
 would help predict missing values.
-- In longitudinal data analysis, multiple imputation for both baseline (ie, should be the same value for every patient) and time-varying (can change daily) variables is complex and time-consuming.
+- Multiple imputation in the context of longitudinal studies is complex and time-consuming.
 - Our rates of missingness are generally low, with a few important exceptions as
 noted.
 
@@ -1004,14 +1007,12 @@ In our case, the biggest drawback of complete case analysis is that our results
 could be biased due to differences in the patient-days we would *like* to
 include and patients we are *able* to include. This is a limitation of our study
 and will need to be kept in mind as we interpret our results. It will be more of
-an issue for some outcomes than others: For example, mechanical ventilation
-status is readily available in most EMR systems and therefore has low rates of
-missingness, so this bias isn't too much of a concern. But because delirium
-requires a proactive assessment that is not yet usual care in all units, it has
-much higher rates of missingness and is therefore more subject to bias.
+an issue for outcomes with more missingness: eg, there may be major differences in patients or sites which have delirium assessments and those which don't.
 
-After looking at missingness in detail, the most problematic aspect of missingness in our study is that so much missingness relates to both our exposures (compliance/performance) and our outcomes, specifically delirium, coma, and pain. (For example, if the patient didn't have a pain assessment, they were both not compliant on the ABCDEF bundle *and* are missing a pain outcome.) So by definition, the patients we include in models for those outcomes are likely to have better compliance and performance on the ABCDEF bundle than patients who are excluded for missing data.
+The most problematic aspect of missingness in our study is that so much missingness relates to both our exposures (compliance/performance) and our outcomes, specifically delirium, coma, and pain. (For example, if the patient didn't have a pain assessment, they were both not compliant on the ABCDEF bundle *and* are missing a pain outcome.) So by definition, the patients we include in models for those outcomes are likely to have better compliance and performance on the ABCDEF bundle than patients who are excluded for missing data.
 
+### More Details on Missingness
+<details>
 Other less concerning ways that patients with incomplete data differ from those with complete data include:
 
 - Slightly more likely to be of "other" or multiple races or not have race documented in the EMR; to be Hispanic; and to speak a language other than English
@@ -1022,8 +1023,6 @@ Other less concerning ways that patients with incomplete data differ from those 
 - More likely to be on both MV and sedation
 - Slightly more likely to be on restraints, benzodiazepines and propofol
 - Slightly less likely to be on opioids and dexmedetomidine
-
-To save space, more details are currently hidden from view; however, if these are needed they can be easily provided.
 
 ```{r logmods_compare_missing_prep, results = "hide"}
 ## -- Create data frame to compare days with complete vs incomplete data -------
@@ -1207,14 +1206,15 @@ logmods_miss_cont <-
 ```
 
 ```{r logmods_missing_cat, fig.height = 8, fig.width = 5}
-# logmods_miss_cat
+logmods_miss_cat
 
 ```
 
 ```{r logmods_missing_cont, fig.height = 3, fig.width = 5}
-# logmods_miss_cont
+logmods_miss_cont
 
 ```
+</details>
 
 ```{r logmod_prep, results = "hide"}
 ## Set datadist. We must always set datadist. Set it to the mother dataset.
@@ -1498,15 +1498,16 @@ inicu_or_results <- function(outcome_results, ## result of outcome_results_lrm()
   
   orplot <- ggplot(data = ors, aes(x = effect, y = ylabel)) +
     facet_grid(yn_prop ~ cp, scales = "free_y", space = "free_y") +
+    geom_vline(xintercept = 1, colour = "grey70",
+               linetype = "solid", size = 1) +
     geom_segment(aes(x = lcl, xend = ucl, yend = ylabel, colour = cp)) +
     geom_point(aes(colour = cp)) +
     geom_text(aes(label = or_text),
-              x = -0.55, size = 3, hjust = 0, colour = "grey15") +
-    geom_vline(xintercept = 1, colour = "grey70",
-               linetype = "solid", size = 1) +
+              x = -0.80, size = 3, hjust = 0, colour = "grey15") +
     scale_x_continuous(name = "Adjusted Odds Ratio (95% Confidence Interval)",
-                       limits = c(-0.5, 1.0),
-                       breaks = seq(0, 1, 0.2)) +
+                       ## X limits: -0.5 to ceiling (up to 0.2) of highest UCL
+                       limits = c(-0.75, ceiling(max(ors$ucl) / 0.2) * 0.2),
+                       breaks = seq(0, 10, 0.2)) +
     scale_y_discrete(name = "") +
     scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
     labs(caption = sprintf("\nOdds ratios below 1 are favorable, indicating a lower likelihood of %s the following day.\n\n%s", outcome_name, outcome_info)) +
@@ -1534,6 +1535,13 @@ inicu_prob_results <- function(outcome_results,
                                ## Add raw data? If so, supply variable name, df
                                add_raw = TRUE,
                                outcome, df){
+  
+  ## Y axis limits are 0-100% if raw data not included, -0.1 - 1.1 if it is
+  if(add_raw){
+    ylims <- c(-0.1, 1.1)
+  } else{
+    ylims <- 0:1
+  }
                                  
   ## Add faceting variable to predicted probabilities
   probs <- outcome_results$probs %>%
@@ -1551,7 +1559,7 @@ inicu_prob_results <- function(outcome_results,
     scale_y_continuous(
       name = sprintf("Adjusted Probability of %s the Following Day",
                      outcome_name),
-      limits = 0:1,
+      limits = ylims,
       breaks = seq(0, 1, 0.2),
       labels = paste0(seq(0, 1, 0.2) * 100, "%")
     ) +
@@ -1571,9 +1579,10 @@ inicu_prob_results <- function(outcome_results,
       dplyr::select(comp_prop, perf_prop, matches(outcome)) %>%
       gather(key = exposure, value = prop_done, comp_prop, perf_prop)
     
-    ## yhat = 0 if patient had reference level, 1 = if patient had outcome
+    ## yhat = -0.05 if patient had ref level, 1.05 = if patient had outcome
     ## This used to be in mutate(); guessing this is where tidyeval would help
     tmp$yhat <- as.numeric(tmp[, outcome] == levels(tmp[, outcome])[2])
+    tmp$yhat <- ifelse(tmp$yhat == 0, -0.05, 1.05)
     ## Faceting variable to match predicted probabilities
     tmp$cp <- factor(ifelse(tmp$exposure == "comp_prop", 1, 2),
                      levels = 1:2, labels = c("Compliance", "Performance"))
@@ -1651,9 +1660,9 @@ pander(as.data.frame(miss_var_mv), digits = 2, style = "rmarkdown")
 
 ```
 
-Below, we present in `r figure_nums("ors_mv", display = "cite")` odds ratios for all measures of compliance and performance (complete compliance/performance,
+`r figure_nums("ors_mv", display = "cite")` presents odds ratios for all measures of compliance and performance (complete compliance/performance,
 and "dose" = [number of elements done / number of elements eligible]) on a given
-day vs mechanical ventilation the following day. In `r figure_nums("probs_mv", display = "cite")`, we show the adjusted probability of mechanical ventilation the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+day vs mechanical ventilation the following day. `r figure_nums("probs_mv", display = "cite")` presents the adjusted probability of mechanical ventilation the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_mv")`
 ```{r print_mvors, fig.width = 3.5, fig.height = 3}
@@ -1664,5 +1673,82 @@ mv_orplot
 #### `r figure_nums("probs_mv")`
 ```{r print_mvprobs, fig.width = 3.5, fig.height = 3}
 mv_probplot
+
+```
+
+## ABCDEF Bundle vs Coma
+
+We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being comatose the following day.
+
+```{r comamods, results = "hide"}
+## -- Create dataset with only complete records --------------------------------
+coma_vars <- c("coma_icu_tmw", logmods_covars_base, logmods_covars_daily)
+df_logmod_coma <- df_logmods
+df_logmod_coma$include <- rowSums(is.na(df_logmod_coma[,coma_vars])) == 0
+
+## Summarize missing data before we dump records
+miss_var_coma <- miss_var_summary(subset(df_logmod_coma, !include)) %>%
+  filter(percent > 0 & variable %in% coma_vars)
+
+## Remove records with incomplete data
+df_logmod_coma <- subset(df_logmod_coma, include)
+
+## -- Fit models and get results -----------------------------------------------
+coma_results <-
+  outcome_results_lrm(outcome = "coma_icu_tmw", df = df_logmod_coma)
+
+## String describing outcome, patients, days
+coma_info <- inicu_outcome_info(outcome = "coma_icu_tmw", df = df_logmod_coma)
+
+## Plot of odds ratios/CIs
+coma_orplot <- inicu_or_results(
+  outcome_results = coma_results,
+  outcome_info = coma_info,
+  outcome_name = "coma"
+)
+## Plot of predicted probabilities
+coma_probplot <- inicu_prob_results(
+  outcome_results = coma_results,
+  outcome_name = "coma",
+  outcome_info = coma_info,
+  add_raw = TRUE,
+  outcome = "coma_icu_tmw",
+  df = df_logmod_coma
+)
+
+```
+
+### Summary of Results
+
+After adjusting for available confounders, we see no strong evidence that compliance on the ABCDEF bundle on a given day is associated with coma the following day. We do, however, see a meaningful association between bundle *performance* and a lower likelihood of being comatose the following day among the patient-days we were able to include in our model.
+
+Lack of association could be due to a true lack of association, or the relatively low proportion of coma days in our cohort (approximately `r rndformat(mean(df_logmods$coma_icu_tmw == "Yes", na.rm = TRUE) * 100, 0)`% of patient-days following ABCDEF bundle exposure), or other factors.
+
+### Details of Missingness and Results
+
+`r table_nums("missing_coma", display = "cite")` describes the proportion of the
+`r format(nrow(df_logmods) - nrow(df_logmod_coma), big.mark = ",")` patient-days
+excluded from the coma model due to incomplete data which were missing each
+covariate/outcome.
+
+#### `r table_nums("missing_coma")`
+```{r missing_coma, results = "asis"}
+pander(as.data.frame(miss_var_coma), digits = 2, style = "rmarkdown")
+
+```
+
+`r figure_nums("ors_coma", display = "cite")` presents odds ratios for all measures of compliance and performance (complete compliance/performance,
+and "dose" = [number of elements done / number of elements eligible]) on a given
+day vs coma the following day. `r figure_nums("probs_coma", display = "cite")` presents the adjusted probability of coma the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+
+#### `r figure_nums("ors_coma")`
+```{r print_comaors, fig.width = 3.5, fig.height = 3}
+coma_orplot
+
+```
+
+#### `r figure_nums("probs_coma")`
+```{r print_comaprobs, fig.width = 3.5, fig.height = 3}
+coma_probplot
 
 ```
