@@ -1429,6 +1429,29 @@ outcome_results_lrm <- function(outcome,
 }
 
 ## -- Functions for in-ICU outcome results -------------------------------------
+## -- Function to describe exclusion due to missingness ------------------------
+in_icu_exclusion <- function(outcome_df){
+  ## It is assumed that outcome_df has a logical variable called `include` that
+  ## tells us whether the record will be included in the final model. This is
+  ## not ideal practice. If this weren't an hourly project I'd do it better.
+  ## SORRY UNIVERSE
+  
+  ## String describing number of patients, patient-days excluded
+  miss_days_n <- nrow(df_logmods) - sum(outcome_df[ , "include"])
+  miss_days_pct <- round((miss_days_n / nrow(df_logmods) * 100))
+  miss_pts_n <- length(unique(df_logmods$id)) -
+    length(unique(subset(outcome_df, include)$id))
+  miss_pts_pct <- round((miss_pts_n / length(unique(df_logmods$id)) * 100))
+  
+  sprintf("Out of %s eligible patient-days, %s patient-days (%s%%) were excluded due to missing data, detailed below. Out of %s patients with an eligible ICU day, %s (%s%%) were completely excluded from this model because of missing data on all their ICU days.",
+        format(nrow(df_logmods), big.mark = ","),
+        format(miss_days_n, big.mark = ","),
+        format(miss_days_pct, big.mark = ","),
+        format(length(unique(df_logmods$id)), big.mark = ","),
+        format(miss_pts_n, big.mark = ","),
+        format(miss_pts_pct, big.mark = ","))
+}
+
 ## -- Function to get info about patients, days, outcome -----------------------
 inicu_outcome_info <- function(outcome, df){
   ## Number of unique patients and days
@@ -1629,6 +1652,9 @@ df_logmod_mv$include <- rowSums(is.na(df_logmod_mv[,mv_vars])) == 0
 miss_var_mv <- miss_var_summary(subset(df_logmod_mv, !include)) %>%
   filter(percent > 0 & variable %in% mv_vars)
 
+## Get info statement for exclusions due to missingness
+miss_info_mv <- in_icu_exclusion(df_logmod_mv)
+
 ## Remove records with incomplete data
 df_logmod_mv <- subset(df_logmod_mv, include)
 
@@ -1660,6 +1686,8 @@ mv_probplot <- inicu_prob_results(
 After adjusting for available confounders, both better compliance and better performance of the ABCDEF Bundle on a given day are associated with a lower likelihood of being on mechanical ventilation the following day among the patients we were able to include in our model.
 
 ### Details of Missingness and Results
+
+`r miss_info_mv`
 
 `r table_nums("missing_mv", display = "cite")` describes the proportion of the
 `r format(nrow(df_logmods) - nrow(df_logmod_mv), big.mark = ",")` patient-days
@@ -1702,6 +1730,9 @@ df_logmod_coma$include <- rowSums(is.na(df_logmod_coma[,coma_vars])) == 0
 miss_var_coma <- miss_var_summary(subset(df_logmod_coma, !include)) %>%
   filter(percent > 0 & variable %in% coma_vars)
 
+## Get info statement for exclusions due to missingness
+miss_info_coma <- in_icu_exclusion(df_logmod_coma)
+
 ## Remove records with incomplete data
 df_logmod_coma <- subset(df_logmod_coma, include)
 
@@ -1737,6 +1768,8 @@ After adjusting for available confounders, we see no strong evidence that compli
 Lack of association could be due to a true lack of association, or the relatively low proportion of coma days in our cohort (approximately `r rndformat(mean(df_logmods$coma_icu_tmw == "Yes", na.rm = TRUE) * 100, 0)`% of patient-days following ABCDEF bundle exposure), or other factors.
 
 ### Details of Missingness and Results
+
+`r miss_info_coma`
 
 `r table_nums("missing_coma", display = "cite")` describes the proportion of the
 `r format(nrow(df_logmods) - nrow(df_logmod_coma), big.mark = ",")` patient-days
@@ -1780,6 +1813,9 @@ df_logmod_del$include <- rowSums(is.na(df_logmod_del[,del_vars])) == 0
 miss_var_del <- miss_var_summary(subset(df_logmod_del, !include)) %>%
   filter(percent > 0 & variable %in% del_vars)
 
+## Get info statement for exclusions due to missingness
+miss_info_del <- in_icu_exclusion(df_logmod_del)
+
 ## Remove records with incomplete data
 df_logmod_del <- subset(df_logmod_del, include)
 
@@ -1815,6 +1851,8 @@ After adjusting for available confounders, we see a significant relationship bet
 These results are promising, but again should be interpreted with caution, given the selection bias inherent in our sample - a significant number of patients and patient-days could not be included in these analyses because no delirium assessment was performed.
 
 ### Details of Missingness and Results
+
+`r miss_info_del`
 
 `r table_nums("missing_del", display = "cite")` describes the proportion of the
 `r format(nrow(df_logmods) - nrow(df_logmod_del), big.mark = ",")` patient-days
