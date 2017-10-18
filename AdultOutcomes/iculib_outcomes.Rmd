@@ -86,6 +86,10 @@ table_nums(
   name = "missing_del",
   caption = "% of Records Excluded from Delirium Model due to Missingness by Variable"
 )
+table_nums(
+  name = "missing_res",
+  caption = "% of Records Excluded from Restraints Model due to Missingness by Variable"
+)
 
 figure_nums <- captioner(prefix = "Figure")
 figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
@@ -114,6 +118,14 @@ figure_nums(
 figure_nums(
   name = "probs_del",
   caption = "Adjusted Probabilities of Delirium vs Dose of ABCDEF Bundle"
+)
+figure_nums(
+  name = "ors_res",
+  caption = "Adjusted Odds Ratios, ABCDEF Bundle vs Physical Restraints"
+)
+figure_nums(
+  name = "probs_res",
+  caption = "Adjusted Probabilities of Physical Restraints vs Dose of ABCDEF Bundle"
 )
 
 ```
@@ -1627,7 +1639,7 @@ inicu_prob_results <- function(outcome_results,
                  position = position_jitter(height = 0.05, width = 0.05),
                  alpha = 0.01,
                  data = tmp) +
-    labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s the following day.\n\nPoints above are unadjusted, raw data, where patients with %s the following day are at 100%% and patients without the outcome are at 0%%.\n\n%s", outcome_name, outcome_name, outcome_info))
+    labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s the following day.\n\nPoints above are unadjusted, raw data, where patients\nwith %s the following day are at 100%% and patients without the outcome are at 0%%.\n\n%s", outcome_name, outcome_name, outcome_info))
   } else{
     probsplot <- probsplot +
       labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s the following day.\n\n%s", outcome_name, outcome_info))
@@ -1867,7 +1879,7 @@ pander(as.data.frame(miss_var_del), digits = 2, style = "rmarkdown")
 
 `r figure_nums("ors_del", display = "cite")` presents odds ratios for all measures of compliance and performance (complete compliance/performance,
 and "dose" = [number of elements done / number of elements eligible]) on a given
-day vs coma the following day. `r figure_nums("probs_del", display = "cite")` presents the adjusted probability of delirium the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+day vs delirium the following day. `r figure_nums("probs_del", display = "cite")` presents the adjusted probability of delirium the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_del")`
 ```{r print_delors, fig.width = 3.5, fig.height = 3}
@@ -1878,5 +1890,86 @@ del_orplot
 #### `r figure_nums("probs_del")`
 ```{r print_delprobs, fig.width = 3.5, fig.height = 3}
 del_probplot
+
+```
+
+## ABCDEF Bundle vs Physical Restraints
+
+We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being physically restrained the following day.
+
+```{r resmods, results = "hide"}
+## -- Create dataset with only complete records --------------------------------
+res_vars <-
+  c("on_restraints_icu_tmw", logmods_covars_base, logmods_covars_daily)
+df_logmod_res <- df_logmods
+df_logmod_res$include <- rowSums(is.na(df_logmod_res[,res_vars])) == 0
+
+## Summarize missing data before we dump records
+miss_var_res <- miss_var_summary(subset(df_logmod_res, !include)) %>%
+  filter(percent > 0 & variable %in% res_vars)
+
+## Get info statement for exclusions due to missingness
+miss_info_res <- in_icu_exclusion(df_logmod_res)
+
+## Remove records with incomplete data
+df_logmod_res <- subset(df_logmod_res, include)
+
+## -- Fit models and get results -----------------------------------------------
+res_results <-
+  outcome_results_lrm(outcome = "on_restraints_icu_tmw", df = df_logmod_res)
+
+## String describing outcome, patients, days
+res_info <-
+  inicu_outcome_info(outcome = "on_restraints_icu_tmw", df = df_logmod_res)
+
+## Plot of odds ratios/CIs
+res_orplot <- inicu_or_results(
+  outcome_results = res_results,
+  outcome_info = res_info,
+  outcome_name = "restraints"
+)
+## Plot of predicted probabilities
+res_probplot <- inicu_prob_results(
+  outcome_results = res_results,
+  outcome_name = "restraints",
+  outcome_info = res_info,
+  add_raw = TRUE,
+  outcome = "on_restraints_icu_tmw",
+  df = df_logmod_res
+)
+
+```
+
+### Summary of Results
+
+After adjusting for available confounders, we see a significant relationship between both compliance and performance of the ABCDEF bundle on a given day and the likelihood of physical restraints the following day. When looking at "dose" of both, more compliance/performance is associated with a lower likelihood of restraints the following day.
+
+### Details of Missingness and Results
+
+`r miss_info_res`
+
+`r table_nums("missing_res", display = "cite")` describes the proportion of the
+`r format(nrow(df_logmods) - nrow(df_logmod_res), big.mark = ",")` patient-days
+excluded from the restraints model due to incomplete data which were missing each covariate/outcome.
+
+#### `r table_nums("missing_res")`
+```{r missing_res, results = "asis"}
+pander(as.data.frame(miss_var_res), digits = 2, style = "rmarkdown")
+
+```
+
+`r figure_nums("ors_res", display = "cite")` presents odds ratios for all measures of compliance and performance (complete compliance/performance,
+and "dose" = [number of elements done / number of elements eligible]) on a given
+day vs restraints the following day. `r figure_nums("probs_res", display = "cite")` presents the adjusted probability of delirium the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+
+#### `r figure_nums("ors_res")`
+```{r print_resors, fig.width = 3.5, fig.height = 3}
+res_orplot
+
+```
+
+#### `r figure_nums("probs_res")`
+```{r print_resprobs, fig.width = 3.5, fig.height = 3}
+res_probplot
 
 ```
