@@ -82,6 +82,10 @@ table_nums(
   name = "missing_coma",
   caption = "% of Records Excluded from Coma Model due to Missingness by Variable"
 )
+table_nums(
+  name = "missing_del",
+  caption = "% of Records Excluded from Delirium Model due to Missingness by Variable"
+)
 
 figure_nums <- captioner(prefix = "Figure")
 figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
@@ -102,6 +106,14 @@ figure_nums(
 figure_nums(
   name = "probs_coma",
   caption = "Adjusted Probabilities of Coma vs Dose of ABCDEF Bundle"
+)
+figure_nums(
+  name = "ors_del",
+  caption = "Adjusted Odds Ratios, ABCDEF Bundle vs Delirium"
+)
+figure_nums(
+  name = "probs_del",
+  caption = "Adjusted Probabilities of Delirium vs Dose of ABCDEF Bundle"
 )
 
 ```
@@ -1750,5 +1762,83 @@ coma_orplot
 #### `r figure_nums("probs_coma")`
 ```{r print_comaprobs, fig.width = 3.5, fig.height = 3}
 coma_probplot
+
+```
+
+## ABCDEF Bundle vs Delirium
+
+We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of being delirious (vs anything else - could be normal, comatose, or a combination) the
+following day.
+
+```{r delmods, results = "hide"}
+## -- Create dataset with only complete records --------------------------------
+del_vars <- c("delirium_icu_tmw", logmods_covars_base, logmods_covars_daily)
+df_logmod_del <- df_logmods
+df_logmod_del$include <- rowSums(is.na(df_logmod_del[,del_vars])) == 0
+
+## Summarize missing data before we dump records
+miss_var_del <- miss_var_summary(subset(df_logmod_del, !include)) %>%
+  filter(percent > 0 & variable %in% del_vars)
+
+## Remove records with incomplete data
+df_logmod_del <- subset(df_logmod_del, include)
+
+## -- Fit models and get results -----------------------------------------------
+del_results <-
+  outcome_results_lrm(outcome = "delirium_icu_tmw", df = df_logmod_del)
+
+## String describing outcome, patients, days
+del_info <- inicu_outcome_info(outcome = "delirium_icu_tmw", df = df_logmod_del)
+
+## Plot of odds ratios/CIs
+del_orplot <- inicu_or_results(
+  outcome_results = del_results,
+  outcome_info = del_info,
+  outcome_name = "delirium"
+)
+## Plot of predicted probabilities
+del_probplot <- inicu_prob_results(
+  outcome_results = del_results,
+  outcome_name = "delirium",
+  outcome_info = del_info,
+  add_raw = TRUE,
+  outcome = "delirium_icu_tmw",
+  df = df_logmod_del
+)
+
+```
+
+### Summary of Results
+
+After adjusting for available confounders, we see a significant relationship between both compliance and performance of the ABCDEF bundle on a given day and the likelihood of delirium the following day. When looking at "dose" of both, more compliance/performance is associated with a lower likelihood of delirium.
+
+These results are promising, but again should be interpreted with caution, given the selection bias inherent in our sample - a significant number of patients and patient-days could not be included in these analyses because no delirium assessment was performed.
+
+### Details of Missingness and Results
+
+`r table_nums("missing_del", display = "cite")` describes the proportion of the
+`r format(nrow(df_logmods) - nrow(df_logmod_del), big.mark = ",")` patient-days
+excluded from the delirium model due to incomplete data which were missing each
+covariate/outcome.
+
+#### `r table_nums("missing_del")`
+```{r missing_del, results = "asis"}
+pander(as.data.frame(miss_var_del), digits = 2, style = "rmarkdown")
+
+```
+
+`r figure_nums("ors_del", display = "cite")` presents odds ratios for all measures of compliance and performance (complete compliance/performance,
+and "dose" = [number of elements done / number of elements eligible]) on a given
+day vs coma the following day. `r figure_nums("probs_del", display = "cite")` presents the adjusted probability of delirium the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+
+#### `r figure_nums("ors_del")`
+```{r print_delors, fig.width = 3.5, fig.height = 3}
+del_orplot
+
+```
+
+#### `r figure_nums("probs_del")`
+```{r print_delprobs, fig.width = 3.5, fig.height = 3}
+del_probplot
 
 ```
