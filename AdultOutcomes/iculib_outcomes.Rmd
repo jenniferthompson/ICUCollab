@@ -90,6 +90,10 @@ table_nums(
   name = "missing_res",
   caption = "% of Records Excluded from Restraints Model due to Missingness by Variable"
 )
+table_nums(
+  name = "missing_pain",
+  caption = "% of Records Excluded from Pain Model due to Missingness by Variable"
+)
 
 figure_nums <- captioner(prefix = "Figure")
 figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
@@ -126,6 +130,14 @@ figure_nums(
 figure_nums(
   name = "probs_res",
   caption = "Adjusted Probabilities of Physical Restraints vs Dose of ABCDEF Bundle"
+)
+figure_nums(
+  name = "ors_pain",
+  caption = "Adjusted Odds Ratios, ABCDEF Bundle vs Significant Pain"
+)
+figure_nums(
+  name = "probs_pain",
+  caption = "Adjusted Probabilities of Significant Pain vs Dose of ABCDEF Bundle"
 )
 
 ```
@@ -197,18 +209,16 @@ Full details on how many calculated variables are determined from raw data, incl
 
 # Descriptive Statistics, Entire Cohort
 
-This section describes all patients enrolled during Months 1-20 of data
-collection, including demographics and characteristics at ICU admission,
-throughout the hospital stay, and on each patient-day.
+There were `r format(nrow(demog), big.mark = ",")` patients enrolled in the ICU Collaborative over the 20 months of data collection. Our definitions of ABCDEF bundle compliance and performance require the patient to be in the ICU a full 24 hours; therefore, we have to exclude `r format(sum(demog$icu_days <= 0, na.rm = TRUE), big.mark = ",")` patients from analyses who never had a full day in the ICU and thus were ineligible to have the exposures of interest.
 
-**Note: not all these patients can be included in analyses.** All analyses require that patients spend at least one day fully in the ICU to be included; this reduces the total *potential* N to `r format(sum(demog$icu_days > 0, na.rm = TRUE), big.mark = ",")` patients. Specific numbers of patients included in each analysis will be shown as each model is discussed.
+This section describes demographics and characteristics at ICU admission, throughout the hospital stay, and on each patient-day among those patients with at least one full ICU day. Specific numbers of patients included in each individual analysis will differ according to the outcome, and will be shown as each model is discussed.
 
 For full definitions of compliance and performance, see [Definitions](#definitions).
 
 ```{r descbase}
 ## Add labels to variables we want to describe - labels don't play well with
 ## tidyverse so copy a separate data.frame
-demog_desc <- demog
+demog_desc <- demog %>% filter(icu_days > 0)
 
 demog_desc$hosp_f <- as.factor(demog_desc$hosp_f)
 
@@ -1639,7 +1649,7 @@ inicu_prob_results <- function(outcome_results,
                  position = position_jitter(height = 0.05, width = 0.05),
                  alpha = 0.01,
                  data = tmp) +
-    labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s the following day.\n\nPoints above are unadjusted, raw data, where patients\nwith %s the following day are at 100%% and patients without the outcome are at 0%%.\n\n%s", outcome_name, outcome_name, outcome_info))
+    labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s the following day.\n\nPoints above are unadjusted, raw data, where patientswith %s the following day\nare at 100%% and patients without the outcome are at 0%%.\n\n%s", outcome_name, outcome_name, outcome_info))
   } else{
     probsplot <- probsplot +
       labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s the following day.\n\n%s", outcome_name, outcome_info))
@@ -1960,7 +1970,7 @@ pander(as.data.frame(miss_var_res), digits = 2, style = "rmarkdown")
 
 `r figure_nums("ors_res", display = "cite")` presents odds ratios for all measures of compliance and performance (complete compliance/performance,
 and "dose" = [number of elements done / number of elements eligible]) on a given
-day vs restraints the following day. `r figure_nums("probs_res", display = "cite")` presents the adjusted probability of delirium the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+day vs restraints the following day. `r figure_nums("probs_res", display = "cite")` presents the adjusted probability of restraints the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_res")`
 ```{r print_resors, fig.width = 3.5, fig.height = 3}
@@ -1971,5 +1981,86 @@ res_orplot
 #### `r figure_nums("probs_res")`
 ```{r print_resprobs, fig.width = 3.5, fig.height = 3}
 res_probplot
+
+```
+
+## ABCDEF Bundle vs Significant Pain
+
+We used a logistic regression model with Huber-White sandwich estimation, clustered by patient, to assess the relationships of our measures of compliance and performance of the ABCDEF Bundle on a given day with the likelihood of significant pain, per patient self-report *or* validated pain assessment tools, the following day.
+
+```{r painmods, results = "hide"}
+## -- Create dataset with only complete records --------------------------------
+pain_vars <-
+  c("sigpain_icu_tmw", logmods_covars_base, logmods_covars_daily)
+df_logmod_pain <- df_logmods
+df_logmod_pain$include <- rowSums(is.na(df_logmod_pain[,pain_vars])) == 0
+
+## Summarize missing data before we dump records
+miss_var_pain <- miss_var_summary(subset(df_logmod_pain, !include)) %>%
+  filter(percent > 0 & variable %in% pain_vars)
+
+## Get info statement for exclusions due to missingness
+miss_info_pain <- in_icu_exclusion(df_logmod_pain)
+
+## Remove records with incomplete data
+df_logmod_pain <- subset(df_logmod_pain, include)
+
+## -- Fit models and get results -----------------------------------------------
+pain_results <-
+  outcome_results_lrm(outcome = "sigpain_icu_tmw", df = df_logmod_pain)
+
+## String describing outcome, patients, days
+pain_info <-
+  inicu_outcome_info(outcome = "sigpain_icu_tmw", df = df_logmod_pain)
+
+## Plot of odds ratios/CIs
+pain_orplot <- inicu_or_results(
+  outcome_results = pain_results,
+  outcome_info = pain_info,
+  outcome_name = "pain"
+)
+## Plot of predicted probabilities
+pain_probplot <- inicu_prob_results(
+  outcome_results = pain_results,
+  outcome_name = "pain",
+  outcome_info = pain_info,
+  add_raw = TRUE,
+  outcome = "sigpain_icu_tmw",
+  df = df_logmod_pain
+)
+
+```
+
+### Summary of Results
+
+After adjusting for available confounders, we see no significant relationship between overall compliance or performance of the ABCDEF bundle on a given day and the likelihood of significant pain (via self-report or validated tool) the following day. When looking at "dose" of both, more compliance/performance is associated with a *higher* likelihood of significant pain the following day. This unexpected relationship could be true, or could be the result of more compliance/performance -> increased *screening* for pain; recall that only patient-days with documentation of pain report could be included here, so by definition, this is among patient-days where we were "looking" for pain. This could be important selection bias and applies to other in-ICU outcomes as well.
+
+### Details of Missingness and Results
+
+`r miss_info_pain`
+
+`r table_nums("missing_pain", display = "cite")` describes the proportion of the
+`r format(nrow(df_logmods) - nrow(df_logmod_pain), big.mark = ",")` patient-days
+excluded from the pain model due to incomplete data which were missing each covariate/outcome.
+
+#### `r table_nums("missing_pain")`
+```{r missing_pain, results = "asis"}
+pander(as.data.frame(miss_var_pain), digits = 2, style = "rmarkdown")
+
+```
+
+`r figure_nums("ors_pain", display = "cite")` presents odds ratios for all measures of compliance and performance (complete compliance/performance,
+and "dose" = [number of elements done / number of elements eligible]) on a given
+day vs pain the following day. `r figure_nums("probs_pain", display = "cite")` presents the adjusted probability of significant pain the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
+
+#### `r figure_nums("ors_pain")`
+```{r print_painors, fig.width = 3.5, fig.height = 3}
+pain_orplot
+
+```
+
+#### `r figure_nums("probs_pain")`
+```{r print_painprobs, fig.width = 3.5, fig.height = 3}
+pain_probplot
 
 ```
