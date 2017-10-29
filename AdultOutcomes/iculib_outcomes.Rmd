@@ -50,6 +50,18 @@ compliance$month_cat_short <- with(compliance, {
          labels = c("BL", paste0("I", 1:14)))
 })
 
+## Add numeric "study day" variable to compliance data set
+compliance$study_day <-
+  as.numeric(str_extract(compliance$redcap_event_name, "(?<=\\_)[0-9]+(?=\\_)"))
+
+## Get last Collaborative ICU day entered for each patient
+last_days <- compliance %>%
+  filter(icu_day) %>%
+  group_by(id) %>%
+  summarise(last_icu_day = max(study_day, na.rm = TRUE))
+
+demog <- left_join(demog, last_days, by = "id")
+
 ## Vector of hex colors from magnifying glass in slide templates
 ## (via colorcodepicker.com)
 magglass_colors <- c("a" = "#E16725",
@@ -906,7 +918,7 @@ For example, these models will help us answer the question "*Among patients
 still alive and in the ICU*, is total ABCDEF bundle compliance on a given ICU day associated with lower likelihood of being on mechanical ventilation the
 following day?"
 
-## Analysis Method and Covariates
+## Analysis Method and Covariates{#covariates}
 
 The relationship between ABCDEF bundle compliance and performance on a given ICU day and each of the above outcomes the *following* ICU day will be assessed
 using logistic regression models; variance will be adjusted using Huber-White
@@ -2064,3 +2076,176 @@ pain_orplot
 pain_probplot
 
 ```
+
+# ICU Length of Stay & Readmission
+
+One major question of interest is whether increased use of the ABCDEF Bundle is associated with shorter time to ICU discharge and/or lower rates of readmission. We'll approach this with the following strategies:
+
+1. Looking at daily ABCDEF bundle compliance/performance during the Collaborative ICU stay vs time to ICU discharge, among all patients with at least one full day in the ICU
+1. Looking at proportion of ABCDEF bundle compliance/performance during the Collaborative ICU stay vs likelihood of ICU readmission during that hospitalization, among patients who survived the hospitalization (thus having the opportunity to be readmitted)
+
+These strategies require different methods of analysis, and thus will be discussed separately.
+
+## ICU Length of Stay
+
+### Analysis Method & Covariates
+
+We will use a Cox proportional hazards model with time-dependent covariates to assess the relationship between ABCDEF bundle compliance/performance on a given day and the likelihood of being discharged from the ICU at any point within 7 days. Patients who die prior to ICU discharge will be censored at the time of death. Outcomes are restricted to 7 days because at most sites, data collection on ABCDEF bundle elements stopped on ICU day 7.
+
+We will adjust for the same baseline and daily covariates in the model as for the in-ICU outcomes models (see [previous section](#covariates)).
+
+```{r tte_prep}
+## -- Function to create counting process datasets for time-to-event models ----
+create_tte_data <- function(time_var, status_var, exposure){
+  use_demog <- demog %>%
+    dplyr::select(id,
+                  one_of(logmods_covars_base),
+                  one_of(c(time_var, status_var)))
+  use_demog <- use_demog[use_demog[, time_var] > 0, ]
+  use_demog <- use_demog[complete.cases(use_demog), ]
+  
+  use_comp <- compliance %>%
+    filter(icu_day & study_day <= 7 & id %in% use_demog$id) %>%
+    dplyr::select(id, study_day, logmods_covars_daily, one_of(exposure))
+  use_comp <- use_comp[complete.cases(use_comp), ]
+  
+  df_tv <- create_countprocess_data(
+    org.data = use_comp,
+    id.var = "id",
+    record.var = "study_day",
+    time.var = time_var,
+    event.var = status_var,
+    event.string = "Yes",
+    data.set = use_demog,
+    out.strings = c("No", "Yes")
+  ) %>%
+    rename(had_event = "died") %>%
+    left_join(dplyr::select(use_demog, id, one_of(logmods_covars_base)),
+              by = "id")
+  
+  return(df_tv)
+}
+
+## -- Function to fit time-varying Cox proportional hazards model --------------
+## Assumes all event indicators are named "had_event" and have levels Yes/No
+fit_daily_cph <- function(
+  exposure = c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
+  covars = c(logmods_covars_base, logmods_covars_daily),
+  df
+){
+  
+  ## -- Set model formula ------------------------------------------------------
+  ## Add exposure to RHS
+  covars <- c(covars, exposure)
+  
+  ## Make BMI, proportion of compliance/performance nonlinear terms
+  covars <- str_replace(
+    covars, "(^bmi|comp\\_prop|perf\\_prop$)", "rcs\\(\\1, 5\\)"
+  )
+  
+  ## Put RHS together
+  rhs <- paste(covars, collapse = " + ")
+  
+  ## Create Surv object
+  survobj <- with(df, {
+    Surv(time = start.day,
+         time2 = stop.day,
+         event = as.numeric(had_event == "Yes"))
+  })
+
+  ## Assemble entire formula
+  modform <- as.formula(paste("survobj", rhs, sep = " ~ "))
+  
+  ## -- Fit model using lrm, then adjust SEs using robcov() --------------------
+  mod <- cph(modform, data = df, x = TRUE, y = TRUE)
+  
+  return(mod)
+}
+
+## -- Wrapper function for a specified outcome: --------------------------------
+## 1. Create time-varying dataset (need to add this still)
+## 2. Fit CPH model (returned as "modobj")
+## 3. Get df of hazard ratios + p-value (returned as "ors")
+## <predicted probabilities don't really apply to Cox models>
+fit_results_cph <- function(exposure = c("comp_yn_f", "comp_prop",
+                                         "perf_yn_f", "perf_prop"),
+                            covars = c(logmods_covars_base,
+                                       logmods_covars_daily),
+                            df = df_logmods){
+  
+  ## Add arguments, functionality to create time-varying dataset
+  
+  mod <- fit_daily_cph(
+    exposure = exposure, covars = covars, df = df
+  )
+  
+  ## daily_outexp_ors works for hazard ratios too
+  hrs <- daily_outexp_ors(mod, exposure, df)
+  
+  return(list("mod" = mod, "hrs" = hrs))
+}
+
+## -- Add needed variables to demog for all time-to-event models: --------------
+# ## Check: How many patients have ICU days entered *after* their supposed ICU
+# ## or hospital length of stay was over?
+# iculos_check <- demog %>%
+#   filter((icu_los + 0.5) < last_icu_day) %>%
+#   mutate(diff_los = last_icu_day - icu_los)
+# 
+# hosplos_check <- demog %>%
+#   filter((hosp_los + 0.5) < last_icu_day) %>%
+#   mutate(diff_los = last_icu_day - hosp_los)
+
+## 1. Time to event
+## 2. Whether event occurred
+demog <- demog %>%
+  mutate(
+    ## A substantial number of patients have more ICU days entered in the
+    ## database than their recorded ICU and/or hospital LOS. I'll assume that we
+    ## should trust the effort it takes to enter ICU data more than the single
+    ## data entry point of ICU or hospital LOS, and therefore create new LOS
+    ## variables incorporating that decision.
+    icu_los_edit = ifelse(icu_los >= last_icu_day, icu_los, last_icu_day),
+    hosp_los_edit = ifelse(hosp_los >= last_icu_day, hosp_los, last_icu_day),
+    ## Add times, event indicators **within 7 days ** for
+    ## - ICU LOS
+    ## - hospital LOS
+    ## - ICU death
+    icu_los_7 = ifelse(icu_los_edit > 7, 8, icu_los_edit),
+    icu_dc_7 = factor(
+      as.numeric(
+        ifelse(is.na(dc_status_f) | is.na(icu_los), NA,
+               dc_status_f !=
+                 "Died in an ICU during the ICU collaborative admission stay" &
+                 icu_los <= 7)
+      ),
+      levels = 0:1, labels = c("No", "Yes")
+    ),
+    hosp_los_7 = ifelse(hosp_los_edit > 7, 8, hosp_los_edit),
+    hosp_dc_7 = factor(
+      as.numeric(
+        ifelse(is.na(dc_status_f) | is.na(hosp_los), NA,
+               dc_status_f == "Discharged from the hospital alive" &
+                 hosp_los <= 7)
+      ),
+      levels = 0:1, labels = c("No", "Yes")
+    ),
+    ## Time to ICU death = same as time to ICU discharge; only indicator changes
+    icu_death_7 = factor(
+      as.numeric(
+        ifelse(is.na(dc_status_f) | is.na(icu_los), NA,
+               dc_status_f ==
+                 "Died in an ICU during the ICU collaborative admission stay" &
+                 icu_los <= 7)
+      ),
+      levels = 0:1, labels = c("No", "Yes")
+    )
+  )
+
+```
+
+```{r dataprep_iculos}
+## Use create_tte_data() mapping over all four exposures to get data sets
+
+```
+
