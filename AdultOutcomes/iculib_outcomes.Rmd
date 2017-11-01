@@ -2094,17 +2094,20 @@ We will use a Cox proportional hazards model with time-dependent covariates to a
 
 We will adjust for the same baseline and daily covariates in the model as for the in-ICU outcomes models (see [previous section](#covariates)).
 
-```{r tte_prep}
+```{r functions_tte}
 ## -- Function to create counting process datasets for time-to-event models ----
-create_tte_data <- function(time_var, status_var, exposure){
-  use_demog <- demog %>%
+create_tte_data <- function(
+  time_var, status_var, exposure, daily_df = compliance,
+  time_df = demog
+){
+  use_demog <- time_df %>%
     dplyr::select(id,
                   one_of(logmods_covars_base),
                   one_of(c(time_var, status_var)))
   use_demog <- use_demog[use_demog[, time_var] > 0, ]
   use_demog <- use_demog[complete.cases(use_demog), ]
   
-  use_comp <- compliance %>%
+  use_comp <- daily_df %>%
     filter(icu_day & study_day <= 7 & id %in% use_demog$id) %>%
     dplyr::select(id, study_day, logmods_covars_daily, one_of(exposure))
   use_comp <- use_comp[complete.cases(use_comp), ]
@@ -2167,24 +2170,164 @@ fit_daily_cph <- function(
 ## 2. Fit CPH model (returned as "modobj")
 ## 3. Get df of hazard ratios + p-value (returned as "ors")
 ## <predicted probabilities don't really apply to Cox models>
-fit_results_cph <- function(exposure = c("comp_yn_f", "comp_prop",
-                                         "perf_yn_f", "perf_prop"),
-                            covars = c(logmods_covars_base,
-                                       logmods_covars_daily),
-                            df = df_logmods){
+fit_results_cph <- function(
+  ## Time-varying components and dataset
+  exposure = c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
+  daily_df = compliance,
+  ## Single-value variables and dataset (time, status)
+  time_var, status_var, time_df = demog,
+  ## Model covariates
+  covars = c(logmods_covars_base, logmods_covars_daily)
+){
   
   ## Add arguments, functionality to create time-varying dataset
+  df_tv <- create_tte_data(
+    time_var = time_var,
+    status_var = status_var,
+    exposure = exposure
+  )
   
   mod <- fit_daily_cph(
-    exposure = exposure, covars = covars, df = df
+    exposure = exposure, covars = covars, df = df_tv
   )
   
   ## daily_outexp_ors works for hazard ratios too
-  hrs <- daily_outexp_ors(mod, exposure, df)
+  hrs <- daily_outexp_ors(modobj = mod, exposure = exposure, df = df_tv)
   
   return(list("mod" = mod, "hrs" = hrs))
 }
 
+## -- Wrapper to do all exposures for a given outcome --------------------------
+outcome_results_cph <- function(exposure = c("comp_yn_f", "comp_prop",
+                                             "perf_yn_f", "perf_prop"),
+                                daily_df = compliance,
+                                time_var, status_var, time_df = demog,
+                                covars = c(logmods_covars_base,
+                                           logmods_covars_daily)){
+  
+  ## Get list with results of fit_results_lrm() for each exposure
+  modlist <- map(c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
+                 ~ fit_results_cph(exposure = .,
+                                   daily_df = daily_df,
+                                   time_var = time_var,
+                                   status_var = status_var,
+                                   time_df = time_df,
+                                   covars = covars))
+  
+  ## Put like results together (ORs, predicted probs)
+  hr_df <- map_df(modlist, "hrs")
+
+  return(list("hrs" = hr_df))
+}
+
+## -- Function to plot hazard ratios for compliance & performance --------------
+tte_hr_results <- function(
+  outcome_results, ## result of outcome_results_cph()
+  # outcome_info,    ## result of inicu_outcome_info()
+  ## name of outcome (eg "death")
+  outcome_name = c("ICU discharge", "hospital discharge", "ICU death")
+){
+  
+  ## Is HR > 1 favorable or unfavorable? Death is our only bad outcome
+  if(str_detect(outcome_name, "death")){
+    above_below <- "below"
+    higher_lower <- "lower"
+  } else{
+    above_below <- "above"
+    higher_lower <- "higher"
+  }
+
+  hrs <- outcome_results$hrs %>%
+    ## We don't want to plot reference levels
+    filter(!is.ref) %>%
+    mutate(
+      ## Prep for separating into indicators for comp vs perf, y/n vs dose
+      variable = gsub("\\_f$", "", variable),
+      ## We'll order the Y axis labels by this variable later:
+      yval = ifelse(comp.c %in% c("Performed", "Compliant"), 0,
+                    floor((comp + 0.01) * 100)),
+      ## Create text for Y axis labels: comparison + P-value
+      ylabel = ifelse(comp.c %in% c("Performed", "Compliant"),
+                      "Yes vs No",
+                      sprintf("%s%% vs %s%%",
+                              trimws(rndformat(comp * 100, 0)),
+                              trimws(rndformat(ref * 100, 0)))),
+      ## Order so that 100% is on top
+      ylabel = fct_reorder(ylabel, yval),
+      ## Create OR/CI text to place inside figure
+      hr_text = sprintf(
+        "%s (%s, %s)", rndformat(effect), rndformat(lcl), rndformat(ucl)
+      )
+    ) %>%
+    ## Get indicators for comp vs perf, y/n vs dose
+    separate(variable, into = c("cp", "yn_prop"), sep = "_") %>%
+    ## Move y/n to top; add p-values to Compliance/Performance labels
+    mutate(
+      yn_prop = factor(ifelse(yn_prop == "yn", 1, 2),
+                       levels = 1:2, labels = c("Overall", "Dose")),
+      cp = factor(
+        ifelse(cp == "comp", 1, 2),
+        levels = 1:2,
+        labels = c(
+          sprintf(
+            "Compliance\n\nP, overall: %s; P, dose: %s",
+            formatp(
+              subset(outcome_results$hrs, variable == "comp_yn_f")$pval[1]
+            ),
+            formatp(
+              subset(outcome_results$hrs, variable == "comp_prop")$pval[1]
+            )
+          ),
+          sprintf(
+            "Performance\n\nP, overall: %s; P, dose: %s",
+            formatp(
+              subset(outcome_results$hrs, variable == "perf_yn_f")$pval[1]
+            ),
+            formatp(
+              subset(outcome_results$hrs, variable == "perf_prop")$pval[1]
+            )
+          )
+        )
+      )
+    )
+  
+  hrplot <- ggplot(data = hrs, aes(x = effect, y = ylabel)) +
+    facet_grid(yn_prop ~ cp, scales = "free_y", space = "free_y") +
+    geom_vline(xintercept = 1, colour = "grey70",
+               linetype = "solid", size = 1) +
+    geom_segment(aes(x = lcl, xend = ucl, yend = ylabel, colour = cp)) +
+    geom_point(aes(colour = cp)) +
+    geom_text(aes(label = hr_text),
+              x = -0.80, size = 3, hjust = 0, colour = "grey15") +
+    scale_x_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       ## X limits: -0.5 to ceiling (up to 0.2) of highest UCL
+                       limits = c(-0.75, ceiling(max(hrs$ucl) / 0.2) * 0.2),
+                       breaks = seq(0, 10, 0.2)) +
+    scale_y_discrete(name = "") +
+    scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
+    labs(
+      caption = sprintf(
+        "\nHazard ratios %s 1 are favorable, indicating a %s likelihood of %s the following day.\n\n<insert %%s here>",
+        above_below, higher_lower, outcome_name # , outcome_info
+      )
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(colour = "grey80", fill = "grey90"),
+          axis.title.x = element_text(vjust = 0),
+          panel.background = element_rect(colour = "grey80", fill = NA),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          plot.subtitle = element_text(size = 8, face = "italic"),
+          plot.caption = element_text(size = 8, face = "italic"))
+  
+  return(hrplot)
+}
+
+```
+
+```{r tte_dataprep}
 ## -- Add needed variables to demog for all time-to-event models: --------------
 # ## Check: How many patients have ICU days entered *after* their supposed ICU
 # ## or hospital length of stay was over?
@@ -2244,8 +2387,37 @@ demog <- demog %>%
 
 ```
 
-```{r dataprep_iculos}
-## Use create_tte_data() mapping over all four exposures to get data sets
+```{r iculos_mods}
+iculos_results <-
+  outcome_results_cph(time_var = "icu_los_7", status_var = "icu_dc_7")
+
+iculos_plot <- tte_hr_results(iculos_results, outcome_name = "ICU discharge")
+
+## Need to add outcome_info argument, details on missingness
+
+# tmp_df <- create_tte_data(
+#   time_var = "icu_los_7",
+#   status_var = "icu_dc_7",
+#   exposure = "comp_yn_f"
+# )
+# 
+# tmp_mod <- fit_daily_cph(
+#     exposure = "comp_yn_f",
+#     covars = c(logmods_covars_base, logmods_covars_daily),
+#     df = tmp_df
+# )
+#   
+# ## daily_outexp_ors works for hazard ratios too
+# tmp_hrs <- daily_outexp_ors(
+#   modobj = tmp_mod, exposure = "comp_yn_f", df = tmp_df
+# )
+
+# tmp <- fit_results_cph(
+#   ## Time-varying components and dataset
+#   exposure = c("comp_yn_f"),
+#   ## Single-value variables and dataset (time, status)
+#   time_var = "icu_los_7", status_var = "icu_dc_7"
+# )
 
 ```
 
