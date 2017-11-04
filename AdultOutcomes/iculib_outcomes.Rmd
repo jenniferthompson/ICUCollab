@@ -2420,10 +2420,6 @@ gg_miss_var(
 
 ```
 
-Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_iculos, na.rm = TRUE) - length(unique(iculos_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
-
-Further details of missingness and rationale for handling would essentially repeat information included [above](#inicumissingness), as the situations are quite similar; please refer there for details.
-
 ```{r iculos_mods, results = "hide"}
 iculos_dflist <- pmap(
   .l = list("time_var" = rep("icu_los_7", 4),
@@ -2443,6 +2439,11 @@ iculos_hrplot <- tte_hr_results(
 
 ```
 
+Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_iculos, na.rm = TRUE) - length(unique(iculos_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
+
+Further details of missingness and rationale for handling would essentially repeat information included [above](#inicumissingness), as the situations are quite similar; please refer there for details.
+
+
 ### Model Results
 
 After adjusting for potential confounders, both compliance with and performance of the ABCDEF Bundle on a given day are associated with a higher likelihood of ICU discharge; there is a dose-response relationship, such that more compliance and more performance are associated with higher likelihood of ICU discharge.
@@ -2451,5 +2452,67 @@ It is important to note that because most Collaborative sites were only able to 
 
 ```{r iculos_plot, fig.width = 3.5, fig.height = 3}
 iculos_hrplot
+
+```
+
+# Hospital Length of Stay
+
+We'll examine the association between increased use of the ABCDEF bundle and time to hospital discharge, among all patients with at least one full day in the ICU.
+
+## Analysis Method & Covariates
+
+We will use a Cox proportional hazards model with time-dependent covariates to assess the relationship between ABCDEF bundle compliance/performance on a given day and the likelihood of being discharged from the hospital Patients who die prior to hospital discharge will be censored at the time of death; patients who remain in the hospital after day 7 will be censored at day 8. Outcomes are restricted to 7 days because at most sites, data collection on ABCDEF bundle elements stopped on ICU day 7.
+
+**Important notes**:
+
+1. Because daily data was not collected outside the ICU, days between ICU and hospital discharge are assumed to have the same value for all covariates - including ABCDEF bundle compliance and performance - as the final ICU day. For example, if a patient was discharged to the floor on ICU day 4 and discharged from the hospital on day 7, days 5, 6 and 7 would be assumed to have the same compliance and performance status as day 4.
+1. `r format(nrow(subset(demog, icu_days > 0 & !is.na(last_icu_day) & !is.na(hosp_los) & last_icu_day > hosp_los)), big.mark = ",")` patients had conflicting data for hospital length of stay: More full ICU days were recorded in the compliance form than the total hospital length of stay recorded in the demographic form. In these cases, we assumed that the effort it takes to enter a day of ICU data is more likely to be reliable than a single value in the demographic form, and the final hospital length of stay used in analysis was adjusted to the last ICU day entered in the compliance form. In some cases, the difference is minimal and likely explainable, but there are `r format(nrow(subset(demog, icu_days >= 0 & (last_icu_day - hosp_los >= 2))), big.mark = ",")` cases with two or more days' difference between these quantities.
+
+We will adjust for the same baseline and daily covariates in the model as for the in-ICU outcomes models (see [previous section](#covariates)).
+
+## Patient Inclusion & Missing Data
+
+We started with `r format(sum(!is.na(demog$icu_days) & demog$icu_days > 0), big.mark = ",")` patients enrolled in the Collaborative with >=1 full day in the ICU; among these, `r format(sum(demog$elig_hosplos, na.rm = TRUE), big.mark = ",")` had complete baseline covariates and ICU length of stay data. Details on missingness for these variables among the eligible patients are below.
+
+```{r hosplos_missing_base}
+gg_miss_var(
+  subset(
+    demog, !is.na(icu_days) & icu_days > 0
+  )[, c(logmods_covars_base, "hosp_los_7", "hosp_dc_7")],
+  show_pct = TRUE)
+
+```
+
+```{r hosplos_mods, results = "hide"}
+hosplos_dflist <- pmap(
+  .l = list("time_var" = rep("hosp_los_7", 4),
+            "status_var" = rep("hosp_dc_7", 4),
+            exposure = logmods_exposures),
+  .f = create_tte_data
+)
+
+hosplos_results <- outcome_results_cph(dflist_tv = hosplos_dflist)
+hosplos_hrplot <- tte_hr_results(
+  hosplos_results,
+  outcome_info = tte_outcome_info(
+    df = hosplos_dflist[[1]], event_string = "hospital discharges within 7 days"
+  ),
+  outcome_name = "hospital discharge"
+)
+
+```
+
+Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_hosplos, na.rm = TRUE) - length(unique(hosplos_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
+
+Further details of missingness and rationale for handling would essentially repeat information included [above](#inicumissingness), as the situations are quite similar; please refer there for details.
+
+## Model Results
+
+After adjusting for potential confounders, both compliance with and performance of the ABCDEF Bundle on a given day are associated with a higher likelihood of ICU discharge; there is a dose-response relationship, such that more compliance and more performance are associated with higher likelihood of ICU discharge.
+
+It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect hospital discharges within the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with hospital discharge when longer hospital stays are able to be more included in more detail.
+
+```{r hosplos_plot, fig.width = 3.5, fig.height = 3}
+hosplos_hrplot
 
 ```
