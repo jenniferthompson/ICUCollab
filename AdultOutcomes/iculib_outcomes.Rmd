@@ -1450,7 +1450,7 @@ outcome_results_lrm <- function(outcome,
                                 df = df_logmods){
   
   ## Get list with results of fit_results_lrm() for each exposure
-  modlist <- map(c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
+  modlist <- map(logmods_exposures,
                  ~ fit_results_lrm(outcome = outcome,
                                    exposure = .,
                                    covars = covars, df = df))
@@ -2077,23 +2077,6 @@ pain_probplot
 
 ```
 
-# ICU Length of Stay & Readmission
-
-One major question of interest is whether increased use of the ABCDEF Bundle is associated with shorter time to ICU discharge and/or lower rates of readmission. We'll approach this with the following strategies:
-
-1. Looking at daily ABCDEF bundle compliance/performance during the Collaborative ICU stay vs time to ICU discharge, among all patients with at least one full day in the ICU
-1. Looking at proportion of ABCDEF bundle compliance/performance during the Collaborative ICU stay vs likelihood of ICU readmission during that hospitalization, among patients who survived the hospitalization (thus having the opportunity to be readmitted)
-
-These strategies require different methods of analysis, and thus will be discussed separately.
-
-## ICU Length of Stay
-
-### Analysis Method & Covariates
-
-We will use a Cox proportional hazards model with time-dependent covariates to assess the relationship between ABCDEF bundle compliance/performance on a given day and the likelihood of being discharged from the ICU at any point within 7 days. Patients who die prior to ICU discharge will be censored at the time of death. Outcomes are restricted to 7 days because at most sites, data collection on ABCDEF bundle elements stopped on ICU day 7.
-
-We will adjust for the same baseline and daily covariates in the model as for the in-ICU outcomes models (see [previous section](#covariates)).
-
 ```{r functions_tte}
 ## -- Function to create counting process datasets for time-to-event models ----
 create_tte_data <- function(
@@ -2371,7 +2354,56 @@ demog <- demog %>%
     )
   )
 
+## Does patient have complete data on covariates & outcomes for each TTE model?
+demog$elig_iculos <- rowSums(
+  is.na(demog[, c("id", logmods_covars_base, "icu_los_7", "icu_dc_7")])
+) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
+demog$elig_hosplos <- rowSums(
+  is.na(demog[, c("id", logmods_covars_base, "hosp_los_7", "hosp_dc_7")])
+) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
+demog$elig_icudeath <- rowSums(
+  is.na(demog[, c("id", logmods_covars_base, "icu_los_7", "icu_death_7")])
+) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
+
+compliance$elig_tte <- rowSums(
+  is.na(compliance[, c("id", logmods_exposures, logmods_covars_daily)])
+) == 0
+
 ```
+
+# ICU Length of Stay & Readmission
+
+One major question of interest is whether increased use of the ABCDEF Bundle is associated with shorter time to ICU discharge and/or lower rates of readmission. We'll approach this with the following strategies:
+
+1. Looking at daily ABCDEF bundle compliance/performance during the Collaborative ICU stay vs time to ICU discharge, among all patients with at least one full day in the ICU
+1. Looking at proportion of ABCDEF bundle compliance/performance during the Collaborative ICU stay vs likelihood of ICU readmission during that hospitalization, among patients who survived the hospitalization (thus having the opportunity to be readmitted)
+
+These strategies require different methods of analysis, and thus will be discussed separately.
+
+## ICU Length of Stay
+
+### Analysis Method & Covariates
+
+We will use a Cox proportional hazards model with time-dependent covariates to assess the relationship between ABCDEF bundle compliance/performance on a given day and the likelihood of being discharged from the ICU at any point within 7 days. Patients who die prior to ICU discharge will be censored at the time of death. Outcomes are restricted to 7 days because at most sites, data collection on ABCDEF bundle elements stopped on ICU day 7.
+
+We will adjust for the same baseline and daily covariates in the model as for the in-ICU outcomes models (see [previous section](#covariates)).
+
+**Note:** `r format(nrow(subset(demog, icu_days > 0 & !is.na(last_icu_day) & !is.na(icu_los) & last_icu_day > icu_los)), big.mark = ",")` patients had conflicting data for ICU length of stay: More full ICU days were recorded in the compliance form than the total ICU length of stay recorded in the demographic form. In these cases, we assumed that the effort it takes to enter a day of ICU data is more likely to be reliable than a single value in the demographic form, and the final ICU length of stay used in analysis was adjusted to the last ICU day entered in the compliance form. In most cases, the difference is minimal and likely explainable, but there are `r format(nrow(subset(demog, icu_days >= 0 & (last_icu_day - icu_los >= 2))), big.mark = ",")` cases with two or more days' difference between these quantities. 
+
+### Patient Inclusion & Missing Data
+
+We started with `r format(sum(!is.na(demog$icu_days) & demog$icu_days > 0), big.mark = ",")` patients enrolled in the Collaborative with >=1 full day in the ICU; among these, `r format(sum(demog$elig_iculos, na.rm = TRUE), big.mark = ",")` had complete baseline covariates and ICU length of stay data. Details on missingness for these variables are below.
+
+```{r iculos_missing_base}
+gg_miss_var(
+  subset(
+    demog, !is.na(icu_days) & icu_days > 0
+  )[, c(logmods_covars_base, "icu_los_7", "icu_dc_7")],
+  show_pct = TRUE)
+
+```
+
+Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_iculos, na.rm = TRUE) - length(unique(iculos_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
 
 ```{r iculos_mods}
 iculos_dflist <- pmap(
