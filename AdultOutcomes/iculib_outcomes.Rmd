@@ -2166,26 +2166,16 @@ fit_daily_cph <- function(
 }
 
 ## -- Wrapper function for a specified outcome: --------------------------------
-## 1. Create time-varying dataset (need to add this still)
-## 2. Fit CPH model (returned as "modobj")
-## 3. Get df of hazard ratios + p-value (returned as "ors")
+## 1. Fit CPH model (returned as "modobj"), given an exposure and TTE dataset
+## 2. Get df of hazard ratios + p-value (returned as "ors")
 ## <predicted probabilities don't really apply to Cox models>
-fit_results_cph <- function(
-  ## Time-varying components and dataset
-  exposure = c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
-  daily_df = compliance,
-  ## Single-value variables and dataset (time, status)
-  time_var, status_var, time_df = demog,
-  ## Model covariates
-  covars = c(logmods_covars_base, logmods_covars_daily)
+fit_results_cph <- function(exposure = c("comp_yn_f", "comp_prop",
+                                         "perf_yn_f", "perf_prop"),
+                            df_tv,
+                            ## Model covariates
+                            covars = c(logmods_covars_base,
+                                       logmods_covars_daily)
 ){
-  
-  ## Add arguments, functionality to create time-varying dataset
-  df_tv <- create_tte_data(
-    time_var = time_var,
-    status_var = status_var,
-    exposure = exposure
-  )
   
   mod <- fit_daily_cph(
     exposure = exposure, covars = covars, df = df_tv
@@ -2194,25 +2184,21 @@ fit_results_cph <- function(
   ## daily_outexp_ors works for hazard ratios too
   hrs <- daily_outexp_ors(modobj = mod, exposure = exposure, df = df_tv)
   
-  return(list("mod" = mod, "hrs" = hrs))
+  return(list("mod" = mod, "hrs" = hrs, "tte_df" = df_tv))
 }
 
 ## -- Wrapper to do all exposures for a given outcome --------------------------
-outcome_results_cph <- function(exposure = c("comp_yn_f", "comp_prop",
-                                             "perf_yn_f", "perf_prop"),
-                                daily_df = compliance,
-                                time_var, status_var, time_df = demog,
-                                covars = c(logmods_covars_base,
-                                           logmods_covars_daily)){
+outcome_results_cph <- function(
+  dflist_tv, ## list of dfs created by create_tte_data()
+  covars = c(logmods_covars_base, logmods_covars_daily)
+){
   
-  ## Get list with results of fit_results_lrm() for each exposure
-  modlist <- map(c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
-                 ~ fit_results_cph(exposure = .,
-                                   daily_df = daily_df,
-                                   time_var = time_var,
-                                   status_var = status_var,
-                                   time_df = time_df,
-                                   covars = covars))
+  ## Get list with results of fit_results_cph() for each exposure
+  modlist <- map2(.x = logmods_exposures,
+                  .y = dflist_tv,
+                  ~ fit_results_cph(exposure = .x,
+                                    df_tv = .y,
+                                    covars = covars))
   
   ## Put like results together (ORs, predicted probs)
   hr_df <- map_df(modlist, "hrs")
@@ -2388,9 +2374,14 @@ demog <- demog %>%
 ```
 
 ```{r iculos_mods}
-iculos_results <-
-  outcome_results_cph(time_var = "icu_los_7", status_var = "icu_dc_7")
+iculos_dflist <- pmap(
+  .l = list("time_var" = rep("icu_los_7", 4),
+            "status_var" = rep("icu_dc_7", 4),
+            exposure = logmods_exposures),
+  .f = create_tte_data
+)
 
+iculos_results <- outcome_results_cph(dflist_tv = iculos_dflist)
 iculos_plot <- tte_hr_results(iculos_results, outcome_name = "ICU discharge")
 
 ## Need to add outcome_info argument, details on missingness
