@@ -2211,7 +2211,7 @@ tte_hr_results <- function(
   outcome_results, ## result of outcome_results_cph()
   outcome_info,    ## result of tte_outcome_info()
   ## name of outcome (eg "death")
-  outcome_name = c("ICU discharge", "hospital discharge", "ICU death")
+  outcome_name = c("ICU discharge", "hospital discharge", "death")
 ){
   
   ## Is HR > 1 favorable or unfavorable? Death is our only bad outcome
@@ -2334,8 +2334,17 @@ demog <- demog %>%
     ## should trust the effort it takes to enter ICU data more than the single
     ## data entry point of ICU or hospital LOS, and therefore create new LOS
     ## variables incorporating that decision.
-    icu_los_edit = ifelse(icu_los >= last_icu_day, icu_los, last_icu_day),
-    hosp_los_edit = ifelse(hosp_los >= last_icu_day, hosp_los, last_icu_day),
+    icu_los_edit = ifelse((is.na(last_icu_day) | icu_los >= last_icu_day),
+                          icu_los,
+                          last_icu_day),
+    hosp_los_edit = ifelse((is.na(last_icu_day) | hosp_los >= last_icu_day),
+                           hosp_los,
+                           last_icu_day),
+    ## Max of ICU, hospital LOS
+    last_los = ifelse(is.na(icu_los_edit) & is.na(hosp_los_edit), NA,
+               ifelse(!is.na(icu_los_edit) &
+                        (is.na(hosp_los_edit) | icu_los_edit > hosp_los_edit),
+                      icu_los_edit, hosp_los_edit)),
     ## Add times, event indicators **within 7 days ** for
     ## - ICU LOS
     ## - hospital LOS
@@ -2350,22 +2359,24 @@ demog <- demog %>%
       ),
       levels = 0:1, labels = c("No", "Yes")
     ),
-    hosp_los_7 = ifelse(hosp_los_edit > 7, 8, hosp_los_edit),
+    ## Final LOS = max of hospital, ICU LOS
+    last_los_7 = ifelse(is.na(last_los), NA,
+                 ifelse(last_los > 7, 8, last_los)),
+    ## Indicator for hospital discharge
     hosp_dc_7 = factor(
       as.numeric(
         ifelse(is.na(dc_status_f) | is.na(hosp_los), NA,
                dc_status_f == "Discharged from the hospital alive" &
-                 hosp_los <= 7)
+                 last_los <= 7)
       ),
       levels = 0:1, labels = c("No", "Yes")
     ),
-    ## Time to ICU death = same as time to ICU discharge; only indicator changes
-    icu_death_7 = factor(
+    ## Indicator for hospital death
+    hosp_death_7 = factor(
       as.numeric(
-        ifelse(is.na(dc_status_f) | is.na(icu_los), NA,
-               dc_status_f ==
-                 "Died in an ICU during the ICU collaborative admission stay" &
-                 icu_los <= 7)
+        ifelse(is.na(dc_status_f) | is.na(last_los_7), NA,
+               dc_status_f != "Discharged from the hospital alive" &
+                 last_los <= 7)
       ),
       levels = 0:1, labels = c("No", "Yes")
     )
@@ -2376,10 +2387,10 @@ demog$elig_iculos <- rowSums(
   is.na(demog[, c("id", logmods_covars_base, "icu_los_7", "icu_dc_7")])
 ) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
 demog$elig_hosplos <- rowSums(
-  is.na(demog[, c("id", logmods_covars_base, "hosp_los_7", "hosp_dc_7")])
+  is.na(demog[, c("id", logmods_covars_base, "last_los_7", "hosp_dc_7")])
 ) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
-demog$elig_icudeath <- rowSums(
-  is.na(demog[, c("id", logmods_covars_base, "icu_los_7", "icu_death_7")])
+demog$elig_death <- rowSums(
+  is.na(demog[, c("id", logmods_covars_base, "last_los_7", "hosp_death_7")])
 ) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
 
 compliance$elig_tte <- rowSums(
@@ -2478,14 +2489,14 @@ We started with `r format(sum(!is.na(demog$icu_days) & demog$icu_days > 0), big.
 gg_miss_var(
   subset(
     demog, !is.na(icu_days) & icu_days > 0
-  )[, c(logmods_covars_base, "hosp_los_7", "hosp_dc_7")],
+  )[, c(logmods_covars_base, "last_los_7", "hosp_dc_7")],
   show_pct = TRUE)
 
 ```
 
 ```{r hosplos_mods, results = "hide"}
 hosplos_dflist <- pmap(
-  .l = list("time_var" = rep("hosp_los_7", 4),
+  .l = list("time_var" = rep("last_los_7", 4),
             "status_var" = rep("hosp_dc_7", 4),
             exposure = logmods_exposures),
   .f = create_tte_data
@@ -2508,7 +2519,7 @@ Further details of missingness and rationale for handling would essentially repe
 
 ## Model Results
 
-After adjusting for potential confounders, both compliance with and performance of the ABCDEF Bundle on a given day are associated with a higher likelihood of ICU discharge; there is a dose-response relationship, such that more compliance and more performance are associated with higher likelihood of ICU discharge.
+After adjusting for potential confounders, both compliance with and performance of the ABCDEF Bundle on a given day are associated with a higher likelihood of hospital discharge; there is a dose-response relationship, such that more compliance and more performance are associated with higher likelihood of discharge.
 
 It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect hospital discharges within the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with hospital discharge when longer hospital stays are able to be more included in more detail.
 
@@ -2516,3 +2527,66 @@ It is important to note that because most Collaborative sites were only able to 
 hosplos_hrplot
 
 ```
+
+# Mortality
+
+We'll examine the association between increased use of the ABCDEF bundle and time to death within 7 days, among all patients with at least one full day in the ICU.
+
+## Analysis Method & Covariates
+
+We will use a Cox proportional hazards model with time-dependent covariates to assess the relationship between ABCDEF bundle compliance/performance on a given day and the likelihood of death. Patients who are successfully discharged prior to 7 days will be censored at the time of discharge; patients who remain in the hospital after day 7 will be censored at day 8. Outcomes are restricted to 7 days because at most sites, data collection on ABCDEF bundle elements stopped on ICU day 7.
+
+**Important notes**:
+
+1. Because daily data was not collected outside the ICU, any days between ICU discharge and hospital death are assumed to have the same value for all covariates - including ABCDEF bundle compliance and performance - as the final ICU day. For example, if a patient was discharged to the floor on ICU day 4 and died on day 7, days 5, 6 and 7 would be assumed to have the same compliance and performance status as day 4.
+1. Time to death is considered to be the maximum of recorded ICU length of stay; hospital length of stay; or the number of ICU days entered in the compliance form. As noted in above sections, sometimes these values conflict.
+
+We will adjust for the same baseline and daily covariates in the model as for the in-ICU outcomes models (see [previous section](#covariates)).
+
+## Patient Inclusion & Missing Data
+
+We started with `r format(sum(!is.na(demog$icu_days) & demog$icu_days > 0), big.mark = ",")` patients enrolled in the Collaborative with >=1 full day in the ICU; among these, `r format(sum(demog$elig_death, na.rm = TRUE), big.mark = ",")` had complete baseline covariates and ICU length of stay data. Details on missingness for these variables among the eligible patients are below.
+
+```{r death_missing_base}
+gg_miss_var(
+  subset(
+    demog, !is.na(icu_days) & icu_days > 0
+  )[, c(logmods_covars_base, "last_los_7", "hosp_death_7")],
+  show_pct = TRUE)
+
+```
+
+```{r death_mods, results = "hide"}
+death_dflist <- pmap(
+  .l = list("time_var" = rep("last_los_7", 4),
+            "status_var" = rep("hosp_death_7", 4),
+            exposure = logmods_exposures),
+  .f = create_tte_data
+)
+
+death_results <- outcome_results_cph(dflist_tv = death_dflist)
+death_hrplot <- tte_hr_results(
+  death_results,
+  outcome_info = tte_outcome_info(
+    df = death_dflist[[1]], event_string = "deaths within 7 days"
+  ),
+  outcome_name = "death"
+)
+
+```
+
+Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_death, na.rm = TRUE) - length(unique(death_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
+
+Further details of missingness and rationale for handling would essentially repeat information included [above](#inicumissingness), as the situations are quite similar; please refer there for details.
+
+## Model Results
+
+After adjusting for potential confounders, both compliance with and performance of the ABCDEF Bundle on a given day are associated with a lower likelihood of death within 7 days; there is a dose-response relationship, such that more compliance and more performance are associated with lower likelihood of death.
+
+It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect deaths within the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with mortality when longer hospitalizations are able to be more included in more detail.
+
+```{r death_plot, fig.width = 3.5, fig.height = 3}
+death_hrplot
+
+```
+
