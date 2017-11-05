@@ -783,9 +783,10 @@ compliance$comfort_care_icu <- with(compliance, {
 ##   - had pain assessed, had significant pain
 ##   - on sedation, had SAT screen, had SAT
 ##   - on MV, had SBT screen, had SBT
-##   - on benzos/opioids/propofol/dex, had sedation assessed
-##   - had delirium assessed, had delirium
+##   - on benzos/opioids/propofol/dex/antipsychotics, had sedation assessed
+##   - had delirium assessed, had delirium, had coma
 ##   - had mobility screen, had mobility performed
+##   - on comfort care
 ##   - family present, invited, participated, educated
 compliance_icu_bypt <- compliance %>%
   filter(icu_day) %>%
@@ -795,9 +796,10 @@ compliance_icu_bypt <- compliance %>%
                 on_sedation_icu, had_satscreen_icu, had_sat_icu,
                 on_mv_icu, had_sbtscreen_icu, had_sbt_icu, sat_sbt_icu,
                 rcvd_benzo_icu, rcvd_opioid_icu, rcvd_propofol_icu, rcvd_dex_icu,
-                had_sedasmt_icu,
-                had_delasmt_icu, delirium_icu,
+                rcvd_antipsyc_icu, had_sedasmt_icu,
+                had_delasmt_icu, delirium_icu, coma_icu,
                 had_mobscreen_icu, had_mobility_icu,
+                comfort_care_icu,
                 matches("^family\\_.+\\_icu$")) %>%
   group_by(id) %>%
   summarise_all(funs(days = sum, prop = mean), na.rm = TRUE) %>%
@@ -861,6 +863,18 @@ compliance_icu_bypt <- compliance %>%
 ## day with icu_day = Yes to include in above -> set to 0
 demog <- left_join(demog, compliance_icu_bypt, by = "id") %>%
   mutate(icu_days = ifelse(is.na(icu_days), 0, icu_days))
+
+## Among ICU days only, total number & prop of elements compliant, performed
+compliance_icu_elem <- compliance %>%
+  filter(icu_day) %>%
+  dplyr::select(id, elements_elig, elements_comp, elements_perf) %>%
+  group_by(id) %>%
+  summarise_all(funs(tot = sum), na.rm = TRUE) %>%
+  ungroup() %>%
+  mutate(elements_comp_prop = elements_comp_tot / elements_elig_tot,
+         elements_perf_prop = elements_perf_tot / elements_elig_tot)
+
+demog <- left_join(demog, compliance_icu_elem, by = "id")
 
 ## -- Dataset for Alai - time series analysis ----------------------------------
 ## One row per month with numerator, denominator columns
