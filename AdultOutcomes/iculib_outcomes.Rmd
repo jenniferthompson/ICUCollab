@@ -160,12 +160,24 @@ figure_nums(
   caption = "Adjusted Probabilities of Significant Pain vs Dose of ABCDEF Bundle"
 )
 figure_nums(
+  name = "hrs_iculos",
+  caption = "Adjusted Hazard Ratios, ABCDEF Bundle vs ICU Discharge"
+)
+figure_nums(
   name = "ors_icureadm",
   caption = "Adjusted Odds Ratios, ABCDEF Bundle vs ICU Readmission"
 )
 figure_nums(
   name = "probs_icureadm",
   caption = "Adjusted Probabilities of ICU Readmission vs ABCDEF Bundle"
+)
+figure_nums(
+  name = "hrs_hosplos",
+  caption = "Adjusted Hazard Ratios, ABCDEF Bundle vs Hospital Discharge"
+)
+figure_nums(
+  name = "hrs_death",
+  caption = "Adjusted Hazard Ratios, ABCDEF Bundle vs Mortality"
 )
 figure_nums(
   name = "ors_dcloc",
@@ -1793,12 +1805,20 @@ and "dose" = [number of elements done / number of elements eligible]) on a given
 day vs mechanical ventilation the following day. `r figure_nums("probs_mv", display = "cite")` presents the adjusted probability of mechanical ventilation the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_mv")`
+
+The top panels of `r figure_nums("ors_mv", display = "cite")` show the odds ratio for being on MV for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(mv_results$ors, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the odds of mechanical ventilation the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the odds ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(mv_results$ors, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the odds of mechanical ventilation the following day, on average, than a patient with no elements compliant.
+
 ```{r print_mvors, fig.width = 3.5, fig.height = 3}
 mv_orplot
 
 ```
 
 #### `r figure_nums("probs_mv")`
+
+For each daily "dose" of Bundle compliance or performance (elements meeting criteria / elements eligible), `r figure_nums("probs_mv", display = "cite")` shows the predicted probabilities of mechanical ventilation the following day (lines), after adjusting for all specified covariates; bands represent 95% confidence intervals. *(Predicted probabilities by overall bundle compliance/performance would be two single numbers, and thus are not plotted.)*
+
 ```{r print_mvprobs, fig.width = 3.5, fig.height = 3}
 mv_probplot
 
@@ -1875,6 +1895,11 @@ and "dose" = [number of elements done / number of elements eligible]) on a given
 day vs coma the following day. `r figure_nums("probs_coma", display = "cite")` presents the adjusted probability of coma the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_coma")`
+
+The top panels of `r figure_nums("ors_coma", display = "cite")` show the odds ratio for coma the following day for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(coma_results$ors, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the odds of coma the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the odds ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(coma_results$ors, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the odds of coma the following day, on average, than a patient with no elements compliant.
+
 ```{r print_comaors, fig.width = 3.5, fig.height = 3}
 coma_orplot
 
@@ -1958,12 +1983,20 @@ and "dose" = [number of elements done / number of elements eligible]) on a given
 day vs delirium the following day. `r figure_nums("probs_del", display = "cite")` presents the adjusted probability of delirium the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_del")`
+
+The top panels of `r figure_nums("ors_del", display = "cite")` show the odds ratio for delirium the following day for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(del_results$ors, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the odds of delirium the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the odds ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(del_results$ors, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the odds of delirium the following day, on average, than a patient with no elements compliant.
+
 ```{r print_delors, fig.width = 3.5, fig.height = 3}
 del_orplot
 
 ```
 
 #### `r figure_nums("probs_del")`
+
+For each daily "dose" of Bundle compliance or performance (elements meeting criteria / elements eligible), `r figure_nums("probs_del", display = "cite")` shows the predicted probabilities of delirium the following day (lines), after adjusting for all specified covariates; bands represent 95% confidence intervals. *(Predicted probabilities by overall bundle compliance/performance would be two single numbers, and thus are not plotted.)*
+
 ```{r print_delprobs, fig.width = 3.5, fig.height = 3}
 del_probplot
 
@@ -2039,12 +2072,20 @@ and "dose" = [number of elements done / number of elements eligible]) on a given
 day vs restraints the following day. `r figure_nums("probs_res", display = "cite")` presents the adjusted probability of restraints the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_res")`
+
+The top panels of `r figure_nums("ors_res", display = "cite")` show the odds ratio for physical restraints the following day for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(res_results$ors, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the odds of restraints the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the odds ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(res_results$ors, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the odds of restraints the following day, on average, than a patient with no elements compliant.
+
 ```{r print_resors, fig.width = 3.5, fig.height = 3}
 res_orplot
 
 ```
 
 #### `r figure_nums("probs_res")`
+
+For each daily "dose" of Bundle compliance or performance (elements meeting criteria / elements eligible), `r figure_nums("probs_res", display = "cite")` shows the predicted probabilities of physical restraints the following day (lines), after adjusting for all specified covariates; bands represent 95% confidence intervals. *(Predicted probabilities by overall bundle compliance/performance would be two single numbers, and thus are not plotted.)*
+
 ```{r print_resprobs, fig.width = 3.5, fig.height = 3}
 res_probplot
 
@@ -2120,12 +2161,20 @@ and "dose" = [number of elements done / number of elements eligible]) on a given
 day vs pain the following day. `r figure_nums("probs_pain", display = "cite")` presents the adjusted probability of significant pain the following day for each "dose" of compliance and performance. (Adjusted probabilities for *overall* compliance/performance would only be a single point + confidence interval and thus are not plotted.)
 
 #### `r figure_nums("ors_pain")`
+
+The top panels of `r figure_nums("ors_pain", display = "cite")` show the odds ratio for significant pain the following day for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(pain_results$ors, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the odds of significant pain the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the odds ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(pain_results$ors, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the odds of significant pain the following day, on average, than a patient with no elements compliant.
+
 ```{r print_painors, fig.width = 3.5, fig.height = 3}
 pain_orplot
 
 ```
 
 #### `r figure_nums("probs_pain")`
+
+For each daily "dose" of Bundle compliance or performance (elements meeting criteria / elements eligible), `r figure_nums("probs_pain", display = "cite")` shows the predicted probabilities of significant pain the following day (lines), after adjusting for all specified covariates; bands represent 95% confidence intervals. *(Predicted probabilities by overall bundle compliance/performance would be two single numbers, and thus are not plotted.)*
+
 ```{r print_painprobs, fig.width = 3.5, fig.height = 3}
 pain_probplot
 
@@ -2452,6 +2501,34 @@ compliance$elig_tte <- rowSums(
   is.na(compliance[, c("id", logmods_exposures, logmods_covars_daily)])
 ) == 0
 
+## -- Create all time-to-event datasets and save separately --------------------
+## These take forever to run.
+# iculos_dflist <- pmap(
+#   .l = list("time_var" = rep("icu_los_7", 4),
+#             "status_var" = rep("icu_dc_7", 4),
+#             exposure = logmods_exposures),
+#   .f = create_tte_data
+# )
+# 
+# hosplos_dflist <- pmap(
+#   .l = list("time_var" = rep("last_los_7", 4),
+#             "status_var" = rep("hosp_dc_7", 4),
+#             exposure = logmods_exposures),
+#   .f = create_tte_data
+# )
+# 
+# death_dflist <- pmap(
+#   .l = list("time_var" = rep("last_los_7", 4),
+#             "status_var" = rep("hosp_death_7", 4),
+#             exposure = logmods_exposures),
+#   .f = create_tte_data
+# )
+# 
+# save(iculos_dflist, hosplos_dflist, death_dflist,
+#      file = "AnalysisData/tte_datasets.Rdata")
+
+load("AnalysisData/tte_datasets.Rdata")
+
 ```
 
 # ICU Length of Stay & Readmission
@@ -2487,25 +2564,18 @@ gg_miss_var(
 ```
 
 ```{r iculos_mods, results = "hide"}
-# iculos_dflist <- pmap(
-#   .l = list("time_var" = rep("icu_los_7", 4),
-#             "status_var" = rep("icu_dc_7", 4),
-#             exposure = logmods_exposures),
-#   .f = create_tte_data
-# )
-# 
-# iculos_results <- outcome_results_cph(dflist_tv = iculos_dflist)
-# iculos_hrplot <- tte_hr_results(
-#   iculos_results,
-#   outcome_info = tte_outcome_info(
-#     df = iculos_dflist[[1]], event_string = "ICU discharges within 7 days"
-#   ),
-#   outcome_name = "ICU discharge"
-# )
+iculos_results <- outcome_results_cph(dflist_tv = iculos_dflist)
+iculos_hrplot <- tte_hr_results(
+  iculos_results,
+  outcome_info = tte_outcome_info(
+    df = iculos_dflist[[1]], event_string = "ICU discharges within 7 days"
+  ),
+  outcome_name = "ICU discharge"
+)
 
 ```
 
-Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude "r format(sum(demog$elig_iculos, na.rm = TRUE) - length(unique(iculos_dflist[[1]]$id)), big.mark = ",")" **FIX THIS LATER** patients who had no days of complete daily data.
+Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_iculos, na.rm = TRUE) - length(unique(iculos_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
 
 Further details of missingness and rationale for handling would essentially repeat information included [above](#inicumissingness), as the situations are quite similar; please refer there for details.
 
@@ -2516,8 +2586,14 @@ After adjusting for potential confounders, both compliance with and performance 
 
 It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect ICU discharges within the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with ICU discharge when long ICU stays are able to be included.
 
+#### `r figure_nums("hrs_iculos")`
+
+The top panels of `r figure_nums("hrs_iculos", display = "cite")` show the hazard ratio for ICU discharge for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(iculos_results$hrs, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the likelihood of ICU discharge the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the hazard ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(iculos_results$hrs, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the likelihood of discharge the following day, on average, than a patient with no elements compliant.
+
 ```{r iculos_plot, fig.width = 3.5, fig.height = 3}
-# iculos_hrplot
+iculos_hrplot
 
 ```
 
@@ -2867,12 +2943,20 @@ icureadm_probplot <- summary_prob_results(
 Whether we look at the proportion of days with *total* compliance/performance ("overall"), or the proportion of eligible *elements* compliant or performed ("dose"), throughout the Collaborative ICU stay, we see a mild dose-response relationship such that more compliance or performance is associated with lower likelihood of ICU readmission during the index hospitalization among patients who survived the Collaborative ICU stay.
 
 #### `r figure_nums("ors_icureadm")`
+
+The top panels of `r figure_nums("ors_icureadm", display = "cite")` show the odds ratio for ICU readmission for patients with X% of ICU days meeting criteria for Bundle compliance or performance vs 0% of ICU days meeting criteria, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at daily compliance as yes/no, a patient with Bundle compliance on 50% of his or her ICU days has `r round(subset(icureadm_results$ors, variable == "comp_yn_prop" & comp == 0.5)$effect * 100)`% the odds of ICU readmission, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the odds ratios for X% of *elements* throughout the ICU stay meeting criteria for compliance or performance, compared to none. For example, assuming all other factors are equal, a patient with 60% of eligible Bundle compliant during the ICU stay has `r round(subset(icureadm_results$ors, variable == "comp_elem_prop" & comp == 0.6)$effect * 100)`% the odds of ICU readmission, on average, than a patient with no elements compliant.
+
 ```{r print_icureadmors, fig.width = 3.5, fig.height = 3}
 icureadm_orplot
 
 ```
 
 #### `r figure_nums("probs_icureadm")`
+
+For each daily "dose" of Bundle compliance or performance (elements meeting criteria / elements eligible), `r figure_nums("probs_icureadm", display = "cite")` shows the predicted probabilities of ICU readmission (lines), after adjusting for all specified covariates; bands represent 95% confidence intervals. *(Predicted probabilities by overall bundle compliance/performance would be two single numbers, and thus are not plotted.)*
+
 ```{r print_icureadmprobs, fig.width = 3.5, fig.height = 3}
 icureadm_probplot
 
@@ -2907,25 +2991,20 @@ gg_miss_var(
 ```
 
 ```{r hosplos_mods, results = "hide"}
-# hosplos_dflist <- pmap(
-#   .l = list("time_var" = rep("last_los_7", 4),
-#             "status_var" = rep("hosp_dc_7", 4),
-#             exposure = logmods_exposures),
-#   .f = create_tte_data
-# )
-# 
-# hosplos_results <- outcome_results_cph(dflist_tv = hosplos_dflist)
-# hosplos_hrplot <- tte_hr_results(
-#   hosplos_results,
-#   outcome_info = tte_outcome_info(
-#     df = hosplos_dflist[[1]], event_string = "hospital discharges within 7 days"
-#   ),
-#   outcome_name = "hospital discharge"
-# )
+options(datadist = "dd_logmods")
+
+hosplos_results <- outcome_results_cph(dflist_tv = hosplos_dflist)
+hosplos_hrplot <- tte_hr_results(
+  hosplos_results,
+  outcome_info = tte_outcome_info(
+    df = hosplos_dflist[[1]], event_string = "hospital discharges within 7 days"
+  ),
+  outcome_name = "hospital discharge"
+)
 
 ```
 
-Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude "r format(sum(demog$elig_hosplos, na.rm = TRUE) - length(unique(hosplos_dflist[[1]]$id)), big.mark = ",")" **FIX THIS LATER** patients who had no days of complete daily data.
+Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_hosplos, na.rm = TRUE) - length(unique(hosplos_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
 
 Further details of missingness and rationale for handling would essentially repeat information included [above](#inicumissingness), as the situations are quite similar; please refer there for details.
 
@@ -2935,8 +3014,14 @@ After adjusting for potential confounders, both compliance with and performance 
 
 It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect hospital discharges within the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with hospital discharge when longer hospital stays are able to be more included in more detail.
 
+### `r figure_nums("hrs_hosplos")`
+
+The top panels of `r figure_nums("hrs_hosplos", display = "cite")` show the hazard ratio for hospital discharge for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(hosplos_results$hrs, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the likelihood of hospital discharge the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the hazard ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(hosplos_results$hrs, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the likelihood of discharge the following day, on average, than a patient with no elements compliant.
+
 ```{r hosplos_plot, fig.width = 3.5, fig.height = 3}
-# hosplos_hrplot
+hosplos_hrplot
 
 ```
 
@@ -2969,25 +3054,18 @@ gg_miss_var(
 ```
 
 ```{r death_mods, results = "hide"}
-# death_dflist <- pmap(
-#   .l = list("time_var" = rep("last_los_7", 4),
-#             "status_var" = rep("hosp_death_7", 4),
-#             exposure = logmods_exposures),
-#   .f = create_tte_data
-# )
-# 
-# death_results <- outcome_results_cph(dflist_tv = death_dflist)
-# death_hrplot <- tte_hr_results(
-#   death_results,
-#   outcome_info = tte_outcome_info(
-#     df = death_dflist[[1]], event_string = "deaths within 7 days"
-#   ),
-#   outcome_name = "death"
-# )
+death_results <- outcome_results_cph(dflist_tv = death_dflist)
+death_hrplot <- tte_hr_results(
+  death_results,
+  outcome_info = tte_outcome_info(
+    df = death_dflist[[1]], event_string = "deaths within 7 days"
+  ),
+  outcome_name = "death"
+)
 
 ```
 
-Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude "r format(sum(demog$elig_death, na.rm = TRUE) - length(unique(death_dflist[[1]]$id)), big.mark = ",")" **FIX THIS LATER** patients who had no days of complete daily data.
+Among patients with >=1 ICU day and complete baseline and discharge status data, we still had to exclude `r format(sum(demog$elig_death, na.rm = TRUE) - length(unique(death_dflist[[1]]$id)), big.mark = ",")` patients who had no days of complete daily data.
 
 Further details of missingness and rationale for handling would essentially repeat information included [above](#inicumissingness), as the situations are quite similar; please refer there for details.
 
@@ -2997,8 +3075,14 @@ After adjusting for potential confounders, both compliance with and performance 
 
 It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect deaths within the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with when longer hospitalizations are able to be more included in more detail.
 
+### `r figure_nums("hrs_death")`
+
+The top panels of `r figure_nums("hrs_death", display = "cite")` show the hazard ratio for death for patients with complete vs incomplete Bundle compliance or performance, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at compliance as purely yes/no, a patient with complete Bundle compliance has `r round(subset(death_results$hrs, variable == "comp_yn_f" & !is.ref)$effect * 100)`% the likelihood of death the following day, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the hazard ratios for various "doses" of compliance or performance compared to none. For example, assuming all other factors are equal and looking at compliance as a dose, a patient with 60% Bundle compliance has `r round(subset(death_results$hrs, variable == "comp_prop" & comp == 0.6)$effect * 100)`% the likelihood of death the following day, on average, than a patient with no elements compliant.
+
 ```{r death_plot, fig.width = 3.5, fig.height = 3}
-# death_hrplot
+death_hrplot
 
 ```
 
@@ -3123,12 +3207,20 @@ dcloc_probplot <- summary_prob_results(
 Whether we look at the proportion of days with *total* compliance/performance ("overall"), or the proportion of eligible *elements* compliant or performed ("dose"), throughout the Collaborative ICU stay, we see a mild dose-response relationship such that more compliance or performance is associated with lower likelihood of discharge to facility among patients who survived their hospitalization.
 
 ### `r figure_nums("ors_dcloc")`
+
+The top panels of `r figure_nums("ors_dcloc", display = "cite")` show the odds ratio for discharge to a facility for hospital survivors with X% of ICU days meeting criteria for Bundle compliance or performance vs 0% of ICU days meeting criteria, after adjusting for all specified covariates. For example, assuming all other factors are equal and looking at daily compliance as yes/no, a patient with Bundle compliance on 50% of his or her ICU days has `r round(subset(dcloc_results$ors, variable == "comp_yn_prop" & comp == 0.5)$effect * 100)`% the odds of discharge to a facility, on average, than a patient with no or incomplete Bundle compliance.
+
+The bottom panels show the odds ratios for X% of *elements* throughout the ICU stay meeting criteria for compliance or performance, compared to none. For example, assuming all other factors are equal, a patient with 60% of eligible Bundle compliant during the ICU stay has `r round(subset(dcloc_results$ors, variable == "comp_elem_prop" & comp == 0.6)$effect * 100)`% the odds of discharge to a facility, on average, than a patient with no elements compliant.
+
 ```{r print_dclocors, fig.width = 3.5, fig.height = 3}
 dcloc_orplot
 
 ```
 
 ### `r figure_nums("probs_dcloc")`
+
+For each daily "dose" of Bundle compliance or performance (elements meeting criteria / elements eligible), `r figure_nums("probs_dcloc", display = "cite")` shows the predicted probabilities of discharge to a facility (lines), after adjusting for all specified covariates; bands represent 95% confidence intervals. *(Predicted probabilities by overall bundle compliance/performance would be two single numbers, and thus are not plotted.)*
+
 ```{r print_dclocprobs, fig.width = 3.5, fig.height = 3}
 dcloc_probplot
 
