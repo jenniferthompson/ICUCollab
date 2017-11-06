@@ -106,6 +106,14 @@ table_nums(
   name = "missing_pain",
   caption = "% of Records Excluded from Pain Model due to Missingness by Variable"
 )
+table_nums(
+  name = "missing_icureadm",
+  caption = "% of Patients Excluded from ICU Readmission Model due to Missingness by Variable"
+)
+table_nums(
+  name = "missing_dcloc",
+  caption = "% of Patients Excluded from Discharge Location Model due to Missingness by Variable"
+)
 
 figure_nums <- captioner(prefix = "Figure")
 figure_nums(name = "run_comp", caption = "ABCDEF Compliance Over Time")
@@ -158,6 +166,14 @@ figure_nums(
 figure_nums(
   name = "probs_icureadm",
   caption = "Adjusted Probabilities of ICU Readmission vs ABCDEF Bundle"
+)
+figure_nums(
+  name = "ors_dcloc",
+  caption = "Adjusted Odds Ratios, ABCDEF Bundle vs Discharge to Facility"
+)
+figure_nums(
+  name = "probs_dcloc",
+  caption = "Adjusted Probabilities of Discharge to Facility vs ABCDEF Bundle"
 )
 
 ```
@@ -486,7 +502,8 @@ html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
                 family_present_icu_days + family_invited_icu_days +
                 family_rounds_icu_days + family_care_icu_days +
                 family_edu_icu_days + comp_f_days + comp_f_prop + perf_f_days +
-                perf_f_prop + hosp_los + home_posticu + mob_posticu +
+                perf_f_prop + comp_yn_days + comp_yn_prop + perf_yn_days +
+                perf_yn_prop + hosp_los + home_posticu + mob_posticu +
                 dc_status_f + dc_loc_f ~ 1,
               data = demog_desc,
               continuous = 5),
@@ -1271,6 +1288,21 @@ logmods_miss_cont
 </details>
 
 ```{r logmod_prep, results = "hide"}
+## -- Create regex for replacing linear continuous variables with rcs() --------
+rcs_vars <- c(
+  "icu_los_edit", "rcvd_benzo_icu_prop", "rcvd_opioid_icu_prop",
+  "rcvd_propofol_icu_prop", "rcvd_dex_icu_prop", "rcvd_antipsyc_icu_prop",
+  "comfort_care_icu_prop", "on_mv_icu_prop", "coma_icu_prop", "bmi",
+  "comp_prop", "perf_prop", "comp_elem_prop", "perf_elem_prop", "comp_yn_prop",
+  "perf_yn_prop"
+)
+
+rcs_regex <- paste0(
+  "(^",
+  paste(gsub("_", "\\_", rcs_vars, fixed = TRUE), collapse = "|"),
+  "$)"
+)
+
 ## Set datadist. We must always set datadist. Set it to the mother dataset.
 dd_logmods <- datadist(df_logmods)
 options(datadist = "dd_logmods")
@@ -1297,11 +1329,7 @@ fit_daily_lrm <- function(
   covars <- c(covars, exposure)
   
   ## Make BMI, proportion of compliance/performance nonlinear terms
-  covars <- str_replace(
-    covars,
-    "(^bmi|comp\\_prop|perf\\_prop|elements\\_comp\\_prop|elements\\_perf\\_prop|comp\\_yn\\_prop|perf\\_yn\\_prop$)",
-    "rcs\\(\\1, 5\\)"
-  )
+  covars <- str_replace(covars, rcs_regex, "rcs\\(\\1, 5\\)")
   
   ## Put RHS together
   rhs <- paste(covars, collapse = " + ")
@@ -1610,6 +1638,7 @@ inicu_or_results <- function(outcome_results, ## result of outcome_results_lrm()
           strip.text = element_text(face = "bold"),
           strip.background = element_rect(colour = "grey80", fill = "grey90"),
           axis.title.x = element_text(vjust = 0),
+          axis.text.y = element_text(face = "bold"),
           panel.background = element_rect(colour = "grey80", fill = NA),
           panel.grid.major.y = element_blank(),
           panel.grid.minor = element_blank(),
@@ -2327,6 +2356,7 @@ tte_hr_results <- function(
           strip.text = element_text(face = "bold"),
           strip.background = element_rect(colour = "grey80", fill = "grey90"),
           axis.title.x = element_text(vjust = 0),
+          axis.text.y = element_text(face = "bold"),
           panel.background = element_rect(colour = "grey80", fill = NA),
           panel.grid.major.y = element_blank(),
           panel.grid.minor = element_blank(),
@@ -2520,7 +2550,7 @@ summary_outcome_info <- function(outcome, had_outcome_string, df){
   n_nooutcome <- sum(df[,outcome] == levels(df[,outcome])[1], na.rm = TRUE)
   
   outcome_info <- sprintf(
-    "%s patients included; %s were %s, while %s were not",
+    "%s patients included; %s were %s, while %s were not.",
     format(npts, big.mark = ","),
     format(n_outcome, big.mark = ","),
     had_outcome_string,
@@ -2609,6 +2639,7 @@ summary_or_results <- function(outcome_results, ## result of outcome_results_lrm
           strip.text = element_text(face = "bold"),
           strip.background = element_rect(colour = "grey80", fill = "grey90"),
           axis.title.x = element_text(vjust = 0),
+          axis.text.y = element_text(face = "bold"),
           panel.background = element_rect(colour = "grey80", fill = NA),
           panel.grid.major.y = element_blank(),
           panel.grid.minor = element_blank(),
@@ -2711,11 +2742,9 @@ summary_prob_results <- function(outcome_results,
 
 ### Analysis Method & Covariates
 
-We will use a logistic regression model to assess the relationship between ABCDEF bundle compliance/performance during the Collaborative ICU stay and the likelihood of subsequent readmission to the ICU *among patients who survived the Collaborative ICU stay*. Patients who died during this ICU stay will be excluded, since they didn't have the same opportunity for readmission.
+We will use a logistic regression model to assess the relationship between ABCDEF bundle compliance/performance during the Collaborative ICU stay and the likelihood of subsequent readmission to the ICU *among patients who survived the Collaborative ICU stay* and had at least one full day in the ICU. Patients who died during this ICU stay will be excluded, since they didn't have the same opportunity for readmission.
 
-We will adjust for the following baseline and summary covariates:
-
-Each model will adjust for the following potential confounders (please see
+We will adjust for the following baseline and summary covariates (please see
 [Variable Calculation](#variables) for more details):
 
 - Demographics
@@ -2774,6 +2803,9 @@ df_icureadm$include[complete.cases(df_icureadm)] <- TRUE
 ## Summarize missingness
 miss_icureadm <- summary_exclusion(df_icureadm)
 
+miss_var_icureadm <- miss_var_summary(subset(df_icureadm, !include)) %>%
+  filter(percent > 0)
+
 ```
 
 ### Details of Missingness
@@ -2785,6 +2817,15 @@ gg_miss_var(df_icureadm %>% dplyr::select(-id), show_pct = TRUE) +
   geom_hline(yintercept = 5, color = "grey50", linetype = "dotted") +
   labs(title = "Proportion of Patients with Missing Values,\nICU Readmission Exposures and Covariates",
        x = "")
+
+```
+
+
+`r table_nums("missing_icureadm", display = "cite")` describes the proportion of the `r format(nrow(df_icureadm) - sum(!df_icureadm$include, na.rm = TRUE), big.mark = ",")` otherwise eligible patients excluded from the ICU readmission model due to incomplete data who were missing each covariate/outcome.
+
+#### `r table_nums("missing_icureadm")`
+```{r missing_readm, results = "asis"}
+pander(as.data.frame(miss_var_icureadm), digits = 2, style = "rmarkdown")
 
 ```
 
@@ -2823,7 +2864,7 @@ icureadm_probplot <- summary_prob_results(
 
 ```
 
-Whether we look at the proportion of days with *total* compliance/performance ("overall"), or the proportion of eligible *elements* compliant or performed ("dose"), throughout the Collaborative ICU stay, we see a dose-response relationship such that more compliance or performance is associated with lower likelihood of ICU readmission during the index hospitalization among patients who survived the Collaborative ICU stay.
+Whether we look at the proportion of days with *total* compliance/performance ("overall"), or the proportion of eligible *elements* compliant or performed ("dose"), throughout the Collaborative ICU stay, we see a mild dose-response relationship such that more compliance or performance is associated with lower likelihood of ICU readmission during the index hospitalization among patients who survived the Collaborative ICU stay.
 
 #### `r figure_nums("ors_icureadm")`
 ```{r print_icureadmors, fig.width = 3.5, fig.height = 3}
@@ -2961,3 +3002,134 @@ It is important to note that because most Collaborative sites were only able to 
 
 ```
 
+# Discharge Location
+
+## Analysis Method & Covariates
+
+We will use a logistic regression model to assess the relationship between ABCDEF bundle compliance/performance during the Collaborative ICU stay and the likelihood of discharge to any type of facility, vs discharge home, among patients who survived their hospitalization and had at least one full day in the ICU.
+
+We will adjust for the following baseline and summary covariates (please see
+[Variable Calculation](#variables) for more details):
+
+- Demographics
+    - Age category
+    - Sex
+    - Race
+    - Ethnicity (Hispanic vs non-Hispanic)
+    - BMI
+    - Residency prior to admission (home vs facility)
+    - Mobility prior to admission (no restrictions vs any)
+- Admission characteristics
+    - Admission diagnosis category
+    - Hospital type (community vs teaching)
+    - ICU type
+- Summary characteristics of Collaborative ICU stay
+    - Total duration in days
+    - Proportion of days on:
+        - Benzos
+        - Opioids
+        - Propofol
+        - Dex
+        - Typical and/or atypical antipsychotics
+        - Comfort care
+        - MV
+        - Coma
+- Primary ABCDEF Bundle exposures during Collaborative ICU stay (assessed in separate models):
+    - Proportion of *days* completely compliant
+    - Proportion of *days* entire Bundle performed
+    - Proportion of eligible *elements* compliant over the entire ICU stay
+    - Proportion of eligible *elements* performed over the entire ICU stay
+    
+```{r dcloc_prep}
+## Starting dataset: all patients who had >=1 ICU day recorded + survived
+## hospitalization
+df_dcloc <- demog %>%
+  filter(icu_days > 0 &
+           !is.na(dc_status_f) &
+           dc_status_f == "Discharged from the hospital alive") %>%
+  dplyr::select(
+    id, one_of(logmods_covars_base), one_of(covars_summary),
+    one_of(summary_exposures), home_posticu
+  )
+
+df_dcloc$include <- rep(FALSE, nrow(df_dcloc))
+df_dcloc$include[complete.cases(df_dcloc)] <- TRUE
+
+## Summarize missingness
+miss_dcloc <- summary_exclusion(df_dcloc)
+
+## Summarize missing data
+miss_var_dcloc <- miss_var_summary(subset(df_dcloc, !include)) %>%
+  filter(percent > 0)
+
+```
+
+## Details of Missingness
+
+`r miss_dcloc`
+
+```{r dcloc_missing}
+gg_miss_var(df_dcloc %>% dplyr::select(-id), show_pct = TRUE) +
+  geom_hline(yintercept = 5, color = "grey50", linetype = "dotted") +
+  labs(title = "Proportion of Eligible Patients with Missing Values,\nDischarge Location Exposures and Covariates",
+       x = "")
+
+```
+
+`r table_nums("missing_dcloc", display = "cite")` describes the proportion of the
+`r format(nrow(df_dcloc) - sum(!df_dcloc$include, na.rm = TRUE), big.mark = ",")` otherwise eligible patients excluded from the discharge location model due to incomplete data who were missing each covariate/outcome.
+
+#### `r table_nums("missing_dcloc")`
+```{r missing_dcloc, results = "asis"}
+pander(as.data.frame(miss_var_dcloc), digits = 2, style = "rmarkdown")
+
+```
+
+## Summary of Model Results
+```{r dcloc_mod, results = "hide"}
+dd_dcloc <- datadist(df_dcloc)
+options(datadist = "dd_dcloc")
+
+dcloc_results <- outcome_results_lrm(
+  outcome = "home_posticu",
+  exposures = summary_exposures,
+  covars = c(logmods_covars_base, covars_summary),
+  df = df_dcloc %>% filter(include)
+)
+
+dcloc_outcome_info <- summary_outcome_info(
+  outcome = "home_posticu",
+  had_outcome_string = "discharged to a facility",
+  df = df_dcloc %>% filter(include)
+)
+
+dcloc_orplot <- summary_or_results(
+  outcome_results = dcloc_results,
+  outcome_info = dcloc_outcome_info,
+  outcome_name = "discharge to facility"
+)
+
+dcloc_probplot <- summary_prob_results(
+  outcome_results = dcloc_results,
+  outcome_info = dcloc_outcome_info,
+  outcome_name = "discharge to facility",
+  add_raw = TRUE,
+  outcome = "home_posticu",
+  df = df_dcloc %>% filter(include)
+)
+
+```
+
+Whether we look at the proportion of days with *total* compliance/performance ("overall"), or the proportion of eligible *elements* compliant or performed ("dose"), throughout the Collaborative ICU stay, we see a mild dose-response relationship such that more compliance or performance is associated with lower likelihood of discharge to facility among patients who survived their hospitalization.
+
+### `r figure_nums("ors_dcloc")`
+```{r print_dclocors, fig.width = 3.5, fig.height = 3}
+dcloc_orplot
+
+```
+
+### `r figure_nums("probs_dcloc")`
+```{r print_dclocprobs, fig.width = 3.5, fig.height = 3}
+dcloc_probplot
+
+```
