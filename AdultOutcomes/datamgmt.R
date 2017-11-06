@@ -871,8 +871,8 @@ compliance_icu_elem <- compliance %>%
   group_by(id) %>%
   summarise_all(funs(tot = sum), na.rm = TRUE) %>%
   ungroup() %>%
-  mutate(elements_comp_prop = elements_comp_tot / elements_elig_tot,
-         elements_perf_prop = elements_perf_tot / elements_elig_tot)
+  mutate(comp_elem_prop = elements_comp_tot / elements_elig_tot,
+         perf_elem_prop = elements_perf_tot / elements_elig_tot)
 
 demog <- left_join(demog, compliance_icu_elem, by = "id")
 
