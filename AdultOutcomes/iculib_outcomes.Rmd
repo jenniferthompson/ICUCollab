@@ -314,6 +314,7 @@ label(demog_desc$rcvd_benzo_icu_days) <- "Days received benzodiazepines in ICU"
 label(demog_desc$rcvd_opioid_icu_days) <- "Days received opioids in ICU"
 label(demog_desc$rcvd_propofol_icu_days) <- "Days received propofol in ICU"
 label(demog_desc$rcvd_dex_icu_days) <- "Days received dex in ICU"
+label(demog_desc$rcvd_antipsyc_icu_days) <- "Days received antipsychotics in ICU"
 label(demog_desc$had_sedasmt_icu_days) <-
   "Days in ICU with >=1 sedation assessment"
 label(demog_desc$had_delasmt_icu_days) <-
@@ -414,6 +415,7 @@ label(comp_desc$rcvd_benzo_icu) <- "Received benzodiazepines"
 label(comp_desc$rcvd_opioid_icu) <- "Received opioids"
 label(comp_desc$rcvd_propofol_icu) <- "Received propofol"
 label(comp_desc$rcvd_dex_icu) <- "Received dexmedetomidine"
+label(comp_desc$rcvd_antipsyc_icu) <- "Received antipsychotics (typical/atypical)"
 
 label(comp_desc$del_assess_valid_icu) <-
   "Number of delirium assessments with validated tool"
@@ -507,6 +509,7 @@ html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
                 had_sedasmt_icu_days + comp_c_days + comp_c_prop + perf_c_days +
                 perf_c_prop + rcvd_benzo_icu_days + rcvd_opioid_icu_days +
                 rcvd_propofol_icu_days + rcvd_dex_icu_days +
+                rcvd_antipsyc_icu_days +
                 had_delasmt_icu_days + delirium_icu_days + comp_d_days +
                 comp_d_prop + perf_d_days + perf_d_prop +
                 had_mobscreen_icu_days + had_mobility_icu_days + comp_e_days +
@@ -550,7 +553,8 @@ html(summaryM(pain_asmts_icu + had_painasmt_icu + comp_a_f + perf_a_f +
                 had_sbt_icu + comp_b_sbt_f + perf_b_sbt_f + sat_sbt_icu +
                 sed_assess_valid_icu + had_sedasmt_icu + comp_c_f + perf_c_f +
                 rcvd_benzo_icu + rcvd_opioid_icu + rcvd_propofol_icu +
-                rcvd_dex_icu + del_assess_valid_icu + had_delasmt_icu +
+                rcvd_dex_icu + rcvd_antipsyc_icu +
+                del_assess_valid_icu + had_delasmt_icu +
                 comp_d_f + perf_d_f + delirium_icu + coma_icu +
                 on_restraints_icu + had_mobscreen_icu + had_mobility_icu +
                 mobilityhighest_icu + comp_e_f + perf_e_f +
