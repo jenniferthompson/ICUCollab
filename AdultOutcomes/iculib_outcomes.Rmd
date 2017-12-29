@@ -23,6 +23,13 @@ suppressPackageStartupMessages(library(pander, quietly = TRUE))
 
 load("AnalysisData/iculib.Rdata")
 
+## -- Exclude patients <18 years of age ----------------------------------------
+young_pts <- subset(demog, age == 0)$id
+age_levels <- levels(demog$age_f)
+demog <- subset(demog, !(id %in% young_pts))
+demog$age_f <- factor(demog$age, labels = age_levels[-1])
+compliance <- subset(compliance, !(id %in% young_pts))
+
 ## Combine months 1-6 (baseline); keep implementation months separate
 demog$month_cat <- with(demog, {
   factor(ifelse(month_f %in% paste("Month", 1:6), 1,
