@@ -1018,7 +1018,7 @@ lead_vars <- c("icu_day", "on_mv_icu_f", "coma_icu", "on_restraints_icu",
 ## Vector of baseline covariates
 base_vars <- c("age_cat_mod", "sex_f", "race_cat_mod", "hisp_cat_mod", "bmi",
                "mob_preadmit", "primary_admit", "home_preadmit",
-               "icu_type_comb", "hosp_type")
+               "icu_type_comb", "hosp_type", "hosp_f")
 
 df_logmods <- compliance %>%
   dplyr::select(id, icu_day, redcap_event_name_f,
@@ -1156,7 +1156,9 @@ df_logmods_missing$comp_data_f <- with(df_logmods_missing, {
 
 ## 2. Merge on other baseline and daily variables; recode long factor levels
 df_logmods_missing <- df_logmods_missing %>%
-  left_join(dplyr::select(demog, id, english_f, ad_directive_f), by = "id") %>%
+  left_join(
+    dplyr::select(demog, id, hosp_f, english_f, ad_directive_f), by = "id"
+  ) %>%
   left_join(dplyr::select(
     compliance,
     id, redcap_event_name_f, mobilityperformed_f, family_present_icu_f,
@@ -1352,7 +1354,7 @@ fit_daily_lrm <- function(
   covars <- c(covars, exposure)
   
   ## Make BMI, proportion of compliance/performance nonlinear terms
-  covars <- str_replace(covars, rcs_regex, "rcs\\(\\1, 5\\)")
+  covars <- str_replace(covars, rcs_regex, "rcs\\(\\1, 3\\)")
   
   ## Put RHS together
   rhs <- paste(covars, collapse = " + ")
@@ -1362,7 +1364,7 @@ fit_daily_lrm <- function(
   
   ## -- Fit model using lrm, then adjust SEs using robcov() --------------------
   mod <- lrm(modform, data = df, x = TRUE, y = TRUE) %>%
-    robcov(cluster = df$id)
+    robcov(cluster = df$hosp_f)
   
   return(mod)
 }
@@ -1392,7 +1394,7 @@ fit_daily_lrm <- function(
 #   data = subset(df_logmod_mv, include),
 #   x = TRUE, y = TRUE
 # ) %>%
-#   robcov(cluster = subset(df_logmod_mv, include)$id)
+#   robcov(cluster = subset(df_logmod_mv, include)$hosp_f)
 # 
 # anova(mv_compyn_fxn)
 # anova(mv_compyn_man)
@@ -1415,7 +1417,7 @@ fit_daily_lrm <- function(
 #   data = subset(df_logmod_mv, include),
 #   x = TRUE, y = TRUE
 # ) %>%
-#   robcov(cluster = subset(df_logmod_mv, include)$id)
+#   robcov(cluster = subset(df_logmod_mv, include)$hosp_f)
 # 
 # anova(mv_compdose_fxn)
 # anova(mv_compdose_man)
@@ -2201,7 +2203,7 @@ create_tte_data <- function(
   time_df = demog
 ){
   use_demog <- time_df %>%
-    dplyr::select(id, icu_type_comb,
+    dplyr::select(id, hosp_f, icu_type_comb,
                   one_of(logmods_covars_base),
                   one_of(c(time_var, status_var)))
   use_demog <- use_demog[use_demog[, time_var] > 0, ]
@@ -2223,7 +2225,7 @@ create_tte_data <- function(
     out.strings = c("No", "Yes")
   ) %>%
     rename(had_event = "died") %>%
-    left_join(dplyr::select(use_demog, id, one_of(logmods_covars_base)),
+    left_join(dplyr::select(use_demog, id, hosp_f, one_of(logmods_covars_base)),
               by = "id")
   
   return(df_tv)
@@ -2243,7 +2245,7 @@ fit_daily_cph <- function(
   
   ## Make BMI, proportion of compliance/performance nonlinear terms
   covars <- str_replace(
-    covars, "(^bmi|comp\\_prop|perf\\_prop$)", "rcs\\(\\1, 5\\)"
+    covars, "(^bmi|comp\\_prop|perf\\_prop$)", "rcs\\(\\1, 3\\)"
   )
   
   ## Put RHS together
@@ -2259,8 +2261,9 @@ fit_daily_cph <- function(
   ## Assemble entire formula
   modform <- as.formula(paste("survobj", rhs, sep = " ~ "))
   
-  ## -- Fit model using lrm, then adjust SEs using robcov() --------------------
-  mod <- cph(modform, data = df, x = TRUE, y = TRUE)
+  ## -- Fit model using cph, then adjust SEs using robcov() --------------------
+  mod <- cph(modform, data = df, x = TRUE, y = TRUE) %>%
+    robcov(cluster = df$hosp_f)
   
   return(mod)
 }
@@ -2881,12 +2884,14 @@ summary_exposures <-
 ## Starting dataset: all patients who had >=1 ICU day recorded and survived the
 ## Collaborative ICU stay
 df_icureadm <- demog %>%
-  filter(icu_days > 0 &
-           !is.na(dc_status_f) &
-           !(dc_status_f ==
-               "Died in an ICU during the ICU collaborative admission stay")) %>%
+  filter(
+    icu_days > 0 &
+      !is.na(dc_status_f) &
+      !(dc_status_f ==
+          "Died in an ICU during the ICU collaborative admission stay")
+  ) %>%
   dplyr::select(
-    id, one_of(logmods_covars_base), one_of(covars_summary),
+    id, hosp_f, one_of(logmods_covars_base), one_of(covars_summary),
     one_of(summary_exposures), ever_readmit_icu
   )
 
@@ -3149,7 +3154,7 @@ df_dcloc <- demog %>%
            !is.na(dc_status_f) &
            dc_status_f == "Discharged from the hospital alive") %>%
   dplyr::select(
-    id, one_of(logmods_covars_base), one_of(covars_summary),
+    id, hosp_f, one_of(logmods_covars_base), one_of(covars_summary),
     one_of(summary_exposures), home_posticu
   )
 
