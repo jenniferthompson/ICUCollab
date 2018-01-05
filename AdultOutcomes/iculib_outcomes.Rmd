@@ -3242,3 +3242,48 @@ For each daily "dose" of Bundle compliance or performance (elements meeting crit
 dcloc_probplot
 
 ```
+
+# Attempt at mixed effects model for MV
+
+When running a mixed effects model including each site as a completely separate intercept, the model had issues converging, likely due to highly uneven cluster sizes (smallest site had 10 days/patients; largest has 1275 days/314 patients). Let's try combining all sites with <=100 patients and see if that helps.
+
+```{r mixed_effects}
+## -- Commented out to save time but preserve code for posterity ---------------
+# ## What are the sites with <=100 patients?
+# small_sites <- demog %>%
+#   dplyr::select(id, hosp_f) %>%
+#   group_by(hosp_f) %>%
+#   summarise(npts = n()) %>%
+#   ungroup() %>%
+#   filter(npts <= 100) %>%
+#   pull(hosp_f)
+# 
+# ## Add hospital to df_logmods
+# df_logmods_mixed <- df_logmods %>%
+#   left_join(demog %>% dplyr::select(id, hosp_f)) %>%
+#   mutate(
+#     hosp_comb = factor(
+#       ifelse(hosp_f %in% small_sites, "Small sites", as.character(hosp_f))
+#     )
+#   )
+# 
+# mv_mixed <- lme4::glmer(
+#   on_mv_icu_f_tmw ~ age_cat_mod + sex_f + race_cat_mod + hisp_cat_mod +
+#     rcs(bmi, 3) + home_preadmit + mob_preadmit + primary_admit +
+#     rcvd_benzo_icu + rcvd_opioid_icu + rcvd_propofol_icu + rcvd_dex_icu +
+#     rcvd_antipsyc_icu + comfort_care_icu + on_mv_icu_f + coma_icu +
+#     (1 | hosp_comb/id),
+#   family = "binomial",
+#   data = df_logmods_mixed
+# )
+# 
+# ## This took 18 minutes and failed to converge! Fun!
+# 
+# ## How many patient-days per patient?
+# days_pt <- df_logmods %>%
+#   group_by(id) %>%
+#   summarise(ndays = n())
+# 
+# ggplot(data = days_pt, aes(x = ndays)) + geom_histogram(binwidth = 1)
+
+```
