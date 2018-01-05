@@ -213,8 +213,7 @@ demog <- demog %>%
                           dc_mobility_f == "Mobility ability not documented", NA,
                         dc_mobility_f == "Mobility restrictions")),
       levels = 0:1,
-      labels = c("No restrictions pre-admission",
-                 "Mobility restricted pre-admission")
+      labels = c("No restrictions post-ICU", "Mobility restricted post-ICU")
     ),
 
     ## Ever received invasive, noninvasive MV?
