@@ -1531,11 +1531,14 @@ outcome_results_lrm <- function(outcome,
                                    exposure = .,
                                    covars = covars, df = df))
   
+  ## Pull out list of model fits only
+  mods <- map(modlist, "mod")
+  
   ## Put like results together (ORs, predicted probs)
   or_df <- map_df(modlist, "ors")
   probs_df <- map_df(modlist, "probs")
   
-  return(list("ors" = or_df, "probs" = probs_df))
+  return(list("ors" = or_df, "probs" = probs_df, "mods" = mods))
 }
 
 ## -- Functions for in-ICU outcome results -------------------------------------
@@ -2198,7 +2201,7 @@ create_tte_data <- function(
   time_df = demog
 ){
   use_demog <- time_df %>%
-    dplyr::select(id,
+    dplyr::select(id, icu_type_comb,
                   one_of(logmods_covars_base),
                   one_of(c(time_var, status_var)))
   use_demog <- use_demog[use_demog[, time_var] > 0, ]
@@ -2297,10 +2300,13 @@ outcome_results_cph <- function(
                                     df_tv = .y,
                                     covars = covars))
   
+  ## Pull out list of model fits only
+  mods <- map(modlist, "mod")
+  
   ## Put like results together (ORs, predicted probs)
   hr_df <- map_df(modlist, "hrs")
 
-  return(list("hrs" = hr_df))
+  return(list("hrs" = hr_df, "mods" = mods))
 }
 
 ## -- Function to calculate 1) # unique patients, 2) # events in a TTE df ------
@@ -2513,7 +2519,7 @@ compliance$elig_tte <- rowSums(
 ) == 0
 
 ## -- Create all time-to-event datasets and save separately --------------------
-## These take forever to run.
+# ## These take forever to run.
 # iculos_dflist <- pmap(
 #   .l = list("time_var" = rep("icu_los_7", 4),
 #             "status_var" = rep("icu_dc_7", 4),
