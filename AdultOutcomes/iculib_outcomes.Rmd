@@ -3354,11 +3354,22 @@ inicu_probs <- map_df(inicu_results, get_perf_probs) %>%
       levels = 1:4,
       labels = c("Mechanical Ventilation", "Physical Restraints",
                  "Coma", "Delirium")
+    ),
+    outcome_label = factor(
+      case_when(
+        outcome == "Mechanical Ventilation" ~ 4,
+        outcome == "Physical Restraints"    ~ 1,
+        outcome == "Coma"                   ~ 2,
+        TRUE                                ~ 3
+      ),
+      levels = 1:4,
+      labels = c("A: Physical Restraints", "B: Coma",
+                 "C: Delirium", "D: Mechanical Ventilation")
     )
   )
 
 inicu_plot_all <- ggplot(data = inicu_probs, aes(x = prop_done, y = yhat)) +
-  facet_wrap(~ outcome, nrow = 2) +
+  facet_wrap(~ outcome_label, nrow = 2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
   geom_line(size = 1, colour = pub_color) +
   geom_point(aes(x = prop_done, y = yhat),
@@ -3424,15 +3435,17 @@ inicu_plot_three <-
   theme(legend.position = "none",
         axis.title.x = element_text(vjust = 0),
         axis.text.x = element_text(size = 8),
-        strip.text = element_text(face = "bold", size = 10),
+        strip.text = element_text(face = "bold", size = 10, hjust = 0.1),
         strip.background = element_rect(colour = "grey80", fill = "grey90"),
         panel.spacing.x = unit(x = 0.15, "inches"),
         panel.background = element_rect(colour = "grey80", fill = NA),
         plot.subtitle = element_text(size = 8, face = "italic"),
         plot.caption = element_text(size = 8, face = "italic"))
 
-inicu_plot_three_horiz <- inicu_plot_three + facet_wrap(~ outcome, nrow = 1)
-inicu_plot_three_vert <- inicu_plot_three + facet_wrap(~ outcome, ncol = 1)
+inicu_plot_three_horiz <-
+  inicu_plot_three + facet_wrap(~ outcome_label, nrow = 1)
+inicu_plot_three_vert <-
+  inicu_plot_three + facet_wrap(~ outcome_label, ncol = 1)
 
 pdf(file = "pubfigures/inicu_plot_three_horiz.pdf", height = 3, width = 6.5)
 inicu_plot_three_horiz
@@ -3469,7 +3482,7 @@ inicu_singleplot <- function(out_full, out_title, ybreaks = 0.05){
   theme(legend.position = "none",
         axis.title.x = element_text(vjust = 0),
         axis.text.x = element_text(size = 8),
-        strip.text = element_text(face = "bold", size = 10),
+        strip.text = element_text(face = "bold", size = 14),
         strip.background = element_rect(colour = "grey80", fill = "grey90"),
         panel.spacing.x = unit(x = 0.15, "inches"),
         panel.background = element_rect(colour = "grey80", fill = NA),
