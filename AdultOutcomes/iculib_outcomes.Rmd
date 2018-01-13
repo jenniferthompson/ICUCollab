@@ -3621,4 +3621,107 @@ pwalk(
 ```
 
 
-## Supplement Figure 2: Proportion of Bundle Performed throughout ICU Stay vs ICU Readmission and Discharge to Facility
+## ICU Summary Outcomes Figures (ICU Readmission, Discharge to Facility)
+
+```{r fig_icusummary, results = "hide"}
+## -- For each outcome, get predicted values for % elements performed ----------
+icusummary_results <- list("icureadm_results", "dcloc_results")
+
+get_perfelem_probs <- function(results_name){
+  tmp <- get(results_name)
+  pluck(tmp, "probs") %>%
+    filter(exposure == "perf_elem_prop") %>%
+    mutate(outcome = gsub("\\_.+$", "", results_name))
+}
+
+icusummary_probs <- map_df(icusummary_results, get_perfelem_probs) %>%
+  mutate(
+    outcome = factor(
+      case_when(
+        outcome == "icureadm" ~ 1,
+        TRUE                  ~ 2
+      ),
+      levels = 1:2,
+      labels = c("ICU Readmission", "Discharge to Facility")
+    )
+  )
+
+icusummary_plot_all <- ggplot(
+  data = icusummary_probs, aes(x = prop_done, y = yhat)
+) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
+  geom_line(size = 1, colour = pub_color) +
+  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
+                     limits = 0:1,
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_y_continuous(name = "Adjusted Probability of Outcome",
+                     # limits = c(-0.15, 1.15),
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(vjust = 0),
+        strip.text = element_text(face = "bold", size = 11),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+
+pdf(file = "pubfigures/icusummary_plot_all_horiz.pdf", height = 3.5, width = 6)
+icusummary_plot_all + facet_wrap(~ outcome, nrow = 1)
+dev.off()
+
+pdf(file = "pubfigures/icusummary_plot_all_vert.pdf", height = 6, width = 4)
+icusummary_plot_all + facet_wrap(~ outcome, ncol = 1)
+dev.off()
+
+## Function to create plot for each individual outcome
+icusummary_singleplot <- function(out_full, out_title, ybreaks = 0.05){
+  icuplot <- ggplot(
+    data = subset(icusummary_probs, outcome == out_full),
+    aes(x = prop_done, y = yhat)
+  ) +
+  facet_wrap(~ outcome, nrow = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
+  geom_line(size = 1, colour = pub_color) +
+  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
+                     limits = 0:1,
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_y_continuous(name = "Adjusted Probability of Outcome",
+                     breaks = seq(0, 1, ybreaks),
+                     labels = paste0(seq(0, 1, ybreaks) * 100, "%")) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(vjust = 0),
+        axis.text.x = element_text(size = 8),
+        strip.text = element_text(face = "bold", size = 10),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        panel.spacing.x = unit(x = 0.15, "inches"),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+  
+  ggsave(
+    filename = sprintf("icusummary_plot_%s.pdf", out_title),
+    plot = icuplot,
+    device = "pdf",
+    path = "pubfigures",
+    height = 5, width = 6
+  )
+
+}
+
+pwalk(
+  list(
+    "out_full" = as.character(unique(icusummary_probs$outcome)),
+    "out_title" = c("icureadm", "dcloc"),
+    "ybreaks" = c(0.05, 0.1)
+  ),
+  icusummary_singleplot
+)
+
+```
+
+
