@@ -3292,3 +3292,192 @@ When running a mixed effects model including each site as a completely separate 
 # ggplot(data = days_pt, aes(x = ndays)) + geom_histogram(binwidth = 1)
 
 ```
+
+# Publication Figures
+
+## Main Manuscript Figure, Draft 1: Proportion of Daily Bundle Performed vs In-ICU Outcomes
+
+```{r fig_inicu_all, results = "hide"}
+pub_color <- as.character(magglass_colors["f"])
+point_color <- as.character(magglass_colors["f"])
+
+## -- For each outcome, get predicted values for % performance -----------------
+inicu_results <- list(
+  "mv_results", "res_results", "coma_results", "del_results"
+)
+
+## Raw data to add to plots
+inicu_outcomevars <- list("on_mv_icu_f_tmw", "on_restraints_icu_tmw",
+                          "coma_icu_tmw", "delirium_icu_tmw")
+
+get_inicu_rawdata <- function(outvar){
+  tmp <- df_logmods[,c("perf_prop", outvar)]
+  names(tmp)[2] <- "had_outcome"
+  tmp$outcome <- outvar
+  tmp
+}
+
+inicu_rawdata <- map_df(inicu_outcomevars, get_inicu_rawdata) %>%
+  mutate(
+    had_outcome = as.numeric(had_outcome %in% c("Yes", "Received MV")),
+    yhat = ifelse(had_outcome == 0, -0.075, 1.075),
+    outcome = factor(
+      case_when(
+        outcome == "on_mv_icu_f_tmw"       ~ 1,
+        outcome == "on_restraints_icu_tmw" ~ 2,
+        outcome == "coma_icu_tmw"          ~ 3,
+        TRUE                               ~ 4
+      ),
+      levels = 1:4,
+      labels = c("Mechanical Ventilation", "Physical Restraints",
+                 "Coma", "Delirium")
+    )
+  ) %>%
+  rename(prop_done = "perf_prop")
+
+get_perf_probs <- function(results_name){
+  tmp <- get(results_name)
+  pluck(tmp, "probs") %>%
+    filter(exposure == "perf_prop") %>%
+    mutate(outcome = gsub("\\_.+$", "", results_name))
+}
+
+inicu_probs <- map_df(inicu_results, get_perf_probs) %>%
+  mutate(
+    outcome = factor(
+      case_when(
+        outcome == "mv"   ~ 1,
+        outcome == "res"  ~ 2,
+        outcome == "coma" ~ 3,
+        TRUE              ~ 4
+      ),
+      levels = 1:4,
+      labels = c("Mechanical Ventilation", "Physical Restraints",
+                 "Coma", "Delirium")
+    )
+  )
+
+inicu_plot_all <- ggplot(data = inicu_probs, aes(x = prop_done, y = yhat)) +
+  facet_wrap(~ outcome, nrow = 2) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
+  geom_line(size = 1, colour = pub_color) +
+  geom_point(aes(x = prop_done, y = yhat),
+             colour = "gray35", shape = 1, alpha = 0.02, size = 0.25,
+             position = position_jitter(height = 0.05, width = 0.025),
+             data = inicu_rawdata) +
+  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
+                     limits = 0:1,
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_y_continuous(name = "Adjusted Probability of Outcome",
+                     limits = c(-0.15, 1.15),
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(vjust = 0),
+        strip.text = element_text(face = "bold", size = 11),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+
+pdf(file = "pubfigures/inicu_plot_all.pdf", height = 4.5, width = 6)
+inicu_plot_all
+dev.off()
+
+```
+
+```{r print_fig_manuscript}
+inicu_plot_all
+
+```
+
+**Suggested figure legend:** Each panel represents the relationship between the proportion of eligible ABCDEF bundle elements performed on a given day and the probability of a daily clinical outcome the following day. (For example, the upper lefthand panel represents the relationship between proportion of eligible elements performed on a given day and the probability that the patient would be on mechanical ventilation the following day.) Lines and confidence bands represent the probability of the outcome and the 95% confidence interval, adjusted for potential confounders measured at baseline, ICU admission, and daily in the ICU. Points represent raw, unadjusted data: the X value represents the proportion of elements performed on that day, and the Y value of 100% or 0% represents patients who did and did not have the outcome of interest, respectively.
+
+## In-ICU Figure, Draft 2
+
+After draft 1 was circulated, the decision was made to separate the MV figure from the other in-ICU outcomes and show coma, delirium, and physical restraints together. Because the Y axis no longer will go all the way to 100%, it doesn't make much sense to include raw data at, say, 20%, so it is removed. For ultimate flexibility, there is a horizontal and a vertical version provided.
+
+```{r fig_inicu_three}
+inicu_plot_three <-
+  ggplot(data = inicu_probs %>% filter(outcome != "Mechanical Ventilation"),
+         aes(x = prop_done, y = yhat)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
+  geom_line(size = 1, colour = pub_color) +
+  # geom_point(
+  #   aes(x = prop_done, y = yhat),
+  #   colour = "gray35", shape = 1, alpha = 0.02, size = 0.25,
+  #   position = position_jitter(height = 0.05, width = 0.025),
+  #   data = inicu_rawdata %>% filter(outcome != "Mechanical Ventilation")
+  # ) +
+  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
+                     limits = 0:1,
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_y_continuous(name = "Adjusted Probability of Outcome",
+                     # limits = c(-0.15, 1.15),
+                     breaks = seq(0, 1, 0.05),
+                     labels = paste0(seq(0, 1, 0.05) * 100, "%")) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(vjust = 0),
+        axis.text.x = element_text(size = 8),
+        strip.text = element_text(face = "bold", size = 10),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        panel.spacing.x = unit(x = 0.15, "inches"),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+
+inicu_plot_three_horiz <- inicu_plot_three + facet_wrap(~ outcome, nrow = 1)
+inicu_plot_three_vert <- inicu_plot_three + facet_wrap(~ outcome, ncol = 1)
+
+pdf(file = "pubfigures/inicu_plot_three_horiz.pdf", height = 3, width = 6.5)
+inicu_plot_three_horiz
+dev.off()
+
+pdf(file = "pubfigures/inicu_plot_three_vert.pdf", height = 6, width = 4.5)
+inicu_plot_three_vert
+dev.off()
+
+inicu_plot_mvonly <-
+  ggplot(data = inicu_probs %>% filter(outcome == "Mechanical Ventilation"),
+         aes(x = prop_done, y = yhat)) +
+  facet_wrap(~ outcome, nrow = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
+  geom_line(size = 1, colour = pub_color) +
+  # geom_point(
+  #   aes(x = prop_done, y = yhat),
+  #   colour = "gray35", shape = 1, alpha = 0.02, size = 0.25,
+  #   position = position_jitter(height = 0.05, width = 0.025),
+  #   data = inicu_rawdata %>% filter(outcome != "Mechanical Ventilation")
+  # ) +
+  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
+                     limits = 0:1,
+                     breaks = seq(0, 1, 0.2),
+                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_y_continuous(name = "Adjusted Probability of Outcome",
+                     # limits = c(-0.15, 1.15),
+                     breaks = seq(0, 1, 0.1),
+                     labels = paste0(seq(0, 1, 0.1) * 100, "%")) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.title.x = element_text(vjust = 0),
+        axis.text.x = element_text(size = 8),
+        strip.text = element_text(face = "bold", size = 10),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        panel.spacing.x = unit(x = 0.15, "inches"),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+
+pdf(file = "pubfigures/inicu_plot_mvonly.pdf", height = 5, width = 6)
+inicu_plot_mvonly
+dev.off()
+
+```
+
+## Supplement Figure 1: Hazard Ratios for Performance vs Time-to-Event Outcomes
+
+## Supplement Figure 2: Proportion of Bundle Performed throughout ICU Stay vs ICU Readmission and Discharge to Facility
