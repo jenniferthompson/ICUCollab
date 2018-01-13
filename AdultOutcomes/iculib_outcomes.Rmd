@@ -3500,6 +3500,123 @@ pwalk(
 ## Time to Event Figure: Hazard Ratios for Performance vs TTE Outcomes
 
 ```{r fig_tte}
+## -- For each outcome, get HRs for % performance ------------------------------
+tte_results <- list("iculos_results", "hosplos_results", "death_results")
+
+get_perf_hrs <- function(results_name){
+  tmp <- get(results_name)
+  pluck(tmp, "hrs") %>%
+    filter(variable == "perf_prop") %>%
+    mutate(outcome = gsub("\\_.+$", "", results_name))
+}
+
+tte_hrs <- map_df(tte_results, get_perf_hrs) %>%
+  mutate(
+    outcome = factor(
+      case_when(
+        outcome == "iculos"  ~ 1,
+        outcome == "hosplos" ~ 2,
+        TRUE                 ~ 3
+      ),
+      levels = 1:3,
+      labels = c("ICU Discharge", "Hospital Discharge", "Death")
+    )
+  ) %>%
+  ## Don't want to print reference levels
+  filter(!is.ref) %>%
+  ## Add Y values
+  group_by(outcome) %>%
+  mutate(
+    yval = 1:n(),
+    ylabel = sprintf("%s%% vs %s%%", round(comp * 100), round(ref * 100)),
+    ylabel = fct_reorder(ylabel, yval)
+  ) %>%
+  ungroup()
+
+## Combined versions
+tte_plot_three <- ggplot(data = tte_hrs, aes(x = ylabel, y = effect)) +
+  geom_hline(yintercept = 1, colour = "grey70", linetype = "solid", size = 1) +
+  geom_pointrange(aes(ymin = lcl, ymax = ucl),
+                  colour = pub_color) +
+  scale_x_discrete(name = "") +
+  coord_flip() +
+  theme_minimal() +
+  theme(strip.text = element_text(face = "bold"),
+        strip.background = element_rect(colour = "grey80", fill = "grey90"),
+        axis.title.x = element_text(vjust = 0),
+        axis.text.y = element_text(face = "bold"),
+        panel.background = element_rect(colour = "grey80", fill = NA),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.subtitle = element_text(size = 8, face = "italic"),
+        plot.caption = element_text(size = 8, face = "italic"))
+
+## Horizontal, vertical versions
+tte_plot_three_horiz <- tte_plot_three + facet_wrap(~ outcome, nrow = 1)
+tte_plot_three_vert <- tte_plot_three + facet_wrap(~ outcome, ncol = 1)
+
+pdf(file = "pubfigures/tte_plot_three_horiz.pdf", height = 3, width = 6.5)
+tte_plot_three_horiz +
+  scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                     limits = c(floor(min(tte_hrs$lcl) / 0.2) * 0.2,
+                                ceiling(max(tte_hrs$ucl) / 0.2) * 0.2),
+                     breaks = seq(0, 10, 0.5)) +
+  theme(axis.text.x = element_text(size = 6))
+dev.off()
+
+pdf(file = "pubfigures/tte_plot_three_vert.pdf", height = 6, width = 4.5)
+tte_plot_three_vert +
+  scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                     limits = c(floor(min(tte_hrs$lcl) / 0.2) * 0.2,
+                                ceiling(max(tte_hrs$ucl) / 0.2) * 0.2),
+                     breaks = seq(0, 10, 0.2))
+dev.off()
+
+## Create separate figures for each
+tte_singleplot <- function(out_full, out_title, xbreaks){
+  df <- tte_hrs %>% filter(outcome == out_full)
+  
+  tteplot <- ggplot(data = df, aes(x = ylabel, y = effect)) +
+    facet_wrap(~ outcome, nrow = 1) +
+    geom_hline(
+      yintercept = 1, colour = "grey70", linetype = "solid", size = 1.1
+    ) +
+    geom_pointrange(aes(ymin = lcl, ymax = ucl), colour = pub_color, size = 1) +
+    scale_x_discrete(name = "") +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(floor(min(df$lcl) / 0.2) * 0.2,
+                                  ceiling(max(df$ucl) / 0.2) * 0.2),
+                       breaks = seq(0, 10, xbreaks)) +
+    coord_flip() +
+    theme_minimal() +
+    theme(strip.text = element_text(face = "bold", size = 11),
+          strip.background = element_rect(colour = "grey80", fill = "grey90"),
+          axis.title.x = element_text(vjust = 0),
+          axis.text.y = element_text(face = "bold"),
+          panel.background = element_rect(colour = "grey80", fill = NA),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          plot.subtitle = element_text(size = 8, face = "italic"),
+          plot.caption = element_text(size = 8, face = "italic"))
+  
+  ggsave(
+    filename = sprintf("tte_plot_%s.pdf", out_title),
+    plot = tteplot,
+    device = "pdf",
+    path = "pubfigures",
+    height = 5, width = 6
+  )
+
+}
+
+pwalk(
+  list(
+    "out_full" = as.character(unique(tte_hrs$outcome)),
+    "out_title" = c("icudc", "hospdc", "death"),
+    "xbreaks" = c(0.2, 0.2, 0.2)
+  ),
+  tte_singleplot
+)
 
 ```
 
