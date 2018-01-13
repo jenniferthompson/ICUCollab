@@ -3520,6 +3520,15 @@ tte_hrs <- map_df(tte_results, get_perf_hrs) %>%
       ),
       levels = 1:3,
       labels = c("ICU Discharge", "Hospital Discharge", "Death")
+    ),
+    outcome_label = factor(
+      case_when(
+        outcome == "ICU Discharge"      ~ 1,
+        outcome == "Hospital Discharge" ~ 2,
+        TRUE                            ~ 3
+      ),
+      levels = 1:3,
+      labels = c("A: ICU Discharge", "B: Hospital Discharge", "C: Death")
     )
   ) %>%
   ## Don't want to print reference levels
@@ -3533,15 +3542,32 @@ tte_hrs <- map_df(tte_results, get_perf_hrs) %>%
   ) %>%
   ungroup()
 
+## Dataset to add text indicating direction of favorable outcomes on each facet
+tte_favorable <- tibble(
+  outcome = unique(tte_hrs$outcome),
+  outcome_label = unique(tte_hrs$outcome_label),
+  xval = c(2.05, 2.05, 0),
+  xjust = c(1.1, 1.1, -0.1),
+  tte_text = c(">1 is favorable", ">1 is favorable", "<1 is favorable")
+)
+
 ## Combined versions
 tte_plot_three <- ggplot(data = tte_hrs, aes(x = ylabel, y = effect)) +
+  ## Reference line
   geom_hline(yintercept = 1, colour = "grey70", linetype = "solid", size = 1) +
-  geom_pointrange(aes(ymin = lcl, ymax = ucl),
-                  colour = pub_color) +
-  scale_x_discrete(name = "") +
+  ## HRs, CIs
+  geom_pointrange(aes(ymin = lcl, ymax = ucl), colour = pub_color) +
+  ## Text indicating which direction is favorable
+  geom_text(
+    aes(x = min(tte_hrs$yval, na.rm = TRUE),
+        y = xval, label = tte_text, hjust = xjust),
+    data = tte_favorable,
+    nudge_x = -0.35, fontface = "italic", size = 2.5, color = pub_color
+  ) +
+  scale_x_discrete(name = "Proportion of Bundle Elements Performed") +
   coord_flip() +
   theme_minimal() +
-  theme(strip.text = element_text(face = "bold"),
+  theme(strip.text = element_text(hjust = 0.05, face = "bold"),
         strip.background = element_rect(colour = "grey80", fill = "grey90"),
         axis.title.x = element_text(vjust = 0),
         axis.text.y = element_text(face = "bold"),
@@ -3552,29 +3578,30 @@ tte_plot_three <- ggplot(data = tte_hrs, aes(x = ylabel, y = effect)) +
         plot.caption = element_text(size = 8, face = "italic"))
 
 ## Horizontal, vertical versions
-tte_plot_three_horiz <- tte_plot_three + facet_wrap(~ outcome, nrow = 1)
-tte_plot_three_vert <- tte_plot_three + facet_wrap(~ outcome, ncol = 1)
+tte_plot_three_horiz <- tte_plot_three + facet_wrap(~ outcome_label, nrow = 1)
+tte_plot_three_vert <- tte_plot_three + facet_wrap(~ outcome_label, ncol = 1)
 
 pdf(file = "pubfigures/tte_plot_three_horiz.pdf", height = 3, width = 6.5)
 tte_plot_three_horiz +
   scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
-                     limits = c(floor(min(tte_hrs$lcl) / 0.2) * 0.2,
-                                ceiling(max(tte_hrs$ucl) / 0.2) * 0.2),
+                     limits = c(0, 2.05),
                      breaks = seq(0, 10, 0.5)) +
-  theme(axis.text.x = element_text(size = 6))
+  theme(axis.text.x = element_text(size = 7))
 dev.off()
 
 pdf(file = "pubfigures/tte_plot_three_vert.pdf", height = 6, width = 4.5)
 tte_plot_three_vert +
   scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
-                     limits = c(floor(min(tte_hrs$lcl) / 0.2) * 0.2,
-                                ceiling(max(tte_hrs$ucl) / 0.2) * 0.2),
+                     limits = c(0, 2.05),
                      breaks = seq(0, 10, 0.2))
 dev.off()
 
 ## Create separate figures for each
 tte_singleplot <- function(out_full, out_title, xbreaks){
   df <- tte_hrs %>% filter(outcome == out_full)
+  favorable_xval <- ifelse(out_full %in% "Death",
+                           floor(min(df$lcl) / 0.1) * 0.1, 
+                           ceiling(max(df$ucl) / 0.1) * 0.1)
   
   tteplot <- ggplot(data = df, aes(x = ylabel, y = effect)) +
     facet_wrap(~ outcome, nrow = 1) +
@@ -3582,14 +3609,22 @@ tte_singleplot <- function(out_full, out_title, xbreaks){
       yintercept = 1, colour = "grey70", linetype = "solid", size = 1.1
     ) +
     geom_pointrange(aes(ymin = lcl, ymax = ucl), colour = pub_color, size = 1) +
-    scale_x_discrete(name = "") +
+    geom_text(
+      aes(x = min(tte_hrs$yval, na.rm = TRUE),
+          y = favorable_xval,
+          label = tte_text, hjust = xjust),
+      data = tte_favorable %>% filter(outcome == out_full),
+      nudge_x = -0.35,
+      fontface = "italic", size = 4, color = pub_color
+    ) +
+    scale_x_discrete(name = "Proportion of Bundle Elements Performed") +
     scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
-                       limits = c(floor(min(df$lcl) / 0.2) * 0.2,
-                                  ceiling(max(df$ucl) / 0.2) * 0.2),
+                       limits = c(floor(min(df$lcl) / 0.1) * 0.1,
+                                  ceiling(max(df$ucl) / 0.1) * 0.1),
                        breaks = seq(0, 10, xbreaks)) +
     coord_flip() +
     theme_minimal() +
-    theme(strip.text = element_text(face = "bold", size = 11),
+    theme(strip.text = element_text(face = "bold", size = 14),
           strip.background = element_rect(colour = "grey80", fill = "grey90"),
           axis.title.x = element_text(vjust = 0),
           axis.text.y = element_text(face = "bold"),
@@ -3620,6 +3655,7 @@ pwalk(
 
 ```
 
+**Suggested figure legend:** Each panel shows the hazard ratios and 95% confidence intervals for the specified outcome, comparing patients with a given proportion of eligible ABCDEF Bundle elements performed on a given day to patients with none of the Bundle performed that day. The gray line at 1.0 indicates no association. Hazard ratios are adjusted for baseline and ICU admission characteristics as well as daily covariates, measured the same day as Bundle performance. For example, on a given day and holding all else equal, a patient who had 60% of the ABCDEF Bundle elements for which s/he was eligible has, on average, about 1.4 times the likelihood of being discharged from the ICU as a patient with none of the Bundle elements performed.
 
 ## ICU Summary Outcomes Figures (ICU Readmission, Discharge to Facility)
 
