@@ -3397,7 +3397,8 @@ inicu_plot_all
 
 ## In-ICU Figure, Draft 2
 
-After draft 1 was circulated, the decision was made to separate the MV figure from the other in-ICU outcomes and show coma, delirium, and physical restraints together. Because the Y axis no longer will go all the way to 100%, it doesn't make much sense to include raw data at, say, 20%, so it is removed. For ultimate flexibility, there is a horizontal and a vertical version provided.
+After draft 1 was circulated, the decision was made to separate the MV figure from the other in-ICU outcomes and show coma, delirium, and physical restraints together. Because the Y axis no longer will go all the way to 100%, it doesn't make much sense to include raw data at, say, 20%, so it is removed. For ultimate flexibility, there is a horizontal and a vertical version provided, as well as
+versions for each outcome individually.
 
 ```{r fig_inicu_three}
 inicu_plot_three <-
@@ -3441,9 +3442,12 @@ pdf(file = "pubfigures/inicu_plot_three_vert.pdf", height = 6, width = 4.5)
 inicu_plot_three_vert
 dev.off()
 
-inicu_plot_mvonly <-
-  ggplot(data = inicu_probs %>% filter(outcome == "Mechanical Ventilation"),
-         aes(x = prop_done, y = yhat)) +
+## Function to create plot for each individual outcome
+inicu_singleplot <- function(out_full, out_title, ybreaks = 0.05){
+  icuplot <- ggplot(
+    data = subset(inicu_probs, outcome == out_full),
+    aes(x = prop_done, y = yhat)
+  ) +
   facet_wrap(~ outcome, nrow = 1) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
   geom_line(size = 1, colour = pub_color) +
@@ -3459,8 +3463,8 @@ inicu_plot_mvonly <-
                      labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
   scale_y_continuous(name = "Adjusted Probability of Outcome",
                      # limits = c(-0.15, 1.15),
-                     breaks = seq(0, 1, 0.1),
-                     labels = paste0(seq(0, 1, 0.1) * 100, "%")) +
+                     breaks = seq(0, 1, ybreaks),
+                     labels = paste0(seq(0, 1, ybreaks) * 100, "%")) +
   theme_minimal() +
   theme(legend.position = "none",
         axis.title.x = element_text(vjust = 0),
@@ -3471,13 +3475,33 @@ inicu_plot_mvonly <-
         panel.background = element_rect(colour = "grey80", fill = NA),
         plot.subtitle = element_text(size = 8, face = "italic"),
         plot.caption = element_text(size = 8, face = "italic"))
+  
+  ggsave(
+    filename = sprintf("inicu_plot_%s.pdf", out_title),
+    plot = icuplot,
+    device = "pdf",
+    path = "pubfigures",
+    height = 5, width = 6
+  )
 
-pdf(file = "pubfigures/inicu_plot_mvonly.pdf", height = 5, width = 6)
-inicu_plot_mvonly
-dev.off()
+}
+
+pwalk(
+  list(
+    "out_full" = as.character(unique(inicu_probs$outcome)),
+    "out_title" = c("mv", "res", "coma", "del"),
+    "ybreaks" = c(0.1, 0.05, 0.05, 0.05)
+  ),
+  inicu_singleplot
+)
 
 ```
 
-## Supplement Figure 1: Hazard Ratios for Performance vs Time-to-Event Outcomes
+## Time to Event Figure: Hazard Ratios for Performance vs TTE Outcomes
+
+```{r fig_tte}
+
+```
+
 
 ## Supplement Figure 2: Proportion of Bundle Performed throughout ICU Stay vs ICU Readmission and Discharge to Facility
