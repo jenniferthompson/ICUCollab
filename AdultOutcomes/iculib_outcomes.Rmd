@@ -3297,6 +3297,8 @@ When running a mixed effects model including each site as a completely separate 
 
 ## Main Manuscript Figure, Draft 1: Proportion of Daily Bundle Performed vs In-ICU Outcomes
 
+This figure shows all four in-ICU outcomes on the same scale, with raw data included. A placeholder version is inserted here; high-resolution, publication-ready figures are found [here](https://drive.google.com/open?id=1NTDq0aqOBvGOz_jUamnbh-YhVUiFaShc).
+
 ```{r fig_inicu_all, results = "hide"}
 pub_color <- as.character(magglass_colors["f"])
 point_color <- as.character(magglass_colors["f"])
@@ -3409,7 +3411,7 @@ inicu_plot_all
 ## In-ICU Figure, Draft 2
 
 After draft 1 was circulated, the decision was made to separate the MV figure from the other in-ICU outcomes and show coma, delirium, and physical restraints together. Because the Y axis no longer will go all the way to 100%, it doesn't make much sense to include raw data at, say, 20%, so it is removed. For ultimate flexibility, there is a horizontal and a vertical version provided, as well as
-versions for each outcome individually.
+versions for each outcome individually. A placeholder version is inserted here; high-resolution, publication-ready figures are found [here](https://drive.google.com/open?id=1NTDq0aqOBvGOz_jUamnbh-YhVUiFaShc).
 
 ```{r fig_inicu_three}
 inicu_plot_three <-
@@ -3447,13 +3449,19 @@ inicu_plot_three_horiz <-
 inicu_plot_three_vert <-
   inicu_plot_three + facet_wrap(~ outcome_label, ncol = 1)
 
-pdf(file = "pubfigures/inicu_plot_three_horiz.pdf", height = 3, width = 6.5)
-inicu_plot_three_horiz
-dev.off()
+ggsave(
+  filename = "inicu_plot_three_horiz.pdf",
+  plot = inicu_plot_three_horiz,
+  path = "pubfigures",
+  height = 3, width = 6.5
+)
 
-pdf(file = "pubfigures/inicu_plot_three_vert.pdf", height = 6, width = 4.5)
-inicu_plot_three_vert
-dev.off()
+ggsave(
+  filename = "inicu_plot_three_vert.pdf",
+  plot = inicu_plot_three_vert,
+  path = "pubfigures",
+  height = 6, width = 4.5
+)
 
 ## Function to create plot for each individual outcome
 inicu_singleplot <- function(out_full, out_title, ybreaks = 0.05){
@@ -3510,7 +3518,14 @@ pwalk(
 
 ```
 
+```{r inicu_fig}
+inicu_plot_three_horiz
+
+```
+
 ## Time to Event Figure: Hazard Ratios for Performance vs TTE Outcomes
+
+The following figures show all three time-to-event outcomes, summarized using hazard ratios for various comparisons of % of elements performed vs none. A placeholder version is inserted here; high-resolution, publication-ready figures are found [here](https://drive.google.com/open?id=1NTDq0aqOBvGOz_jUamnbh-YhVUiFaShc).
 
 ```{r fig_tte}
 ## -- For each outcome, get HRs for % performance ------------------------------
@@ -3594,20 +3609,29 @@ tte_plot_three <- ggplot(data = tte_hrs, aes(x = ylabel, y = effect)) +
 tte_plot_three_horiz <- tte_plot_three + facet_wrap(~ outcome_label, nrow = 1)
 tte_plot_three_vert <- tte_plot_three + facet_wrap(~ outcome_label, ncol = 1)
 
-pdf(file = "pubfigures/tte_plot_three_horiz.pdf", height = 3, width = 6.5)
-tte_plot_three_horiz +
-  scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
-                     limits = c(0, 2.05),
-                     breaks = seq(0, 10, 0.5)) +
-  theme(axis.text.x = element_text(size = 7))
-dev.off()
+ggsave(
+  filename = "tte_plot_three_horiz.pdf",
+  plot = tte_plot_three_horiz +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.5)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = "pdf",
+  path = "pubfigures",
+  height = 3, width = 6.5
+)
 
-pdf(file = "pubfigures/tte_plot_three_vert.pdf", height = 6, width = 4.5)
-tte_plot_three_vert +
-  scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
-                     limits = c(0, 2.05),
-                     breaks = seq(0, 10, 0.2))
-dev.off()
+ggsave(
+  filename = "tte_plot_three_vert.pdf",
+  plot = tte_plot_three_vert +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.2)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = "pdf",
+  path = "pubfigures",
+  height = 6, width = 4.5
+)
 
 ## Create separate figures for each
 tte_singleplot <- function(out_full, out_title, xbreaks){
@@ -3668,6 +3692,11 @@ pwalk(
 
 ```
 
+```{r tte_fig}
+tte_plot_three_horiz
+
+```
+
 **Suggested figure legend:** Each panel shows the hazard ratios and 95% confidence intervals for the specified outcome, comparing patients with a given proportion of eligible ABCDEF Bundle elements performed on a given day to patients with none of the Bundle performed that day. The gray line at 1.0 indicates no association. Hazard ratios are adjusted for baseline and ICU admission characteristics as well as daily covariates, measured the same day as Bundle performance. For example, on a given day and holding all else equal, a patient who had 60% of the ABCDEF Bundle elements for which s/he was eligible has, on average, about 1.4 times the likelihood of being discharged from the ICU as a patient with none of the Bundle elements performed.
 
 ## ICU Summary Outcomes Figures (ICU Readmission, Discharge to Facility)
@@ -3692,6 +3721,14 @@ icusummary_probs <- map_df(icusummary_results, get_perfelem_probs) %>%
       ),
       levels = 1:2,
       labels = c("ICU Readmission", "Discharge to Facility")
+    ),
+    outcome_label = factor(
+      case_when(
+        outcome == "ICU Readmission" ~ 1,
+        TRUE                         ~ 2
+      ),
+      levels = 1:2,
+      labels = c("A: ICU Readmission", "B: Discharge to Facility")
     )
   )
 
@@ -3706,24 +3743,34 @@ icusummary_plot_all <- ggplot(
                      labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
   scale_y_continuous(name = "Adjusted Probability of Outcome",
                      # limits = c(-0.15, 1.15),
-                     breaks = seq(0, 1, 0.2),
-                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+                     breaks = seq(0, 1, 0.1),
+                     labels = paste0(seq(0, 1, 0.1) * 100, "%")) +
   theme_minimal() +
   theme(legend.position = "none",
         axis.title.x = element_text(vjust = 0),
-        strip.text = element_text(face = "bold", size = 11),
+        strip.text = element_text(face = "bold", size = 11, hjust = 0.1),
         strip.background = element_rect(colour = "grey80", fill = "grey90"),
         panel.background = element_rect(colour = "grey80", fill = NA),
         plot.subtitle = element_text(size = 8, face = "italic"),
         plot.caption = element_text(size = 8, face = "italic"))
 
-pdf(file = "pubfigures/icusummary_plot_all_horiz.pdf", height = 3.5, width = 6)
-icusummary_plot_all + facet_wrap(~ outcome, nrow = 1)
-dev.off()
+ggsave(
+  filename = "icusummary_plot_all_horiz.pdf",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome_label, scales = "free_y", nrow = 1),
+  device = "pdf",
+  path = "pubfigures",
+  height = 3.5, width = 6
+)
 
-pdf(file = "pubfigures/icusummary_plot_all_vert.pdf", height = 6, width = 4)
-icusummary_plot_all + facet_wrap(~ outcome, ncol = 1)
-dev.off()
+ggsave(
+  filename = "icusummary_plot_all_vert.pdf",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome_label, scales = "free_y", ncol = 1),
+  device = "pdf",
+  path = "pubfigures",
+  height = 6, width = 4
+)
 
 ## Function to create plot for each individual outcome
 icusummary_singleplot <- function(out_full, out_title, ybreaks = 0.05){
@@ -3745,7 +3792,7 @@ icusummary_singleplot <- function(out_full, out_title, ybreaks = 0.05){
   theme(legend.position = "none",
         axis.title.x = element_text(vjust = 0),
         axis.text.x = element_text(size = 8),
-        strip.text = element_text(face = "bold", size = 10),
+        strip.text = element_text(face = "bold", size = 14),
         strip.background = element_rect(colour = "grey80", fill = "grey90"),
         panel.spacing.x = unit(x = 0.15, "inches"),
         panel.background = element_rect(colour = "grey80", fill = NA),
@@ -3773,4 +3820,12 @@ pwalk(
 
 ```
 
+```{r icusummary_fig}
+icusummary_plot_all +
+  facet_wrap(~ outcome_label, scales = "free_y", nrow = 1)
 
+```
+
+**Suggested figure legend:** Panels A and B show the adjusted probabilities of ICU readmission and discharge to a facility vs home, respectively, among ICU survivors, according to what proportion of ABCDEF Bundle elements performed of those the patient was eligible to receive during the first seven days of his/her Collaborative ICU stay. Probabilities are adjusted for baseline, ICU admission, and summary ICU characteristics *(eg, total proportion of ICU days the patient received benzodiazepines)*.
+
+For example, if the patient was in the ICU for five days, was on MV and sedation every day, and had a family member or other caregiver present each day, s/he would be eligible to receive 5 * 7 = 35 elements. If all elements except pain and delirium assessments were performed on all 5 days, the patient received 25 / 35 = 71% of the Bundle elements.
