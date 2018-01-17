@@ -276,7 +276,12 @@ For full definitions of compliance and performance, see [Definitions](#definitio
 ```{r descbase}
 ## Add labels to variables we want to describe - labels don't play well with
 ## tidyverse so copy a separate data.frame
-demog_desc <- demog %>% filter(icu_days > 0)
+demog_desc <- demog %>%
+  filter(icu_days > 0) %>%
+  mutate(
+    comfort_care_icu_days_exp = ifelse(comfort_care_icu_days == 0, NA,
+                                       comfort_care_icu_days)
+  )
 
 demog_desc$hosp_f <- as.factor(demog_desc$hosp_f)
 
@@ -388,6 +393,10 @@ label(demog_desc$comp_yn_prop) <-
 label(demog_desc$perf_yn_days) <- "ICU days entire bundle performed"
 label(demog_desc$perf_yn_prop) <-
   "Proportion of ICU days entire bundle performed"
+label(demog_desc$comfort_care_icu_ever) <- "Ever on comfort care in ICU"
+label(demog_desc$comfort_care_icu_days) <- "Days on comfort care in ICU"
+label(demog_desc$comfort_care_icu_days_exp) <-
+  "Days on comfort care in ICU among those who received it"
 
 ## Only describe days fully in ICU
 comp_desc <- compliance %>% filter(icu_day)
@@ -528,8 +537,9 @@ html(summaryM(ever_invas_mv + hrs_invas_mv + ever_noninvas_mv +
                 family_rounds_icu_days + family_care_icu_days +
                 family_edu_icu_days + comp_f_days + comp_f_prop + perf_f_days +
                 perf_f_prop + comp_yn_days + comp_yn_prop + perf_yn_days +
-                perf_yn_prop + hosp_los + home_posticu + mob_posticu +
-                dc_status_f + dc_loc_f ~ 1,
+                perf_yn_prop + comfort_care_icu_ever +
+                comfort_care_icu_days_exp + hosp_los + home_posticu +
+                mob_posticu + dc_status_f + dc_loc_f ~ 1,
               data = demog_desc,
               continuous = 5),
      what = "%",

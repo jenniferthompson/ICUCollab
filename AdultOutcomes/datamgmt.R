@@ -856,7 +856,11 @@ compliance_icu_bypt <- compliance %>%
            ifelse(family_present_icu_days == 0, NA, perf_f_prop)
   ) %>%
   dplyr::select(-icu_day_prop) %>% ## meaningless, 100% for everyone
-  rename(icu_days = icu_day_days)
+  rename(icu_days = icu_day_days) %>%
+  mutate(
+    ## Indicator for whether patient was ever on comfort care in ICU
+    comfort_care_icu_ever = ifelse(icu_days == 0, NA, comfort_care_icu_days > 0)
+  )
 
 ## Merge onto demog; if icu_days is NA, indicates that patient never had a
 ## day with icu_day = Yes to include in above -> set to 0
@@ -1068,6 +1072,8 @@ compliance <- compliance %>%
 
     comfort_care_icu = make_tf_factor_yn(comfort_care_icu)
   )
+
+demog$comfort_care_icu_ever <- make_tf_factor_yn(demog$comfort_care_icu_ever)
 
 ## -- Save final datasets ------------------------------------------------------
 save(demog, compliance, tsdata, file = "AnalysisData/iculib.Rdata")
