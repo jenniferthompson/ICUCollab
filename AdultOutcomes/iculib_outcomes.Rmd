@@ -21,6 +21,9 @@ suppressPackageStartupMessages(library(naniar, quietly = TRUE))
 suppressPackageStartupMessages(library(JTHelpers, quietly = TRUE))
 suppressPackageStartupMessages(library(pander, quietly = TRUE))
 
+## dpi for PNG figures
+png_dpi <- 400
+
 load("AnalysisData/iculib.Rdata")
 
 ## -- Exclude patients <18 years of age ----------------------------------------
@@ -3395,9 +3398,21 @@ inicu_plot_all <- ggplot(data = inicu_probs, aes(x = prop_done, y = yhat)) +
         plot.subtitle = element_text(size = 8, face = "italic"),
         plot.caption = element_text(size = 8, face = "italic"))
 
-pdf(file = "pubfigures/inicu_plot_all.pdf", height = 4.5, width = 6)
-inicu_plot_all
-dev.off()
+ggsave(
+  filename = "inicu_plot_all.pdf",
+  plot = inicu_plot_all,
+  device = "pdf",
+  path = "pubfigures/pdf",
+  height = 4.5, width = 6
+)
+
+ggsave(
+  filename = "inicu_plot_all.png",
+  plot = inicu_plot_all,
+  device = "png",
+  path = "pubfigures/png",
+  height = 4.5, width = 6, dpi = png_dpi
+)
 
 ```
 
@@ -3452,15 +3467,33 @@ inicu_plot_three_vert <-
 ggsave(
   filename = "inicu_plot_three_horiz.pdf",
   plot = inicu_plot_three_horiz,
-  path = "pubfigures",
+  device = "pdf",
+  path = "pubfigures/pdf",
   height = 3, width = 6.5
+)
+
+ggsave(
+  filename = "inicu_plot_three_horiz.png",
+  plot = inicu_plot_three_horiz,
+  device = "png",
+  path = "pubfigures/png",
+  height = 3, width = 6.5, dpi = png_dpi
 )
 
 ggsave(
   filename = "inicu_plot_three_vert.pdf",
   plot = inicu_plot_three_vert,
-  path = "pubfigures",
+  device = "pdf",
+  path = "pubfigures/pdf",
   height = 6, width = 4.5
+)
+
+ggsave(
+  filename = "inicu_plot_three_vert.png",
+  plot = inicu_plot_three_vert,
+  device = "png",
+  path = "pubfigures/png",
+  height = 6, width = 4.5, dpi = png_dpi
 )
 
 ## Function to create plot for each individual outcome
@@ -3501,8 +3534,16 @@ inicu_singleplot <- function(out_full, out_title, ybreaks = 0.05){
     filename = sprintf("inicu_plot_%s.pdf", out_title),
     plot = icuplot,
     device = "pdf",
-    path = "pubfigures",
+    path = "pubfigures/pdf",
     height = 5, width = 6
+  )
+
+  ggsave(
+    filename = sprintf("inicu_plot_%s.png", out_title),
+    plot = icuplot,
+    device = "png",
+    path = "pubfigures/png",
+    height = 5, width = 6, dpi = png_dpi
   )
 
 }
@@ -3617,8 +3658,20 @@ ggsave(
                        breaks = seq(0, 10, 0.5)) +
     theme(axis.text.x = element_text(size = 7)),
   device = "pdf",
-  path = "pubfigures",
+  path = "pubfigures/pdf",
   height = 3, width = 6.5
+)
+
+ggsave(
+  filename = "tte_plot_three_horiz.png",
+  plot = tte_plot_three_horiz +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.5)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = "png",
+  path = "pubfigures/png",
+  height = 3, width = 6.5, dpi = png_dpi
 )
 
 ggsave(
@@ -3629,8 +3682,20 @@ ggsave(
                        breaks = seq(0, 10, 0.2)) +
     theme(axis.text.x = element_text(size = 7)),
   device = "pdf",
-  path = "pubfigures",
+  path = "pubfigures/pdf",
   height = 6, width = 4.5
+)
+
+ggsave(
+  filename = "tte_plot_three_vert.png",
+  plot = tte_plot_three_vert +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.2)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = "png",
+  path = "pubfigures/png",
+  height = 6, width = 4.5, dpi = png_dpi
 )
 
 ## Create separate figures for each
@@ -3675,8 +3740,16 @@ tte_singleplot <- function(out_full, out_title, xbreaks){
     filename = sprintf("tte_plot_%s.pdf", out_title),
     plot = tteplot,
     device = "pdf",
-    path = "pubfigures",
+    path = "pubfigures/pdf",
     height = 5, width = 6
+  )
+
+  ggsave(
+    filename = sprintf("tte_plot_%s.png", out_title),
+    plot = tteplot,
+    device = "png",
+    path = "pubfigures/png",
+    height = 5, width = 6, dpi = png_dpi
   )
 
 }
@@ -3759,8 +3832,17 @@ ggsave(
   plot = icusummary_plot_all +
     facet_wrap(~ outcome_label, scales = "free_y", nrow = 1),
   device = "pdf",
-  path = "pubfigures",
+  path = "pubfigures/pdf",
   height = 3.5, width = 6
+)
+
+ggsave(
+  filename = "icusummary_plot_all_horiz.png",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome_label, scales = "free_y", nrow = 1),
+  device = "png",
+  path = "pubfigures/png",
+  height = 3.5, width = 6, dpi = png_dpi
 )
 
 ggsave(
@@ -3768,8 +3850,17 @@ ggsave(
   plot = icusummary_plot_all +
     facet_wrap(~ outcome_label, scales = "free_y", ncol = 1),
   device = "pdf",
-  path = "pubfigures",
+  path = "pubfigures/pdf",
   height = 6, width = 4
+)
+
+ggsave(
+  filename = "icusummary_plot_all_vert.png",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome_label, scales = "free_y", ncol = 1),
+  device = "png",
+  path = "pubfigures/png",
+  height = 6, width = 4, dpi = png_dpi
 )
 
 ## Function to create plot for each individual outcome
@@ -3803,8 +3894,16 @@ icusummary_singleplot <- function(out_full, out_title, ybreaks = 0.05){
     filename = sprintf("icusummary_plot_%s.pdf", out_title),
     plot = icuplot,
     device = "pdf",
-    path = "pubfigures",
+    path = "pubfigures/pdf",
     height = 5, width = 6
+  )
+
+  ggsave(
+    filename = sprintf("icusummary_plot_%s.png", out_title),
+    plot = icuplot,
+    device = "png",
+    path = "pubfigures/png",
+    height = 5, width = 6, dpi = png_dpi
   )
 
 }
