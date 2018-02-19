@@ -3318,12 +3318,14 @@ point_color <- as.character(magglass_colors["f"])
 
 ## -- For each outcome, get predicted values for % performance -----------------
 inicu_results <- list(
-  "mv_results", "res_results", "coma_results", "del_results"
+  "mv_results", "pain_results", "res_results", "coma_results", "del_results"
 )
 
 ## Raw data to add to plots
-inicu_outcomevars <- list("on_mv_icu_f_tmw", "on_restraints_icu_tmw",
-                          "coma_icu_tmw", "delirium_icu_tmw")
+inicu_outcomevars <- list(
+  "on_mv_icu_f_tmw", "sigpain_icu_tmw", "on_restraints_icu_tmw",
+  "coma_icu_tmw", "delirium_icu_tmw"
+)
 
 get_inicu_rawdata <- function(outvar){
   tmp <- df_logmods[,c("perf_prop", outvar)]
@@ -3339,13 +3341,14 @@ inicu_rawdata <- map_df(inicu_outcomevars, get_inicu_rawdata) %>%
     outcome = factor(
       case_when(
         outcome == "on_mv_icu_f_tmw"       ~ 1,
-        outcome == "on_restraints_icu_tmw" ~ 2,
+        outcome == "sigpain_icu_tmw"       ~ 2,
         outcome == "coma_icu_tmw"          ~ 3,
-        TRUE                               ~ 4
+        outcome == "delirium_icu_tmw"      ~ 4,
+        TRUE                               ~ 5
       ),
-      levels = 1:4,
-      labels = c("Mechanical Ventilation", "Physical Restraints",
-                 "Coma", "Delirium")
+      levels = 1:5,
+      labels = c("Mechanical Ventilation", "Significant Pain",
+                 "Coma", "Delirium", "Physical Restraints")
     )
   ) %>%
   rename(prop_done = "perf_prop")
@@ -3362,28 +3365,33 @@ inicu_probs <- map_df(inicu_results, get_perf_probs) %>%
     outcome = factor(
       case_when(
         outcome == "mv"   ~ 1,
-        outcome == "res"  ~ 2,
+        outcome == "pain" ~ 2,
         outcome == "coma" ~ 3,
-        TRUE              ~ 4
+        outcome == "del"  ~ 4,
+        TRUE              ~ 5
       ),
-      levels = 1:4,
-      labels = c("Mechanical Ventilation", "Physical Restraints",
-                 "Coma", "Delirium")
+      levels = 1:5,
+      labels = c("Mechanical Ventilation", "Significant Pain",
+                 "Coma", "Delirium", "Physical Restraints")
     ),
     outcome_label = factor(
       case_when(
-        outcome == "Mechanical Ventilation" ~ 4,
-        outcome == "Physical Restraints"    ~ 1,
-        outcome == "Coma"                   ~ 2,
-        TRUE                                ~ 3
+        outcome == "Mechanical Ventilation" ~ 1,
+        outcome == "Significant Pain"       ~ 2,
+        outcome == "Coma"                   ~ 3,
+        outcome == "Delirium"               ~ 4,
+        TRUE                                ~ 5
       ),
-      levels = 1:4,
-      labels = c("A: Physical Restraints", "B: Coma",
-                 "C: Delirium", "D: Mechanical Ventilation")
+      levels = 1:5,
+      labels = c("A: Mechanical Ventilation", "B: Significant Pain",
+                 "C: Coma", "D: Delirium", "E: Physical Restraints")
     )
   )
 
-inicu_plot_all <- ggplot(data = inicu_probs, aes(x = prop_done, y = yhat)) +
+inicu_plot_four <- ggplot(
+  data = inicu_probs %>% filter(!(outcome == "Significant Pain")),
+  aes(x = prop_done, y = yhat)
+) +
   facet_wrap(~ outcome_label, nrow = 2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
   geom_line(size = 1, colour = pub_color) +
@@ -3409,16 +3417,16 @@ inicu_plot_all <- ggplot(data = inicu_probs, aes(x = prop_done, y = yhat)) +
         plot.caption = element_text(size = 8, face = "italic"))
 
 ggsave(
-  filename = "inicu_plot_all.pdf",
-  plot = inicu_plot_all,
+  filename = "inicu_plot_four.pdf",
+  plot = inicu_plot_four,
   device = "pdf",
   path = "pubfigures/pdf",
   height = 4.5, width = 6
 )
 
 ggsave(
-  filename = "inicu_plot_all.png",
-  plot = inicu_plot_all,
+  filename = "inicu_plot_four.png",
+  plot = inicu_plot_four,
   device = "png",
   path = "pubfigures/png",
   height = 4.5, width = 6, dpi = png_dpi
@@ -3427,7 +3435,7 @@ ggsave(
 ```
 
 ```{r print_fig_manuscript}
-inicu_plot_all
+inicu_plot_four
 
 ```
 
@@ -3439,9 +3447,11 @@ After draft 1 was circulated, the decision was made to separate the MV figure fr
 versions for each outcome individually. A placeholder version is inserted here; high-resolution, publication-ready figures are found [here](https://drive.google.com/open?id=1NTDq0aqOBvGOz_jUamnbh-YhVUiFaShc).
 
 ```{r fig_inicu_three}
-inicu_plot_three <-
-  ggplot(data = inicu_probs %>% filter(outcome != "Mechanical Ventilation"),
-         aes(x = prop_done, y = yhat)) +
+inicu_plot_three <- ggplot(
+  data = inicu_probs %>%
+    filter(outcome %in% c("Coma", "Delirium", "Physical Restraints")),
+  aes(x = prop_done, y = yhat)
+) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
   geom_line(size = 1, colour = pub_color) +
   # geom_point(
@@ -3561,8 +3571,8 @@ inicu_singleplot <- function(out_full, out_title, ybreaks = 0.05){
 pwalk(
   list(
     "out_full" = as.character(unique(inicu_probs$outcome)),
-    "out_title" = c("mv", "res", "coma", "del"),
-    "ybreaks" = c(0.1, 0.05, 0.05, 0.05)
+    "out_title" = c("mv", "pain", "res", "coma", "del"),
+    "ybreaks" = c(0.1, 0.05, 0.05, 0.05, 0.05)
   ),
   inicu_singleplot
 )
@@ -3571,6 +3581,109 @@ pwalk(
 
 ```{r inicu_fig}
 inicu_plot_three_horiz
+
+```
+
+## In-ICU Figure, Draft 3
+
+After further edits, the decision was made to include all five in-ICU outcomes in the publication figure, using two rows with separate Y axis limits. A placeholder version is inserted here; high-resolution, publication-ready figures are found [here](https://drive.google.com/open?id=1NTDq0aqOBvGOz_jUamnbh-YhVUiFaShc).
+
+```{r fig_inicu_five}
+## Function to create individual plots with specified Y axes
+## Need to create two faceted plots:
+## 1. MV + pain; Y axes 0-100%
+## 2. Coma + delirium + restraints; Y axes 0-20%
+
+inicu_plots_combine <- function(outcomes, ylims, ybreaks){
+  p <- ggplot(
+    data = subset(inicu_probs, outcome %in% outcomes),
+    aes(x = prop_done, y = yhat)
+  ) +
+    facet_wrap(~ outcome_label, nrow = 1) +
+    geom_ribbon(
+      aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4
+    ) +
+    geom_line(size = 1, colour = pub_color) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          axis.title.x = element_text(vjust = 0),
+          axis.title.y = element_text(size = 9, vjust = 0.25),
+          axis.text.x = element_text(size = 7),
+          axis.text.y = element_text(size = 7),
+          strip.text = element_text(face = "bold", size = 11),
+          strip.background = element_rect(colour = "grey80", fill = "grey90"),
+          panel.spacing = unit(x = 0.1, "inches"),
+          panel.background = element_rect(colour = "grey80", fill = NA),
+          plot.subtitle = element_text(size = 8, face = "italic"),
+          plot.caption = element_text(size = 8, face = "italic"))
+  
+  ## Only want X, Y axis labels for coma/delirium/restraints (bottom row)
+  if(length(outcomes) == 3){
+    p <- p +
+      scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
+                         limits = 0:1,
+                         breaks = seq(0, 1, 0.2),
+                         labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+      scale_y_continuous(name = "Adjusted Probability",
+                         limits = ylims,
+                         breaks = seq(0, 1, ybreaks),
+                         labels = paste0("  ", seq(0, 1, ybreaks) * 100, "%"))
+  } else{
+    p <- p +
+      scale_x_continuous(#name = " ",
+                           ## using element_blank() made top larger than bottom
+                         limits = 0:1,
+                         breaks = seq(0, 1, 0.2),
+                         labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+      scale_y_continuous(name = "Adjusted Probability",
+                         limits = ylims,
+                         breaks = seq(0, 1, ybreaks),
+                         labels = paste0(seq(0, 1, ybreaks) * 100, "%")) +
+      theme(axis.title.x = element_blank())
+  }
+
+  return(p)
+}
+
+mvpain_plot <- inicu_plots_combine(
+  outcomes = c("Mechanical Ventilation", "Significant Pain"),
+  ylims = 0:1, ybreaks = 0.2
+)
+comadelres_plot <- inicu_plots_combine(
+  outcomes = c("Coma", "Delirium", "Physical Restraints"),
+  ylims = c(0, 0.21), ybreaks = 0.05
+)
+
+## Combine plots into one big multiplot, save
+ggsave(
+  filename = "inicu_fivepanel.pdf",
+  plot = multiplot(
+    plotlist = list(mvpain_plot, comadelres_plot),
+    layout = matrix(c(rep(1, 7), rep(2, 8)), ncol = 1)
+  ),
+  device = "pdf",
+  path = "pubfigures/pdf",
+  height = 4, width = 6.5
+)
+
+ggsave(
+  filename = "inicu_fivepanel.png",
+  plot = multiplot(
+    plotlist = list(mvpain_plot, comadelres_plot),
+    layout = matrix(c(rep(1, 7), rep(2, 8)), ncol = 1)
+  ),
+  device = "png",
+  path = "pubfigures/png",
+  height = 4, width = 6.5, dpi = png_dpi
+)
+
+```
+
+```{r inicu_five_fig}
+multiplot(
+  plotlist = list(mvpain_plot, comadelres_plot),
+  layout = matrix(c(rep(1, 7), rep(2, 8)), ncol = 1)
+)
 
 ```
 
