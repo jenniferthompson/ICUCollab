@@ -1716,7 +1716,7 @@ inicu_prob_results <- function(outcome_results,
     facet_wrap( ~ cp, nrow = 1) +
     geom_ribbon(aes(ymin = lower, ymax = upper, fill = cp), alpha = 0.3) +
     geom_line(aes(colour = cp)) +
-    scale_x_continuous(name = "Percent of Eligible Bundle Elements Done",
+    scale_x_continuous(name = "Percent of Eligible ABCDEF Bundle Elements Done",
                        limits = 0:1,
                        breaks = seq(0, 1, 0.2),
                        labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
@@ -2790,10 +2790,12 @@ summary_prob_results <- function(outcome_results,
     facet_grid(yn_elem ~ cp) +
     geom_ribbon(aes(ymin = lower, ymax = upper, fill = cp), alpha = 0.3) +
     geom_line(aes(colour = cp)) +
-    scale_x_continuous(name = "Percent of Bundle During Collaborative ICU Stay",
-                       limits = 0:1,
-                       breaks = seq(0, 1, 0.2),
-                       labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+    scale_x_continuous(
+      name = "Percent of ABCDEF Bundle During Collaborative ICU Stay",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ) +
     scale_y_continuous(
       name = sprintf("Adjusted Probability of %s",
                      outcome_name),
@@ -3392,17 +3394,21 @@ inicu_plot_four <- ggplot(
   data = inicu_probs %>% filter(!(outcome == "Significant Pain")),
   aes(x = prop_done, y = yhat)
 ) +
-  facet_wrap(~ outcome_label, nrow = 2) +
+  facet_wrap(~ outcome, nrow = 2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
   geom_line(size = 1, colour = pub_color) +
-  geom_point(aes(x = prop_done, y = yhat),
-             colour = "gray35", shape = 1, alpha = 0.02, size = 0.25,
-             position = position_jitter(height = 0.05, width = 0.025),
-             data = inicu_rawdata) +
-  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
-                     limits = 0:1,
-                     breaks = seq(0, 1, 0.2),
-                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  geom_point(
+    aes(x = prop_done, y = yhat),
+    colour = "gray35", shape = 1, alpha = 0.02, size = 0.25,
+    position = position_jitter(height = 0.05, width = 0.025),
+    data = inicu_rawdata %>% filter(!(outcome == "Significant Pain"))
+  ) +
+  scale_x_continuous(
+    name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+    limits = 0:1,
+    breaks = seq(0, 1, 0.2),
+    labels = paste0(seq(0, 1, 0.2) * 100, "%")
+  ) +
   scale_y_continuous(name = "Adjusted Probability of Outcome",
                      limits = c(-0.15, 1.15),
                      breaks = seq(0, 1, 0.2),
@@ -3460,10 +3466,12 @@ inicu_plot_three <- ggplot(
   #   position = position_jitter(height = 0.05, width = 0.025),
   #   data = inicu_rawdata %>% filter(outcome != "Mechanical Ventilation")
   # ) +
-  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
-                     limits = 0:1,
-                     breaks = seq(0, 1, 0.2),
-                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_x_continuous(
+    name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+    limits = 0:1,
+    breaks = seq(0, 1, 0.2),
+    labels = paste0(seq(0, 1, 0.2) * 100, "%")
+  ) +
   scale_y_continuous(name = "Adjusted Probability of Outcome",
                      # limits = c(-0.15, 1.15),
                      breaks = seq(0, 1, 0.05),
@@ -3480,9 +3488,9 @@ inicu_plot_three <- ggplot(
         plot.caption = element_text(size = 8, face = "italic"))
 
 inicu_plot_three_horiz <-
-  inicu_plot_three + facet_wrap(~ outcome_label, nrow = 1)
+  inicu_plot_three + facet_wrap(~ outcome, nrow = 1)
 inicu_plot_three_vert <-
-  inicu_plot_three + facet_wrap(~ outcome_label, ncol = 1)
+  inicu_plot_three + facet_wrap(~ outcome, ncol = 1)
 
 ggsave(
   filename = "inicu_plot_three_horiz.pdf",
@@ -3531,10 +3539,12 @@ inicu_singleplot <- function(out_full, out_title, ybreaks = 0.05){
   #   position = position_jitter(height = 0.05, width = 0.025),
   #   data = inicu_rawdata %>% filter(outcome != "Mechanical Ventilation")
   # ) +
-  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
-                     limits = 0:1,
-                     breaks = seq(0, 1, 0.2),
-                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_x_continuous(
+    name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+    limits = 0:1,
+    breaks = seq(0, 1, 0.2),
+    labels = paste0(seq(0, 1, 0.2) * 100, "%")
+  ) +
   scale_y_continuous(name = "Adjusted Probability of Outcome",
                      # limits = c(-0.15, 1.15),
                      breaks = seq(0, 1, ybreaks),
@@ -3599,7 +3609,7 @@ inicu_plots_combine <- function(outcomes, ylims, ybreaks){
     data = subset(inicu_probs, outcome %in% outcomes),
     aes(x = prop_done, y = yhat)
   ) +
-    facet_wrap(~ outcome_label, nrow = 1) +
+    facet_wrap(~ outcome, nrow = 1) +
     geom_ribbon(
       aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4
     ) +
@@ -3620,10 +3630,12 @@ inicu_plots_combine <- function(outcomes, ylims, ybreaks){
   ## Only want X, Y axis labels for coma/delirium/restraints (bottom row)
   if(length(outcomes) == 3){
     p <- p +
-      scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
-                         limits = 0:1,
-                         breaks = seq(0, 1, 0.2),
-                         labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+      scale_x_continuous(
+        name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+        limits = 0:1,
+        breaks = seq(0, 1, 0.2),
+        labels = paste0(seq(0, 1, 0.2) * 100, "%")
+      ) +
       scale_y_continuous(name = "Adjusted Probability",
                          limits = ylims,
                          breaks = seq(0, 1, ybreaks),
@@ -3756,7 +3768,6 @@ tte_plot_three <- ggplot(data = tte_hrs, aes(x = ylabel, y = effect)) +
     data = tte_favorable,
     nudge_x = -0.35, fontface = "italic", size = 2.5, color = pub_color
   ) +
-  scale_x_discrete(name = "Proportion of Bundle Elements Performed") +
   coord_flip() +
   theme_minimal() +
   theme(strip.text = element_text(hjust = 0.05, face = "bold"),
@@ -3770,12 +3781,13 @@ tte_plot_three <- ggplot(data = tte_hrs, aes(x = ylabel, y = effect)) +
         plot.caption = element_text(size = 8, face = "italic"))
 
 ## Horizontal, vertical versions
-tte_plot_three_horiz <- tte_plot_three + facet_wrap(~ outcome_label, nrow = 1)
-tte_plot_three_vert <- tte_plot_three + facet_wrap(~ outcome_label, ncol = 1)
+tte_plot_three_horiz <- tte_plot_three + facet_wrap(~ outcome, nrow = 1)
+tte_plot_three_vert <- tte_plot_three + facet_wrap(~ outcome, ncol = 1)
 
 ggsave(
   filename = "tte_plot_three_horiz.pdf",
   plot = tte_plot_three_horiz +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle\nElements Performed") +
     scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
                        limits = c(0, 2.05),
                        breaks = seq(0, 10, 0.5)) +
@@ -3788,6 +3800,7 @@ ggsave(
 ggsave(
   filename = "tte_plot_three_horiz.png",
   plot = tte_plot_three_horiz +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle\nElements Performed") +
     scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
                        limits = c(0, 2.05),
                        breaks = seq(0, 10, 0.5)) +
@@ -3800,6 +3813,7 @@ ggsave(
 ggsave(
   filename = "tte_plot_three_vert.pdf",
   plot = tte_plot_three_vert +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle Elements Performed") +
     scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
                        limits = c(0, 2.05),
                        breaks = seq(0, 10, 0.2)) +
@@ -3812,6 +3826,7 @@ ggsave(
 ggsave(
   filename = "tte_plot_three_vert.png",
   plot = tte_plot_three_vert +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle Elements Performed") +
     scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
                        limits = c(0, 2.05),
                        breaks = seq(0, 10, 0.2)) +
@@ -3842,7 +3857,7 @@ tte_singleplot <- function(out_full, out_title, xbreaks){
       nudge_x = -0.35,
       fontface = "italic", size = 4, color = pub_color
     ) +
-    scale_x_discrete(name = "Proportion of Bundle Elements Performed") +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle Elements Performed") +
     scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
                        limits = c(floor(min(df$lcl) / 0.1) * 0.1,
                                   ceiling(max(df$ucl) / 0.1) * 0.1),
@@ -3933,10 +3948,6 @@ icusummary_plot_all <- ggplot(
 ) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
   geom_line(size = 1, colour = pub_color) +
-  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
-                     limits = 0:1,
-                     breaks = seq(0, 1, 0.2),
-                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
   scale_y_continuous(name = "Adjusted Probability of Outcome",
                      # limits = c(-0.15, 1.15),
                      breaks = seq(0, 1, 0.1),
@@ -3953,7 +3964,13 @@ icusummary_plot_all <- ggplot(
 ggsave(
   filename = "icusummary_plot_all_horiz.pdf",
   plot = icusummary_plot_all +
-    facet_wrap(~ outcome_label, scales = "free_y", nrow = 1),
+    facet_wrap(~ outcome, scales = "free_y", nrow = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
   device = "pdf",
   path = "pubfigures/pdf",
   height = 3.5, width = 6
@@ -3962,7 +3979,13 @@ ggsave(
 ggsave(
   filename = "icusummary_plot_all_horiz.png",
   plot = icusummary_plot_all +
-    facet_wrap(~ outcome_label, scales = "free_y", nrow = 1),
+    facet_wrap(~ outcome, scales = "free_y", nrow = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
   device = "png",
   path = "pubfigures/png",
   height = 3.5, width = 6, dpi = png_dpi
@@ -3971,7 +3994,13 @@ ggsave(
 ggsave(
   filename = "icusummary_plot_all_vert.pdf",
   plot = icusummary_plot_all +
-    facet_wrap(~ outcome_label, scales = "free_y", ncol = 1),
+    facet_wrap(~ outcome, scales = "free_y", ncol = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle\nElements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
   device = "pdf",
   path = "pubfigures/pdf",
   height = 6, width = 4
@@ -3980,7 +4009,13 @@ ggsave(
 ggsave(
   filename = "icusummary_plot_all_vert.png",
   plot = icusummary_plot_all +
-    facet_wrap(~ outcome_label, scales = "free_y", ncol = 1),
+    facet_wrap(~ outcome, scales = "free_y", ncol = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle\nElements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
   device = "png",
   path = "pubfigures/png",
   height = 6, width = 4, dpi = png_dpi
@@ -3995,10 +4030,12 @@ icusummary_singleplot <- function(out_full, out_title, ybreaks = 0.05){
   facet_wrap(~ outcome, nrow = 1) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = pub_color, alpha = 0.4) +
   geom_line(size = 1, colour = pub_color) +
-  scale_x_continuous(name = "Percent of Eligible Bundle Elements Performed",
-                     limits = 0:1,
-                     breaks = seq(0, 1, 0.2),
-                     labels = paste0(seq(0, 1, 0.2) * 100, "%")) +
+  scale_x_continuous(
+    name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+    limits = 0:1,
+    breaks = seq(0, 1, 0.2),
+    labels = paste0(seq(0, 1, 0.2) * 100, "%")
+  ) +
   scale_y_continuous(name = "Adjusted Probability of Outcome",
                      breaks = seq(0, 1, ybreaks),
                      labels = paste0(seq(0, 1, ybreaks) * 100, "%")) +
@@ -4044,7 +4081,7 @@ pwalk(
 
 ```{r icusummary_fig}
 icusummary_plot_all +
-  facet_wrap(~ outcome_label, scales = "free_y", nrow = 1)
+  facet_wrap(~ outcome, scales = "free_y", nrow = 1)
 
 ```
 
