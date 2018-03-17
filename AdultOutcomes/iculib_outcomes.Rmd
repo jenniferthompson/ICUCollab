@@ -1090,10 +1090,51 @@ of mobility level prior to Collaborative admission (`r round(mean(is.na(df_logmo
 included below; below this level, we typically don't worry much about missingness.
 
 ```{r logmods_missing, fig.height = 6, fig.width = 5}
-gg_miss_var(df_logmods %>% dplyr::select(-id), show_pct = TRUE) +
+miss_plot <- gg_miss_var(df_logmods %>% dplyr::select(-id), show_pct = TRUE) +
   geom_hline(yintercept = 5, color = "grey50", linetype = "dotted") +
-  labs(title = "Proportion of Patient-Days with Missing Values, In-ICU Outcomes and Covariates",
+  scale_y_continuous(
+    name = "Percent Missing",
+    breaks = seq(0, 100, 10), labels = paste0(seq(0, 100, 10), "%")
+  ) +
+  labs(title = "Percent of Patient-Days\nwith Missing Values,\nIn-ICU Outcomes & Covariates",
        x = "")
+
+## Use labels instead of variable names, as this will go in the supplement
+## Modify $data element of miss_plot using named vector (varname = varlabel)
+var_labels <- set_names(
+  c("ID", "Age category", "Sex", "Race", "Hispanic ethnicity", "BMI",
+    "Mobility, pre-admission", "Primary admission reason",
+    "Residence, pre-admission", "ICU type", "Hospital type", "Site",
+    "In ICU today", "Event name", "Comfort care today", "On sedation today",
+    "Benzodiazepines today", "Opioids today", "Propofol today",
+    "Dexmedetomidine today", "Antipsychotics today", "MV today", "Coma today",
+    "Restraints today", "Significant pain today", "Delirium today",
+    "ABCDEF Bundle completed, y/n", "ABCDEF Bundle performed, y/n",
+    "Proportion Bundle completed", "Proportion Bundle performed",
+    "In ICU tomorrow", "MV tomorrow", "Coma next day", "Restraints next day",
+    "Significant pain next day", "Delirium next day"),
+  names(df_logmods)
+)
+
+miss_plot$data$variable <- as.character(var_labels[miss_plot$data$variable])
+
+ggsave(
+  filename = "missing_plot.pdf",
+  plot = miss_plot,
+  device = "pdf",
+  path = "pubfigures/pdf",
+  height = 7, width = 5
+)
+
+ggsave(
+  filename = "missing_plot.png",
+  plot = miss_plot,
+  device = "png",
+  path = "pubfigures/png",
+  height = 7, width = 5, dpi = png_dpi
+)
+
+miss_plot
 
 ```
 
