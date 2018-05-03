@@ -20,6 +20,11 @@ suppressPackageStartupMessages(library(plotly, quietly = TRUE))
 suppressPackageStartupMessages(library(naniar, quietly = TRUE))
 suppressPackageStartupMessages(library(JTHelpers, quietly = TRUE))
 suppressPackageStartupMessages(library(pander, quietly = TRUE))
+suppressPackageStartupMessages(library(knitr, quietly = TRUE))
+suppressPackageStartupMessages(library(kableExtra, quietly = TRUE))
+suppressPackageStartupMessages(library(tipr, quietly = TRUE))
+  ## for tipping point analyses
+  ## https://cran.r-project.org/web/packages/tipr/README.html
 
 ## dpi for PNG figures
 png_dpi <- 400
@@ -3301,6 +3306,178 @@ For each daily "dose" of Bundle compliance or performance (elements meeting crit
 
 ```{r print_dclocprobs, fig.width = 3.5, fig.height = 3}
 dcloc_probplot
+
+```
+
+# Tipping Point Sensitivity Analysis
+
+Due to the diversity of typical data collection across our `r length(unique(demog$hosp))` sites nationwide, we are unable to adjust for
+measures of severity of illness, which could be a major unmeasured confounder.
+(Please see Table 1 for further details.) A traditional sensitivity analysis
+could actually *introduce* bias: the most common SOI score was only collected at
+six sites, and there is a strong chance that those six sites have additional
+unmeasured differences from the other sites (for example, nearly all these
+scores are from teaching vs community hospitals).
+
+We introduce a "tipping point" analysis to determine how large the relationship between severity of illness and each outcome would need to be in order to tip
+each of our "significant" outcomes to inconclusivity, where the confidence
+interval for an odds or hazard ratio would include 1. We do this for outcomes
+which reach statistical significance in our original analyses for the binary
+exposure of whether the entire Bundle was performed (yes/no). This is a
+**conservative** analysis; it assumes that severity of illness is not associated
+with any of the covariates we were able to include in our models, which is
+almost certainly not the case. If there is a relationship between SOI and any of
+the covariates, the tipping points would be proportionally larger than shown
+below.
+
+We use the `r sum(!is.na(demog$apacheiii_score))` patients with APACHE III, our
+most commonly available measure of SOI, available as an estimate of the relationships between SOI and ABCDEF Bundle performance. In case this subset is different from our entire cohort, we also provide a more conservative estimate, where the difference in SOI between exposed (complete performance) and unexposed (incomplete or no performance) groups is 25% larger.
+
+For each outcome, we present the observed relationship between ABCDEF Bundle
+performance (yes/no) and the outcome, adjusted for covariates listed above; the
+observed difference in standardized means between the exposed (complete
+performance) and unexposed (incomplete or no performance) groups; and the
+estimate of the odds or hazard ratio that would have to be observed between a
+one-unit change in APACHE III and each outcome in order to make our results
+inconclusive.
+
+The following references are relevant; D'Agostino McGowan's work builds on that by Lin et al:
+
+- D'Agostino McGowan, Lucy. March 23, 2018. *[Improving Modern Techniques of
+Causal Inference: Finite Sample Performance of ATM and ATO Doubly Robust
+Estimators, Variance Estimation for ATO Estimators, and Contextualized Tipping
+Point Sensitivity Analyses for Unmeasured Confounding](https://etd.library.vanderbilt.edu//available/etd-03232018-135113/unrestricted/dagostino-mcgowan.pdf)* (Doctoral dissertation). Retrieved from
+[Vanderbilt University Electronic Theses and Dissertations](https://etd.library.vanderbilt.edu//).
+- Lin DY, Psaty BM, Kronmal BA. "[Assessing the Sensitivity of Regression
+Results to Unmeasured Confounders in Observational Studies](https://www.ncbi.nlm.nih.gov/pubmed/9750244)." *Biometrics*, 1998 Sep;
+54(3):948-63.
+
+```{r tipping}
+## -- Function to get tipping points for a given outcome -----------------------
+## Arguments:
+## - Original model results (list inc list of models and a dataset of ORs/HRs;
+##   eg, mv_results)
+## - Outcome (string)
+## - Data frame for original model
+## - Amount to increase relationships between APACHE, performance by for
+##   conservatism (defaults to 25%)
+get_tippt <- function(
+  results_list,
+  outcome_string,
+  model_df,
+  cons_pct = 0.25
+){
+  ## Get original odds/hazard ratios and CI
+  ratios_here <- str_subset(names(results_list), "ors|hrs")
+  
+  org_ratios <- pluck(results_list, ratios_here) %>%
+    filter(variable == "perf_yn_f" & !is.ref)
+  
+  ## String of outcome + original results (will be on Y axis of eventual graph)
+  org_results <- org_ratios %>%
+    mutate(
+      outcome = outcome_string,
+      org_string = sprintf(
+        "%s (%s, %s)", rndformat(effect), rndformat(lcl), rndformat(ucl)
+      )
+    ) %>%
+    dplyr::select(outcome, org_string)
+  
+  ## -- Create dataset with *only* patients who had APACHE III -----------------
+  apache_df <- inner_join(
+    filter(demog, !is.na(apacheiii_score)) %>%
+      dplyr::select(id, apacheiii_score),
+    model_df,
+    by = "id"
+  )
+
+  ## -- Calculate observed SMD for APACHE III in performed Y/N groups ----------
+  ## Should be very similar for all outcomes, but datasets are slightly
+  ## different depending on missingness, so may vary a bit
+  apache_yes <- apache_df %>%
+    filter(perf_yn_f == "Performed") %>%
+    pull(apacheiii_score)
+  
+  apache_no <- apache_df %>%
+    filter(perf_yn_f == "Not performed") %>%
+    pull(apacheiii_score)
+  
+  ## Calculate observed diff between standardized means, exposed vs unexposed
+  smd_obs <-
+    (mean(apache_yes) / sqrt(var(apache_yes))) -
+      (mean(apache_no) / sqrt(var(apache_no)))
+
+  ## Observed difference between exposure & SOI
+  tip_obs <- tipr::tip_with_continuous(
+    mean_diff = smd_obs,
+    lb = org_ratios %>% pull(lcl),
+    ub = org_ratios %>% pull(ucl)
+  )
+  tip_cons <- tipr::tip_with_continuous(
+    mean_diff = smd_obs * (1 + cons_pct),
+    lb = org_ratios %>% pull(lcl),
+    ub = org_ratios %>% pull(ucl)
+  )
+  
+  ## -- Final data.frame with all results --------------------------------------
+  bind_cols(
+    org_results,
+    data.frame(
+      smd_obs = smd_obs,
+      tip_obs = tip_obs,
+      tip_cons = tip_cons
+    )
+  )%>%
+    return()
+  
+}
+
+## -- Set up list of arguments to cover all outcomes ---------------------------
+tip_args <- list(
+  results_list = list(
+    mv_results, coma_results, del_results, res_results, iculos_results,
+    hosplos_results, death_results
+  ),
+  outcome_string = c("MV", "Coma", "Delirium", "Physical Restraints",
+                     "ICU Discharge", "Hospital Discharge", "Death"),
+  model_df = list(
+    df_logmod_mv, df_logmod_coma, df_logmod_del, df_logmod_res,
+    iculos_dflist[[2]], hosplos_dflist[[2]], death_dflist[[2]]
+  )
+)
+
+tipping_points <- pmap_df(
+  .l = tip_args,
+  .f = get_tippt
+)
+
+```
+
+As one example, given both our original results and the observed relationship in
+our data between APACHE III score and ABCDEF Bundle performance, there would have to be an odds ratio of
+`r tipping_points %>% filter(outcome == "MV") %>% pull(tip_obs) %>% round(2)`
+for a one-unit change in APACHE III vs mechanical ventilation in order to move
+our observed results to inconclusivity (confidence interval including 1). With a
+more conservative approach, we would still need an odds ratio of `r tipping_points %>% filter(outcome == "MV") %>% pull(tip_cons) %>% round(2)` to
+tip the scales. These are pretty extreme and unlikely values (especially given
+the inherent conservatism in this approach, assuming that SOI is unrelated to
+any other covariates); thus we have more confidence that even if the true
+adjusted association between Bundle performance and MV is smaller than observed
+after adjusting for SOI, it would still be meaningful.
+
+For our outcomes of ICU and hospital discharge, however, where our original
+results are much closer to inconclusivity, it would take a much smaller
+relationship between SOI and each outcome to change our results.
+
+```{r print_tippt}
+tipping_points %>%
+  kable(format = "html",
+        col.names = c("Outcome", "Original Results", "Observed SMD",
+                      "Observed", "Conservative"),
+        align = c("l", rep("r", 4)),
+        digits = 2) %>%
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  add_header_above(c(" " = 3, "Tipping Point" = 2))
 
 ```
 
