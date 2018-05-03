@@ -895,6 +895,20 @@ tsdata <- compliance %>%
   summarise_all(sum, na.rm = TRUE) %>%
   ungroup()
 
+## Time series data by study site for R01 application
+tsdata_site <- compliance %>%
+  filter(icu_day) %>%
+  left_join(dplyr::select(demog, id, hosp_f), by = "id") %>%
+  dplyr::select(month_f,
+                hosp_f,
+                icu_day,
+                starts_with("elements_"),
+                on_sedation_icu, on_mv_icu, family_present_icu,
+                matches("^comp\\_[^prop]"), matches("^perf\\_[^prop]")) %>%
+  group_by(month_f, hosp_f) %>%
+  summarise_all(sum, na.rm = TRUE) %>%
+  ungroup()
+
 ## Numerator for overall compliance/performance: comp_yn, perf_yn
 ## Numerator for compliance/performance "dose": elements_comp, elements_perf
 ## Numerator for individual bundle element compliance: comp_[a/b_sat/b_sbt/c/d/e/f]
@@ -907,6 +921,7 @@ tsdata <- compliance %>%
 ## Denominator for F: family_present_icu
 
 write_csv(tsdata, path = "AnalysisData/iculib_tsdata.csv", na = "")
+write_csv(tsdata_site, path = "AnalysisData/iculib_tsdata_site.csv", na = "")
 
 ## -- Some T/F variables would be better as factors for later purposes ---------
 make_tf_factor <- function(vname, vlevels){
