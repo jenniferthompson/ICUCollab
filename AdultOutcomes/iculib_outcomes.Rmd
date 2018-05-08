@@ -3311,46 +3311,15 @@ dcloc_probplot
 
 # Tipping Point Sensitivity Analysis
 
-Due to the diversity of typical data collection across our `r length(unique(demog$hosp))` sites nationwide, we are unable to adjust for
-measures of severity of illness, which could be a major unmeasured confounder.
-(Please see Table 1 for further details.) A traditional sensitivity analysis
-could actually *introduce* bias: the most common SOI score was only collected at
-six sites, and there is a strong chance that those six sites have additional
-unmeasured differences from the other sites (for example, nearly all these
-scores are from teaching vs community hospitals).
+Due to the diversity of typical data collection across our 68 sites nationwide, we were unable to adjust for measures of severity of illness (SOI) (please see Table 1 for further details.) Though every observational study has the potential limitation of unmeasured confounding, in this case the inability to adjust for SOI poses a particular problem. A traditional sensitivity analysis could actually produce a biased result: the most common SOI score among our participating sites (APACHE III) was only collected at six institutions, and there is a strong chance that those six sites had additional unmeasured differences from the other sites (for example, nearly all these scores were from teaching hospitals, but over 1/3 of our cohort was from community hospitals).
 
-We introduce a "tipping point" analysis to determine how large the relationship between severity of illness and each outcome would need to be in order to tip
-each of our "significant" outcomes to inconclusivity, where the confidence
-interval for an odds or hazard ratio would include 1. We do this for outcomes
-which reach statistical significance in our original analyses for the binary
-exposure of whether the entire Bundle was performed (yes/no). This is a
-**conservative** analysis; it assumes that severity of illness is not associated
-with any of the covariates we were able to include in our models, which is
-almost certainly not the case. If there is a relationship between SOI and any of
-the covariates, the tipping points would be proportionally larger than shown
-below.
+For this reason, we believe that a “tipping point” analysis is better able to account for this limitation. This type of analysis allows us to quantify the amount of total unmeasured confounding which would be needed to render our analysis inconclusive (i.e., such that the confidence interval for an odds or hazard ratio would include 1). We have hypothetical relationships between the exposure, the outcome, and the unmeasured confounder. The tipping point analysis incorporates the relationship between the exposure and outcome observed in our original results; fixes the relationship between the unmeasured confounder and either the exposure or the outcome; and uses those quantities to estimate the size of the remaining relationship needed to render the original results inconclusive. This is in some ways a conservative analysis: It assumes that the unmeasured confounder is not associated with any of the covariates we included in our models, which was almost certainly not the case (we would expect SOI to be related to mechanical ventilation, for example).
 
-We use the `r sum(!is.na(demog$apacheiii_score))` patients with APACHE III, our
-most commonly available measure of SOI, available as an estimate of the relationships between SOI and ABCDEF Bundle performance. In case this subset is different from our entire cohort, we also provide a more conservative estimate, where the difference in SOI between exposed (complete performance) and unexposed (incomplete or no performance) groups is 25% larger.
+In this case, we fix the relationship between SOI (unmeasured confounder) and ABCDEF Bundle performance (exposure), estimating that relationship using the 994 patients with APACHE III (our most common measure of SOI) available; this relationship is described in the Table as the “Difference in Means” (standardized, so that the scale of the variable has no effect on the results).
 
-For each outcome, we present the observed relationship between ABCDEF Bundle
-performance (yes/no) and the outcome, adjusted for covariates listed above; the
-observed difference in standardized means between the exposed (complete
-performance) and unexposed (incomplete or no performance) groups; and the
-estimate of the odds or hazard ratio that would have to be observed between a
-one-unit change in APACHE III and each outcome in order to make our results
-inconclusive.
+We then determine the odds or hazard ratio that would have to be observed between SOI and each outcome in order to render our results inconclusive. We present these results in the “Observed” column in the Table, as they are based on the relationships we observed in our data. We also used a more conservative estimate, in which we assumed the difference in SOI between exposed and unexposed groups was 25% larger than what we observed; we present this in the “Conservative” column.
 
-The following references are relevant; D'Agostino McGowan's work builds on that by Lin et al:
-
-- D'Agostino McGowan, Lucy. March 23, 2018. *[Improving Modern Techniques of
-Causal Inference: Finite Sample Performance of ATM and ATO Doubly Robust
-Estimators, Variance Estimation for ATO Estimators, and Contextualized Tipping
-Point Sensitivity Analyses for Unmeasured Confounding](https://etd.library.vanderbilt.edu//available/etd-03232018-135113/unrestricted/dagostino-mcgowan.pdf)* (Doctoral dissertation). Retrieved from
-[Vanderbilt University Electronic Theses and Dissertations](https://etd.library.vanderbilt.edu//).
-- Lin DY, Psaty BM, Kronmal BA. "[Assessing the Sensitivity of Regression
-Results to Unmeasured Confounders in Observational Studies](https://www.ncbi.nlm.nih.gov/pubmed/9750244)." *Biometrics*, 1998 Sep;
-54(3):948-63.
+For the convenience of the reader, we also present the original odds or hazard ratio for ABCDEF Bundle performance (yes/no) and each outcome (which is adjusted for 18 potential confounders determined a priori as listed in Methods, but is unadjusted for SOI).
 
 ```{r tipping}
 ## -- Function to get tipping points for a given outcome -----------------------
@@ -3435,14 +3404,14 @@ get_tippt <- function(
 ## -- Set up list of arguments to cover all outcomes ---------------------------
 tip_args <- list(
   results_list = list(
-    mv_results, coma_results, del_results, res_results, iculos_results,
-    hosplos_results, death_results
+    mv_results, coma_results, del_results, res_results, death_results,
+    iculos_results, hosplos_results
   ),
-  outcome_string = c("MV", "Coma", "Delirium", "Physical Restraints",
-                     "ICU Discharge", "Hospital Discharge", "Death"),
+  outcome_string = c("MV", "Coma", "Delirium", "Physical Restraints", "Death",
+                     "ICU Discharge", "Hospital Discharge"),
   model_df = list(
     df_logmod_mv, df_logmod_coma, df_logmod_del, df_logmod_res,
-    iculos_dflist[[2]], hosplos_dflist[[2]], death_dflist[[2]]
+    death_dflist[[2]], iculos_dflist[[2]], hosplos_dflist[[2]]
   )
 )
 
@@ -3453,33 +3422,50 @@ tipping_points <- pmap_df(
 
 ```
 
-As one example, given both our original results and the observed relationship in
-our data between APACHE III score and ABCDEF Bundle performance, there would have to be an odds ratio of
-`r tipping_points %>% filter(outcome == "MV") %>% pull(tip_obs) %>% round(2)`
-for a one-unit change in APACHE III vs mechanical ventilation in order to move
-our observed results to inconclusivity (confidence interval including 1). With a
-more conservative approach, we would still need an odds ratio of `r tipping_points %>% filter(outcome == "MV") %>% pull(tip_cons) %>% round(2)` to
-tip the scales. These are pretty extreme and unlikely values (especially given
-the inherent conservatism in this approach, assuming that SOI is unrelated to
-any other covariates); thus we have more confidence that even if the true
-adjusted association between Bundle performance and MV is smaller than observed
-after adjusting for SOI, it would still be meaningful.
-
-For our outcomes of ICU and hospital discharge, however, where our original
-results are much closer to inconclusivity, it would take a much smaller
-relationship between SOI and each outcome to change our results.
-
 ```{r print_tippt}
 tipping_points %>%
   kable(format = "html",
-        col.names = c("Outcome", "Original Results", "Observed SMD",
-                      "Observed", "Conservative"),
+        col.names = c(
+          "Outcome", "Observed Results\n(Unadjusted for SOI)",
+          "Difference in\nMeans (Standardized),\nBundle Performed vs Not",
+          "Observed", "Conservative"
+        ),
         align = c("l", rep("r", 4)),
         digits = 2) %>%
   kable_styling(bootstrap_options = c("striped", "hover")) %>%
-  add_header_above(c(" " = 3, "Tipping Point" = 2))
+  add_header_above(
+    c(" " = 3, "Ratio for APACHE III Needed to Tip" = 2)
+  ) %>%
+  group_rows(
+    group_label = "Odds or Hazard Ratio < 1 = Beneficial",
+    start_row = 1, end_row = 5
+  ) %>%
+  group_rows(
+    group_label = "Odds or Hazard Ratio > 1 = Beneficial",
+    start_row = 6, end_row = 7
+  )
 
 ```
+
+**EXAMPLE**: In our original analyses, we observed an odds ratio of 0.28 for Bundle performance and mechanical ventilation, with a limiting confidence bound of 0.36 (where the “limiting” bound is the bound closest to 1). Given this relationship and the observed relationship between APACHE III and Bundle performance, we would have to observe a relationship between APACHE III and mechanical ventilation represented by an odds ratio of 0.08 for every one-unit change in APACHE III in order to move our observed results to inconclusivity (i.e., where the CI includes 1). Using a more conservative approach, we would still need an odds ratio of 0.13 to move the limiting bound (the bound closest
+to 1) of our observed results to 1. (This result is more conservative because
+the effect needed to tip is closer to 1, which on the odds ratio scale indicates
+*less* of an effect needed to tip.)
+
+These are both extreme and unlikely values. Based on these results, we have more confidence that even if the true adjusted associations between Bundle performance and both mortality and all our in-ICU outcomes are smaller than observed after adjusting for SOI, they would still be meaningful.
+
+In contrast, for the outcomes of ICU and hospital discharge, it would take a much smaller and potentially realistic relationship between SOI and each outcome to change our conclusions: For example, we would need a relationship of only 1.05 between SOI and Bundle performance to move our observed results to inconclusivity (much closer to 1). For this reason, the findings of our Tipping Point analysis led us to de-emphasize our significant findings for these two outcomes in this manuscript.
+
+The following references are relevant; D'Agostino McGowan's work builds on that by Lin et al:
+
+- D'Agostino McGowan, Lucy. March 23, 2018. *[Improving Modern Techniques of
+Causal Inference: Finite Sample Performance of ATM and ATO Doubly Robust
+Estimators, Variance Estimation for ATO Estimators, and Contextualized Tipping
+Point Sensitivity Analyses for Unmeasured Confounding](https://etd.library.vanderbilt.edu//available/etd-03232018-135113/unrestricted/dagostino-mcgowan.pdf)* (Doctoral dissertation). Retrieved from
+[Vanderbilt University Electronic Theses and Dissertations](https://etd.library.vanderbilt.edu//).
+- Lin DY, Psaty BM, Kronmal BA. "[Assessing the Sensitivity of Regression
+Results to Unmeasured Confounders in Observational Studies](https://www.ncbi.nlm.nih.gov/pubmed/9750244)." *Biometrics*, 1998 Sep;
+54(3):948-63.
 
 # Attempt at mixed effects model for MV
 
