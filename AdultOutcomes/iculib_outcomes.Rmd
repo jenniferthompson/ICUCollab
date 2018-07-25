@@ -27,7 +27,7 @@ suppressPackageStartupMessages(library(tipr, quietly = TRUE))
   ## https://cran.r-project.org/web/packages/tipr/README.html
 
 ## dpi for PNG figures
-png_dpi <- 400
+png_dpi <- 600
 
 load("AnalysisData/iculib.Rdata")
 
@@ -1139,6 +1139,22 @@ ggsave(
   height = 7, width = 5, dpi = png_dpi
 )
 
+ggsave(
+  filename = "missing_plot.eps",
+  plot = miss_plot,
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 7, width = 5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "missing_plot.tiff",
+  plot = miss_plot,
+  device = "tiff",
+  path = "pubfigures/tiff",
+  height = 7, width = 5, dpi = png_dpi
+)
+
 miss_plot
 
 ```
@@ -1825,7 +1841,7 @@ df_logmod_mv$include <- rowSums(is.na(df_logmod_mv[,mv_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_mv <- miss_var_summary(subset(df_logmod_mv, !include)) %>%
-  filter(percent > 0 & variable %in% mv_vars)
+  filter(pct_miss > 0 & variable %in% mv_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_mv <- in_icu_exclusion(df_logmod_mv)
@@ -1911,7 +1927,7 @@ df_logmod_coma$include <- rowSums(is.na(df_logmod_coma[,coma_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_coma <- miss_var_summary(subset(df_logmod_coma, !include)) %>%
-  filter(percent > 0 & variable %in% coma_vars)
+  filter(pct_miss > 0 & variable %in% coma_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_coma <- in_icu_exclusion(df_logmod_coma)
@@ -1999,7 +2015,7 @@ df_logmod_del$include <- rowSums(is.na(df_logmod_del[,del_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_del <- miss_var_summary(subset(df_logmod_del, !include)) %>%
-  filter(percent > 0 & variable %in% del_vars)
+  filter(pct_miss > 0 & variable %in% del_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_del <- in_icu_exclusion(df_logmod_del)
@@ -2090,7 +2106,7 @@ df_logmod_res$include <- rowSums(is.na(df_logmod_res[,res_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_res <- miss_var_summary(subset(df_logmod_res, !include)) %>%
-  filter(percent > 0 & variable %in% res_vars)
+  filter(pct_miss > 0 & variable %in% res_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_res <- in_icu_exclusion(df_logmod_res)
@@ -2179,7 +2195,7 @@ df_logmod_pain$include <- rowSums(is.na(df_logmod_pain[,pain_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_pain <- miss_var_summary(subset(df_logmod_pain, !include)) %>%
-  filter(percent > 0 & variable %in% pain_vars)
+  filter(pct_miss > 0 & variable %in% pain_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_pain <- in_icu_exclusion(df_logmod_pain)
@@ -2963,7 +2979,7 @@ df_icureadm$include[complete.cases(df_icureadm)] <- TRUE
 miss_icureadm <- summary_exclusion(df_icureadm)
 
 miss_var_icureadm <- miss_var_summary(subset(df_icureadm, !include)) %>%
-  filter(percent > 0)
+  filter(pct_miss > 0)
 
 ```
 
@@ -3227,7 +3243,7 @@ miss_dcloc <- summary_exclusion(df_dcloc)
 
 ## Summarize missing data
 miss_var_dcloc <- miss_var_summary(subset(df_dcloc, !include)) %>%
-  filter(percent > 0)
+  filter(pct_miss > 0)
 
 ```
 
@@ -3642,6 +3658,22 @@ ggsave(
   height = 4.5, width = 6, dpi = png_dpi
 )
 
+ggsave(
+  filename = "inicu_plot_four.eps",
+  plot = inicu_plot_four,
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 4.5, width = 6, dpi = png_dpi
+)
+
+ggsave(
+  filename = "inicu_plot_four.tiff",
+  plot = inicu_plot_four,
+  device = "tiff",
+  path = "pubfigures/tiff",
+  height = 4.5, width = 6, dpi = png_dpi
+)
+
 ```
 
 ```{r print_fig_manuscript}
@@ -3713,6 +3745,22 @@ ggsave(
 )
 
 ggsave(
+  filename = "inicu_plot_three_horiz.eps",
+  plot = inicu_plot_three_horiz,
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 3, width = 6.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "inicu_plot_three_horiz.tiff",
+  plot = inicu_plot_three_horiz,
+  device = "tiff",
+  path = "pubfigures/tiff",
+  height = 3, width = 6.5, dpi = png_dpi
+)
+
+ggsave(
   filename = "inicu_plot_three_vert.pdf",
   plot = inicu_plot_three_vert,
   device = "pdf",
@@ -3725,6 +3773,22 @@ ggsave(
   plot = inicu_plot_three_vert,
   device = "png",
   path = "pubfigures/png",
+  height = 6, width = 4.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "inicu_plot_three_vert.eps",
+  plot = inicu_plot_three_vert,
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 6, width = 4.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "inicu_plot_three_vert.tiff",
+  plot = inicu_plot_three_vert,
+  device = "tiff",
+  path = "pubfigures/tiff",
   height = 6, width = 4.5, dpi = png_dpi
 )
 
@@ -3777,6 +3841,22 @@ inicu_singleplot <- function(out_full, out_title, ybreaks = 0.05){
     plot = icuplot,
     device = "png",
     path = "pubfigures/png",
+    height = 5, width = 6, dpi = png_dpi
+  )
+
+  ggsave(
+    filename = sprintf("inicu_plot_%s.eps", out_title),
+    plot = icuplot,
+    device = cairo_ps,
+    path = "pubfigures/eps",
+    height = 5, width = 6, dpi = png_dpi
+  )
+
+  ggsave(
+    filename = sprintf("inicu_plot_%s.tiff", out_title),
+    plot = icuplot,
+    device = "tiff",
+    path = "pubfigures/tiff",
     height = 5, width = 6, dpi = png_dpi
   )
 
@@ -3890,6 +3970,28 @@ ggsave(
   ),
   device = "png",
   path = "pubfigures/png",
+  height = 4, width = 6.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "inicu_fivepanel.eps",
+  plot = multiplot(
+    plotlist = list(mvpain_plot, comadelres_plot),
+    layout = matrix(c(rep(1, 7), rep(2, 8)), ncol = 1)
+  ),
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 4, width = 6.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "inicu_fivepanel.tiff",
+  plot = multiplot(
+    plotlist = list(mvpain_plot, comadelres_plot),
+    layout = matrix(c(rep(1, 7), rep(2, 8)), ncol = 1)
+  ),
+  device = "tiff",
+  path = "pubfigures/tiff",
   height = 4, width = 6.5, dpi = png_dpi
 )
 
@@ -4015,6 +4117,32 @@ ggsave(
 )
 
 ggsave(
+  filename = "tte_plot_three_horiz.eps",
+  plot = tte_plot_three_horiz +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle\nElements Performed") +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.5)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 3, width = 6.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "tte_plot_three_horiz.tiff",
+  plot = tte_plot_three_horiz +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle\nElements Performed") +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.5)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = "tiff",
+  path = "pubfigures/tiff",
+  height = 3, width = 6.5, dpi = png_dpi
+)
+
+ggsave(
   filename = "tte_plot_three_vert.pdf",
   plot = tte_plot_three_vert +
     scale_x_discrete(name = "Proportion of ABCDEF Bundle Elements Performed") +
@@ -4037,6 +4165,32 @@ ggsave(
     theme(axis.text.x = element_text(size = 7)),
   device = "png",
   path = "pubfigures/png",
+  height = 6, width = 4.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "tte_plot_three_vert.eps",
+  plot = tte_plot_three_vert +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle Elements Performed") +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.2)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 6, width = 4.5, dpi = png_dpi
+)
+
+ggsave(
+  filename = "tte_plot_three_vert.tiff",
+  plot = tte_plot_three_vert +
+    scale_x_discrete(name = "Proportion of ABCDEF Bundle Elements Performed") +
+    scale_y_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       limits = c(0, 2.05),
+                       breaks = seq(0, 10, 0.2)) +
+    theme(axis.text.x = element_text(size = 7)),
+  device = "tiff",
+  path = "pubfigures/tiff",
   height = 6, width = 4.5, dpi = png_dpi
 )
 
@@ -4091,6 +4245,22 @@ tte_singleplot <- function(out_full, out_title, xbreaks){
     plot = tteplot,
     device = "png",
     path = "pubfigures/png",
+    height = 5, width = 6, dpi = png_dpi
+  )
+
+  ggsave(
+    filename = sprintf("tte_plot_%s.eps", out_title),
+    plot = tteplot,
+    device = cairo_ps,
+    path = "pubfigures/eps",
+    height = 5, width = 6, dpi = png_dpi
+  )
+
+  ggsave(
+    filename = sprintf("tte_plot_%s.tiff", out_title),
+    plot = tteplot,
+    device = "tiff",
+    path = "pubfigures/tiff",
     height = 5, width = 6, dpi = png_dpi
   )
 
@@ -4196,6 +4366,36 @@ ggsave(
 )
 
 ggsave(
+  filename = "icusummary_plot_all_horiz.eps",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome, scales = "free_y", nrow = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 3.5, width = 6, dpi = png_dpi
+)
+
+ggsave(
+  filename = "icusummary_plot_all_horiz.tiff",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome, scales = "free_y", nrow = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle Elements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
+  device = "tiff",
+  path = "pubfigures/tiff",
+  height = 3.5, width = 6, dpi = png_dpi
+)
+
+ggsave(
   filename = "icusummary_plot_all_vert.pdf",
   plot = icusummary_plot_all +
     facet_wrap(~ outcome, scales = "free_y", ncol = 1) +
@@ -4222,6 +4422,36 @@ ggsave(
     ),
   device = "png",
   path = "pubfigures/png",
+  height = 6, width = 4, dpi = png_dpi
+)
+
+ggsave(
+  filename = "icusummary_plot_all_vert.eps",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome, scales = "free_y", ncol = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle\nElements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
+  device = cairo_ps,
+  path = "pubfigures/eps",
+  height = 6, width = 4, dpi = png_dpi
+)
+
+ggsave(
+  filename = "icusummary_plot_all_vert.tiff",
+  plot = icusummary_plot_all +
+    facet_wrap(~ outcome, scales = "free_y", ncol = 1) +
+    scale_x_continuous(
+      name = "Percent of Eligible ABCDEF Bundle\nElements Performed",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ),
+  device = "tiff",
+  path = "pubfigures/tiff",
   height = 6, width = 4, dpi = png_dpi
 )
 
@@ -4270,6 +4500,22 @@ icusummary_singleplot <- function(out_full, out_title, ybreaks = 0.05){
     height = 5, width = 6, dpi = png_dpi
   )
 
+  ggsave(
+    filename = sprintf("icusummary_plot_%s.eps", out_title),
+    plot = icuplot,
+    device = cairo_ps,
+    path = "pubfigures/eps",
+    height = 5, width = 6, dpi = png_dpi
+  )
+
+    ggsave(
+    filename = sprintf("icusummary_plot_%s.tiff", out_title),
+    plot = icuplot,
+    device = "tiff",
+    path = "pubfigures/tiff",
+    height = 5, width = 6, dpi = png_dpi
+  )
+    
 }
 
 pwalk(
