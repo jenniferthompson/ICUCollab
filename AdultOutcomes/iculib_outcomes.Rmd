@@ -1825,7 +1825,7 @@ df_logmod_mv$include <- rowSums(is.na(df_logmod_mv[,mv_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_mv <- miss_var_summary(subset(df_logmod_mv, !include)) %>%
-  filter(percent > 0 & variable %in% mv_vars)
+  filter(pct_miss > 0 & variable %in% mv_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_mv <- in_icu_exclusion(df_logmod_mv)
@@ -1911,7 +1911,7 @@ df_logmod_coma$include <- rowSums(is.na(df_logmod_coma[,coma_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_coma <- miss_var_summary(subset(df_logmod_coma, !include)) %>%
-  filter(percent > 0 & variable %in% coma_vars)
+  filter(pct_miss > 0 & variable %in% coma_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_coma <- in_icu_exclusion(df_logmod_coma)
@@ -1999,7 +1999,7 @@ df_logmod_del$include <- rowSums(is.na(df_logmod_del[,del_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_del <- miss_var_summary(subset(df_logmod_del, !include)) %>%
-  filter(percent > 0 & variable %in% del_vars)
+  filter(pct_miss > 0 & variable %in% del_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_del <- in_icu_exclusion(df_logmod_del)
@@ -2090,7 +2090,7 @@ df_logmod_res$include <- rowSums(is.na(df_logmod_res[,res_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_res <- miss_var_summary(subset(df_logmod_res, !include)) %>%
-  filter(percent > 0 & variable %in% res_vars)
+  filter(pct_miss > 0 & variable %in% res_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_res <- in_icu_exclusion(df_logmod_res)
@@ -2179,7 +2179,7 @@ df_logmod_pain$include <- rowSums(is.na(df_logmod_pain[,pain_vars])) == 0
 
 ## Summarize missing data before we dump records
 miss_var_pain <- miss_var_summary(subset(df_logmod_pain, !include)) %>%
-  filter(percent > 0 & variable %in% pain_vars)
+  filter(pct_miss > 0 & variable %in% pain_vars)
 
 ## Get info statement for exclusions due to missingness
 miss_info_pain <- in_icu_exclusion(df_logmod_pain)
@@ -2963,7 +2963,7 @@ df_icureadm$include[complete.cases(df_icureadm)] <- TRUE
 miss_icureadm <- summary_exclusion(df_icureadm)
 
 miss_var_icureadm <- miss_var_summary(subset(df_icureadm, !include)) %>%
-  filter(percent > 0)
+  filter(pct_miss > 0)
 
 ```
 
@@ -3227,7 +3227,7 @@ miss_dcloc <- summary_exclusion(df_dcloc)
 
 ## Summarize missing data
 miss_var_dcloc <- miss_var_summary(subset(df_dcloc, !include)) %>%
-  filter(percent > 0)
+  filter(pct_miss > 0)
 
 ```
 
