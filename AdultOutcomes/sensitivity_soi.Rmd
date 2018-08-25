@@ -1,0 +1,466 @@
+---
+title: 'ICU Liberation Sensitivity Analyses: SOI'
+author: "Jennifer Thompson, MPH"
+date: "8/23/2018"
+output:
+  html_document:
+    theme: journal
+    toc: true
+    toc_float: true
+---
+
+```{r setup, echo = FALSE, results='hide', message=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
+
+library(tidyverse)
+library(Hmisc)
+library(knitr)
+
+## Function with my preferred option for summaryM tables
+html_sumM <- function(sMobj, ...){
+  html(
+    sMobj,
+    what = "%", npct = "both", prmsd = TRUE,
+    digits = 2, long = TRUE, rmarkdown = TRUE,
+    ...
+  )
+}
+
+load("AnalysisData/iculib.Rdata")
+
+```
+
+One acknowledged limitation of this project is the inability to adjust for
+potential confounding of severity of illness in the relationship between ABCDEF Bundle performance and ICU outcomes, due to the variety of SOI measures and data
+collection practices at our 60+ study sites. We explore the feasibility and
+potential pitfalls of a sensitivity analysis adjusting for severity of illness
+among the subset of patients with the APACHE III, our most commonly available measure of SOI.
+
+```{r datamgmt}
+## -- Exclude patients <18 years of age ----------------------------------------
+young_pts <- subset(demog, age == 0)$id
+age_levels <- levels(demog$age_f)
+demog <- subset(demog, !(id %in% young_pts) & icu_days > 0)
+demog$age_f <- factor(demog$age, labels = age_levels[-1])
+demog$comfort_care_icu_days_exp <- with(demog, {
+  ifelse(comfort_care_icu_days == 0, NA, comfort_care_icu_days)
+}) 
+
+compliance <- subset(compliance, id %in% demog$id)
+
+## Combine months 1-6 (baseline); keep implementation months separate
+demog$month_cat <- with(demog, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("Baseline", paste("Imp", 1:14)))
+})
+demog$month_cat_short <- with(demog, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("BL", paste0("I", 1:14)))
+})
+
+compliance$month_cat <- with(compliance, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("Baseline", paste("Imp", 1:14)))
+})
+compliance$month_cat_short <- with(compliance, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("BL", paste0("I", 1:14)))
+})
+
+## Add numeric "study day" variable to compliance data set
+compliance$study_day <-
+  as.numeric(str_extract(compliance$redcap_event_name, "(?<=\\_)[0-9]+(?=\\_)"))
+
+```
+
+## Availability of Severity of Illness Measures
+
+Four primary severity of illness scores could be recorded for a given patient.
+The number of patients with each score recorded for the period surrounding ICU
+admission, out of our `r format(nrow(demog), big.mark = ",")` patients eligible
+for outcomes analysis, is shown below.
+
+```{r soi_available}
+soi_scores <- c("apacheii", "apacheiii", "apacheiv", "sofa")
+npts <- nrow(demog)
+
+scores_avail <- map_dbl(
+  soi_scores, ~ sum(!is.na(demog[, paste0(., "_score")]))
+) %>%
+  set_names(soi_scores) %>%
+  map_chr(~ sprintf("%s (%s%%)", ., round((. / npts) * 100))) %>%
+  bind_rows()
+
+kable(
+  scores_avail,
+  col.names = c("APACHE II", "APACHE III", "APACHE IV", "SOFA"),
+  align = "r",
+  caption = "Availability of SOI Measures"
+)
+
+```
+
+# Comparison of Patients with and without APACHE III
+
+Since the APACHE III is our most commonly available SOI measure, we compare
+patients with APACHE III available to those without. If there are major
+differences in these populations, performing a traditional sensitivity analysis
+may actually bias our results rather than improving that bias.
+
+APACHE III is available for patients at only `r length(unique(subset(demog, !is.na(apacheiii_score))$hosp))` sites (`r round((length(unique(subset(demog, !is.na(apacheiii_score))$hosp)) / length(unique(demog$hosp))) * 100)`%) of all sites).
+
+## Executive Summary of Differences
+
+Patients with APACHE III available at ICU admission are all admitted to teaching
+hospitals (vs community) in either mixed medical/surgical or surgical/trauma
+units - in other words, patients who are admitted to community hospitals, or to
+specialty units like neuro and cardiac ICUs, are not represented in this subset.
+
+Patients with APACHE III available are more often admitted for sepsis and respiratory problems; they are much more likely to be white and non-Hispanic,
+and tend to be a bit younger than patients with no APACHE III available.
+
+On a daily basis, patients with APACHE III available are sedated more often
+(using opioids and propofol) and have more days on mechanical ventilation, on
+physical restraints, and with coma. This could indicate that they tend to be
+more severely ill than patients at sites which did not collect APACHE III. These
+patients have more days with recorded delirium and pain, though pain is more
+often self-reported compared to patients with no APACHE III. Patients who have
+APACHE III available are more likely to experience mechanical ventilation during
+their ICU admission, though spend less time on MV than ventilated patients
+without APACHE III, and also have slightly longer hospitalizations.
+
+Sites which document APACHE III are less likely to document safety screens for
+SATs, SBTs, and mobility (affecting definitions of ABCDEF Bundle compliance,
+though not performance), though actual performance of mobility is documented
+more often. Family participation in patient care is much less likely for these patients, although families were more likely to be educated on the ABCDEF Bundle.
+
+```{r haves_havenots}
+demog$has_apacheiii <- factor(
+  as.numeric(!is.na(demog$apacheiii_score)),
+  levels = 0:1,
+  labels = c("No APACHE III", "Has APACHE III")
+)
+compliance$has_apacheiii <- factor(
+  as.numeric(compliance$id %in% subset(demog, !is.na(apacheiii_score))$id),
+  levels = 0:1,
+  labels = c("No APACHE III", "Has APACHE III")
+)
+
+logmods_outcomes <- c("delirium_icu", "coma_icu", "sigpain_icu", "on_mv_icu_f")
+logmods_covars_base <- c("age_cat_mod", "sex_f", "race_cat_mod", "hisp_cat_mod",
+                         "bmi", "mob_preadmit", "home_preadmit", "hosp_type",
+                         "primary_admit", "icu_type_comb")
+logmods_covars_daily <- c("comfort_care_icu", "rcvd_benzo_icu",
+                          "rcvd_opioid_icu", "rcvd_propofol_icu",
+                          "rcvd_dex_icu", "rcvd_antipsyc_icu", "on_mv_icu_f",
+                          "coma_icu")
+logmods_exposures <- c("comp_yn_f", "perf_yn_f", "comp_prop", "perf_prop")
+
+## Add variable labels for clarity
+demog_desc <- demog
+comp_desc <- compliance
+
+label(demog_desc$hosp_f) <- "Study site"
+label(demog_desc$hosp_type) <- "Hospital type"
+label(demog_desc$month_cat) <- "Time period"
+label(demog_desc$age_f) <- "Age category"
+label(demog_desc$sex_f) <- "Sex"
+label(demog_desc$race_cat) <- "Race"
+label(demog_desc$hisp_cat) <- "Hispanic"
+label(demog_desc$bmi) <- "BMI"
+label(demog_desc$home_preadmit) <- "Residence pre-admission"
+label(demog_desc$mob_preadmit) <- "Mobility pre-admission"
+label(demog_desc$primary_admit) <- "Primary admission diagnosis"
+label(demog_desc$icu_type_comb) <- "ICU type"
+label(demog_desc$any_soi) <- "Any severity of illness score available"
+label(demog_desc$apacheii_avail) <- "APACHE II available"
+label(demog_desc$apacheii_score) <- "APACHE II score"
+label(demog_desc$apacheiii_avail) <- "APACHE III available"
+label(demog_desc$apacheiii_score) <- "APACHE III score"
+label(demog_desc$apacheiv_avail) <- "APACHE IV available"
+label(demog_desc$apacheiv_score) <- "APACHE IV score"
+label(demog_desc$sofa_avail) <- "SOFA available"
+label(demog_desc$sofa_score) <- "SOFA score"
+label(demog_desc$othersoi_avail) <- "Other SOI available"
+label(demog_desc$ever_invas_mv) <- "Ever on invasive MV"
+label(demog_desc$hrs_invas_mv) <- "Hours on invasive MV"
+label(demog_desc$ever_noninvas_mv) <- "Ever on noninvasive MV"
+label(demog_desc$hrs_noninvas_mv) <- "Hours on noninvasive MV"
+label(demog_desc$icu_los) <- "ICU length of stay"
+label(demog_desc$icu_days) <- "Days all 24h in ICU"
+label(demog_desc$ever_readmit_icu) <- "Ever readmitted to ICU"
+label(demog_desc$had_painasmt_icu_days) <-
+  "Days in ICU with >=1 pain assessment with validated tool"
+label(demog_desc$sigpain_icu_days) <- "Days in ICU with significant pain"
+label(demog_desc$on_sedation_icu_days) <-
+  "Days in ICU on continuous/intermittent sedation"
+label(demog_desc$had_satscreen_icu_days) <- "Days in ICU with SAT safety screen"
+label(demog_desc$had_sat_icu_days) <- "Days in ICU with SAT performed"
+label(demog_desc$on_mv_icu_days) <- "Days in ICU on MV"
+label(demog_desc$had_sbtscreen_icu_days) <- "Days in ICU with SBT safety screen"
+label(demog_desc$had_sbt_icu_days) <- "Days in ICU with SBT performed"
+label(demog_desc$sat_sbt_icu_days) <- "Days in ICU with SAT prior to SBT"
+label(demog_desc$rcvd_benzo_icu_days) <- "Days received benzodiazepines in ICU"
+label(demog_desc$rcvd_opioid_icu_days) <- "Days received opioids in ICU"
+label(demog_desc$rcvd_propofol_icu_days) <- "Days received propofol in ICU"
+label(demog_desc$rcvd_dex_icu_days) <- "Days received dex in ICU"
+label(demog_desc$rcvd_antipsyc_icu_days) <- "Days received antipsychotics in ICU"
+label(demog_desc$had_sedasmt_icu_days) <-
+  "Days in ICU with >=1 sedation assessment"
+label(demog_desc$had_delasmt_icu_days) <-
+  "Days in ICU with >=1 delirium assessment"
+label(demog_desc$delirium_icu_days) <- "Days in ICU with delirium"
+label(demog_desc$had_mobscreen_icu_days) <-
+  "Days in ICU with mobility safety screen"
+label(demog_desc$had_mobility_icu_days) <-
+  "Days in ICU with mobility performed (> active ROM)"
+label(demog_desc$family_present_icu_days) <- "Days in ICU with family present"
+label(demog_desc$family_invited_icu_days) <-
+  "Days in ICU family invited to participate in rounds/conference"
+label(demog_desc$family_rounds_icu_days) <-
+  "Days in ICU family participated in rounds"
+label(demog_desc$family_care_icu_days) <-
+  "Days in ICU family participated in plan of care/ABCDEF care"
+label(demog_desc$family_edu_icu_days) <-
+  "Days in ICU family educated on ABCDEF bundle/related topics"
+label(demog_desc$hosp_los) <- "Hospital length of stay"
+label(demog_desc$home_posticu) <- "Residence post-ICU"
+label(demog_desc$mob_posticu) <- "Mobility post-ICU"
+label(demog_desc$dc_status_f) <- "Discharge status"
+label(demog_desc$dc_loc_f) <- "Discharge location"
+label(demog_desc$comp_a_days) <- "ICU days Element A compliant"
+label(demog_desc$comp_a_prop) <- "Proportion of ICU days Element A compliant"
+label(demog_desc$perf_a_days) <- "ICU days Element A performed"
+label(demog_desc$perf_a_prop) <- "Proportion of ICU days Element A performed"
+label(demog_desc$comp_b_sat_days) <- "ICU days Element B - SAT compliant"
+label(demog_desc$comp_b_sat_prop) <-
+  "Proportion of sedation ICU days Element B - SAT compliant"
+label(demog_desc$perf_b_sat_days) <- "ICU days Element B - SAT performed"
+label(demog_desc$perf_b_sat_prop) <-
+  "Proportion of sedation ICU days Element B - SAT performed"
+label(demog_desc$comp_b_sbt_days) <- "ICU days Element B - SBT compliant"
+label(demog_desc$comp_b_sbt_prop) <-
+  "Proportion of MV ICU days Element B - SBT compliant"
+label(demog_desc$perf_b_sbt_days) <- "ICU days Element B - SBT performed"
+label(demog_desc$perf_b_sbt_prop) <-
+  "Proportion of MV ICU days Element B - SBT performed"
+label(demog_desc$comp_c_days) <- "ICU days Element C compliant"
+label(demog_desc$comp_c_prop) <- "Proportion of ICU days Element C compliant"
+label(demog_desc$perf_c_days) <- "ICU days Element C performed"
+label(demog_desc$perf_c_prop) <- "Proportion of ICU days Element C performed"
+label(demog_desc$comp_d_days) <- "ICU days Element D compliant"
+label(demog_desc$comp_d_prop) <- "Proportion of ICU days Element D compliant"
+label(demog_desc$perf_d_days) <- "ICU days Element D performed"
+label(demog_desc$perf_d_prop) <- "Proportion of ICU days Element D performed"
+label(demog_desc$comp_e_days) <- "ICU days Element E compliant"
+label(demog_desc$comp_e_prop) <- "Proportion of ICU days Element E compliant"
+label(demog_desc$perf_e_days) <- "ICU days Element E performed"
+label(demog_desc$perf_e_prop) <- "Proportion of ICU days Element E performed"
+label(demog_desc$comp_f_days) <- "ICU days Element F compliant"
+label(demog_desc$comp_f_prop) <-
+  "Proportion of family ICU days Element F compliant"
+label(demog_desc$perf_f_days) <- "ICU days Element F performed"
+label(demog_desc$perf_f_prop) <-
+  "Proportion of family ICU days Element F performed"
+label(demog_desc$comp_yn_days) <- "ICU days entire bundle compliant"
+label(demog_desc$comp_yn_prop) <-
+  "Proportion of ICU days entire bundle compliant"
+label(demog_desc$perf_yn_days) <- "ICU days entire bundle performed"
+label(demog_desc$perf_yn_prop) <-
+  "Proportion of ICU days entire bundle performed"
+label(demog_desc$comfort_care_icu_ever) <- "Ever on comfort care in ICU"
+label(demog_desc$comfort_care_icu_days) <- "Days on comfort care in ICU"
+label(demog_desc$comfort_care_icu_days_exp) <-
+  "Days on comfort care in ICU among those who received it"
+
+## Only describe days fully in ICU
+comp_desc <- compliance %>% filter(icu_day)
+
+label(comp_desc$pain_asmts_icu) <-
+  "Number of pain assessments with validated tool"
+label(comp_desc$had_painasmt_icu) <-
+  "Had >=1 pain assessment with validated tool"
+label(comp_desc$comp_a_f) <- "Element A: compliant"
+label(comp_desc$perf_a_f) <- "Element A: performed"
+label(comp_desc$sigpain_verbal_icu) <- "Significant pain self-reported"
+label(comp_desc$sigpain_valid_icu) <- "Significant pain using validated tool"
+label(comp_desc$sigpain_icu) <- "Significant pain, either method"
+
+label(comp_desc$on_sedation_icu_f) <- "On continuous/intermittent sedation"
+label(comp_desc$had_satscreen_icu) <- "SAT safety screen documented"
+label(comp_desc$had_sat_icu) <- "SAT documented"
+label(comp_desc$comp_b_sat_f) <- "Element B - SAT: compliant"
+label(comp_desc$perf_b_sat_f) <- "Element B - SAT: performed"
+
+label(comp_desc$on_mv_icu_f) <- "On mechanical ventilation"
+label(comp_desc$had_sbtscreen_icu) <- "SBT safety screen documented"
+label(comp_desc$had_sbt_icu) <- "SBT documented"
+label(comp_desc$comp_b_sbt_f) <- "Element B - SBT: compliant"
+label(comp_desc$perf_b_sbt_f) <- "Element B - SBT: performed"
+label(comp_desc$sat_sbt_icu) <- "SAT performed before SBT"
+
+label(comp_desc$sed_assess_valid_icu) <-
+  "Number of sedation assessments with validated tool"
+label(comp_desc$had_sedasmt_icu) <-
+  "Had >=1 sedation assessment with validated tool"
+label(comp_desc$comp_c_f) <- "Element C: compliant"
+label(comp_desc$perf_c_f) <- "Element C: performed"
+label(comp_desc$rcvd_benzo_icu) <- "Received benzodiazepines"
+label(comp_desc$rcvd_opioid_icu) <- "Received opioids"
+label(comp_desc$rcvd_propofol_icu) <- "Received propofol"
+label(comp_desc$rcvd_dex_icu) <- "Received dexmedetomidine"
+label(comp_desc$rcvd_antipsyc_icu) <- "Received antipsychotics (typical/atypical)"
+
+label(comp_desc$del_assess_valid_icu) <-
+  "Number of delirium assessments with validated tool"
+label(comp_desc$had_delasmt_icu) <-
+  "Had >=1 delirium assessment with validated tool"
+label(comp_desc$comp_d_f) <- "Element D: compliant"
+label(comp_desc$perf_d_f) <- "Element D: performed"
+label(comp_desc$delirium_icu) <- "Delirious, per validated tool"
+label(comp_desc$coma_icu) <- "Comatose"
+
+label(comp_desc$on_restraints_icu) <- "On physical restraints"
+label(comp_desc$had_mobscreen_icu) <- "Mobility safety screen documented"
+label(comp_desc$had_mobility_icu) <- "Mobility > active ROM documented"
+label(comp_desc$mobilityhighest_icu) <- "Highest level of mobility"
+label(comp_desc$comp_e_f) <- "Element E: compliant"
+label(comp_desc$perf_e_f) <- "Element E: performed"
+
+label(comp_desc$family_present_icu_f) <- "Family present"
+label(comp_desc$family_invited_icu) <-
+  "Family invited to participate in rounds/conference"
+label(comp_desc$family_rounds_icu) <- "Family participated in rounds"
+label(comp_desc$family_care_icu) <-
+  "Family participated in plan of care/ABCDEF care"
+label(comp_desc$family_edu_icu) <-
+  "Family educated on ABCDEF bundle/related topics"
+label(comp_desc$comp_f_f) <- "Element F: compliant"
+label(comp_desc$perf_f_f) <- "Element F: performed"
+
+label(comp_desc$comfort_care_icu) <- "On comfort care"
+
+label(comp_desc$comp_yn_f) <- "Overall ABCDEF compliance"
+label(comp_desc$perf_yn_f) <- "Overall ABCDEF performance"
+label(comp_desc$elements_elig) <-
+  "Number of ABCDEF elements eligible to be performed/compliant"
+label(comp_desc$elements_comp) <- "Number of elements compliant"
+label(comp_desc$comp_prop) <- "Proportion of elements compliant"
+label(comp_desc$elements_perf) <- "Number of elements performed"
+label(comp_desc$perf_prop) <- "Proportion of elements performed"
+
+## We adjust for all of these in models
+baseline_char <- summaryM(
+  hosp_type + age_f + sex_f + race_cat + hisp_cat + bmi +
+    home_preadmit + mob_preadmit + primary_admit + icu_type_comb ~
+    has_apacheiii,
+  data = demog_desc,
+  continuous = 5
+)
+
+## Daily characteristics we adjust for
+daily_covars_outcomes_exp <- summaryM(
+  as.formula(
+    paste(
+      paste(
+        c(logmods_covars_daily, logmods_exposures, logmods_outcomes),
+        collapse = " + "
+      ),
+      "~ has_apacheiii"
+    )
+  ),
+  data = comp_desc,
+  continuous = 5
+)
+
+inhosp_char <- summaryM(
+  ever_invas_mv + hrs_invas_mv + ever_noninvas_mv + hrs_noninvas_mv + icu_los +
+    ever_readmit_icu + had_painasmt_icu_days + sigpain_icu_days + comp_a_days +
+    comp_a_prop + perf_a_days + perf_a_prop + on_sedation_icu_days +
+    had_satscreen_icu_days + had_sat_icu_days + comp_b_sat_days +
+    comp_b_sat_prop + perf_b_sat_days + perf_b_sat_prop + on_mv_icu_days +
+    had_sbtscreen_icu_days + had_sbt_icu_days + sat_sbt_icu_days +
+    comp_b_sbt_days + comp_b_sbt_prop + perf_b_sbt_days + perf_b_sbt_prop +
+    had_sedasmt_icu_days + comp_c_days + comp_c_prop + perf_c_days +
+    perf_c_prop + rcvd_benzo_icu_days + rcvd_opioid_icu_days +
+    rcvd_propofol_icu_days + rcvd_dex_icu_days + rcvd_antipsyc_icu_days +
+    had_delasmt_icu_days + delirium_icu_days + comp_d_days + comp_d_prop +
+    perf_d_days + perf_d_prop + had_mobscreen_icu_days + had_mobility_icu_days +
+    comp_e_days + comp_e_prop + perf_e_days + perf_e_prop +
+    family_present_icu_days + family_invited_icu_days + family_rounds_icu_days +
+    family_care_icu_days + family_edu_icu_days + comp_f_days + comp_f_prop +
+    perf_f_days + perf_f_prop + comp_yn_days + comp_yn_prop + perf_yn_days +
+    perf_yn_prop + comfort_care_icu_ever + comfort_care_icu_days_exp +
+    hosp_los + home_posticu + mob_posticu + dc_status_f +
+    dc_loc_f ~ has_apacheiii,
+  data = demog_desc,
+  continuous = 5
+)
+
+daily_char <- summaryM(
+  pain_asmts_icu + had_painasmt_icu + comp_a_f + perf_a_f + sigpain_verbal_icu +
+    sigpain_valid_icu + on_sedation_icu_f + had_satscreen_icu + had_sat_icu +
+    comp_b_sat_f + perf_b_sat_f + had_sbtscreen_icu + had_sbt_icu +
+    comp_b_sbt_f + perf_b_sbt_f + sat_sbt_icu + sed_assess_valid_icu +
+    had_sedasmt_icu + comp_c_f + perf_c_f + del_assess_valid_icu +
+    had_delasmt_icu + comp_d_f + perf_d_f + on_restraints_icu +
+    had_mobscreen_icu + had_mobility_icu + mobilityhighest_icu + comp_e_f +
+    perf_e_f + family_present_icu_f + family_invited_icu + family_rounds_icu +
+    family_care_icu + family_edu_icu + comp_f_f + perf_f_f + elements_elig +
+    elements_comp + elements_perf ~ has_apacheiii,
+  data = comp_desc,
+  continuous = 5
+)
+
+```
+
+## Baseline Characteristics
+
+Our primary models adjust for all of these baseline factors.
+
+```{r baseline}
+html_sumM(baseline_char, caption = "Baseline Characteristics")
+
+```
+
+## Daily Covariates, Exposures, and Outcomes
+
+These factors are included in daily/time-varying models as covariates,
+exposures, or outcomes.
+
+```{r daily_models}
+html_sumM(
+  daily_covars_outcomes_exp,
+  caption = "Daily Characteristics, Accounted for in Models"
+)
+
+```
+
+## Additional Patient-Day Characteristics
+
+These factors are **not** directly included in daily/time-varying models as
+covariates, exposures, or outcomes, although some of these factors are
+incorporated into definitions of Bundle compliance and performance.
+
+```{r daily_notmodels}
+html_sumM(
+  daily_char,
+  caption = "Daily Characteristics, *Not* Accounted for in Models"
+)
+
+```
+
+## Hospitalization Characteristics
+
+```{r inhosp}
+html_sumM(inhosp_char, caption = "Hospitalization Characteristics")
+
+```
