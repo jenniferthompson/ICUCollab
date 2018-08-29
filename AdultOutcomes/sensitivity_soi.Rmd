@@ -166,16 +166,6 @@ compliance$has_apacheiii <- factor(
   labels = c("No APACHE III", "Has APACHE III")
 )
 
-logmods_outcomes <- c("delirium_icu", "coma_icu", "sigpain_icu", "on_mv_icu_f")
-logmods_covars_base <- c("age_cat_mod", "sex_f", "race_cat_mod", "hisp_cat_mod",
-                         "bmi", "mob_preadmit", "home_preadmit", # "hosp_type",
-                         "primary_admit", "icu_type_comb", "apacheiii_score")
-logmods_covars_daily <- c("comfort_care_icu", "rcvd_benzo_icu",
-                          "rcvd_opioid_icu", "rcvd_propofol_icu",
-                          "rcvd_dex_icu", "rcvd_antipsyc_icu", "on_mv_icu_f",
-                          "coma_icu")
-logmods_exposures <- c("comp_yn_f", "perf_yn_f", "comp_prop", "perf_prop")
-
 ## Add variable labels for clarity
 demog_desc <- demog
 comp_desc <- compliance
@@ -369,6 +359,17 @@ label(comp_desc$comp_prop) <- "Proportion of elements compliant"
 label(comp_desc$elements_perf) <- "Number of elements performed"
 label(comp_desc$perf_prop) <- "Proportion of elements performed"
 
+## -- Variables to include in models -------------------------------------------
+logmods_outcomes <- c("delirium_icu", "coma_icu", "sigpain_icu", "on_mv_icu_f")
+logmods_covars_base <- c("age_cat_mod", "sex_f", "race_cat_mod", "hisp_cat_mod",
+                         "bmi", "mob_preadmit", "home_preadmit", # "hosp_type",
+                         "primary_admit", "icu_type", "apacheiii_score")
+logmods_covars_daily <- c("comfort_care_icu", "rcvd_benzo_icu",
+                          "rcvd_opioid_icu", "rcvd_propofol_icu",
+                          "rcvd_dex_icu", "rcvd_antipsyc_icu", "on_mv_icu_f",
+                          "coma_icu")
+logmods_exposures <- c("comp_yn_f", "perf_yn_f", "comp_prop", "perf_prop")
+
 ## We adjust for all of these in models
 baseline_char <- summaryM(
   hosp_type + age_f + sex_f + race_cat + hisp_cat + bmi +
@@ -501,13 +502,15 @@ models for ABCDEF performance (yes/no and "dose") which incorporate the same
 methodology* and covariates as our original analyses, and additionally adjust for
 APACHE III, using only the patients with that score available.
 
-> *Two exceptions:*
+**Exceptions to methodology from original analysis:**
 
-> 1. In the original analyses, we used Huber-White sandwich estimation to account for differences between sites. Here, we have too few sites and too much overlap between individual hospital and our covariate of ICU type, so we only adjust for ICU type and do not cluster by site. In addition, the few cardiac/surgical patients with an APACHE III score are combined with mixed medical/surgical patients.
-
-> 1. In the original analyses, we adjusted for hospital type (community vs teaching). Because so few patients with APACHE III available were hospitalized
+1. In the original analyses, we used Huber-White sandwich estimation to account for differences between sites. Here, we have too few sites and too much overlap between individual hospital and our covariate of ICU type, so we only adjust for ICU type and do not cluster by site. In addition, the few cardiac/surgical patients with an APACHE III score are combined with mixed medical/surgical patients.
+1. In the original analyses, we adjusted for hospital type (community vs teaching). Because so few patients with APACHE III available were hospitalized
 at community hospitals, we are unable to adjust for this in our sensitivity
 analysis.
+1. Some categorical covariates were collapsed from their original level of
+detail due to low counts in some categories. These include age, race, primary
+admission reason, and ICU type.
 
 These analyses should be interpreted with caution, as they represent a very
 small subgroup of our entire cohort (`r round(mean(!is.na(demog$apacheiii_score))*100)`% for time-to-event outcomes,
@@ -520,15 +523,53 @@ illness.
 ## -- IDs of patients to include (those with APACHE III) -----------------------
 apacheiii_pts <- subset(demog, !is.na(apacheiii_score))$id
 
+## Get last Collaborative ICU day entered for each patient
+last_days <- compliance %>%
+  filter(icu_day) %>%
+  group_by(id) %>%
+  summarise(last_icu_day = max(study_day, na.rm = TRUE))
+
+demog <- left_join(demog, last_days, by = "id") %>%
+  filter(id %in% apacheiii_pts) %>%
+  ## Collapse categorical variables due to small N (math issues otherwise)
+  mutate(
+    icu_type_comb = fct_collapse(
+      icu_type,
+      "Mixed medical/surgical" = c(
+        "Adult Critical Care Unit", "Adult ICU", "Critical Care Unit", "ICU",
+        "Medical & Surgical ICU", "Trauma and Life Support Center"
+      ),
+      "Surgical/trauma/cardiac" = c(
+        "Adult Surgical Heart Unit", "Cardiac Surgical ICU",
+        "Cardiothoracic ICU", "Cardiovascular ICU", "Surgical ICU", "Trauma ICU"
+      )
+    ),
+    hosp_comb = fct_lump(hosp_f, prop = 0.20, other_level = "Other sites"),
+    race_comb = fct_lump(race_cat_mod, prop = 0.15, other_level = "Other race"),
+    age_comb = fct_collapse(
+      age_cat_mod,
+      "<40" = c("<=29", "30-39")
+    ),
+    primary_admit_comb = fct_lump(
+      primary_admit, prop = 0.05, other_level = "Other reason"
+    )
+  )
+
+## -- Reset baseline covariates to use collapsed versions ----------------------
+logmods_covars_base <- c("age_comb", "sex_f", "race_comb", "hisp_cat_mod",
+                         "bmi", "mob_preadmit", "home_preadmit", # "hosp_type",
+                         "primary_admit_comb", "icu_type_comb",
+                         "apacheiii_score")
+
 ## -- Create data set for all "vs XXX the following day" models ----------------
 ## Vector of variables for which we'll need "xxx tomorrow" versions
 lead_vars <- c("icu_day", "on_mv_icu_f", "coma_icu", "on_restraints_icu",
                "sigpain_icu", "delirium_icu")
 
 ## Vector of baseline covariates
-base_vars <- c("age_cat_mod", "sex_f", "race_cat_mod", "hisp_cat_mod", "bmi",
-               "mob_preadmit", "primary_admit", "home_preadmit",
-               "icu_type_comb", "hosp_type", "hosp_f", "apacheiii_score")
+base_vars <- c("age_comb", "sex_f", "race_comb", "hisp_cat_mod", "bmi",
+               "mob_preadmit", "primary_admit_comb", "home_preadmit",
+               "icu_type_comb", "hosp_comb", "apacheiii_score")
 
 df_logmods <- compliance %>%
   filter(id %in% apacheiii_pts) %>%
@@ -547,22 +588,7 @@ df_logmods <- compliance %>%
   ## both "today" and "tomorrow"
   filter(icu_day & icu_day_tmw) %>%
   ## Merge on baseline covariates
-  right_join(dplyr::select(demog, id, one_of(base_vars)), ., by = "id") %>%
-  ## Collapse 1) site and 2) ICU type due to small N (can't cluster otherwise)
-  mutate(
-    icu_type_comb = fct_collapse(
-      icu_type_comb,
-      "Surgical/trauma/cardiac" = c("Surgical/trauma", "Cardiac/surgical")
-    ),
-    hosp_f = fct_lump(hosp_f, prop = 0.20, other_level = "Other sites")
-  )
-
-# ## Check a few patients
-# ckids <- sample(unique(compliance$id), size = 10)
-# print_vars <- map(lead_vars, ~ c(., paste0(., "_tmw"))) %>% flatten_chr
-# print(subset(df_logmods, id %in% ckids)[,c("id", "redcap_event_name_f",
-#                                            print_vars)],
-#       width = Inf)
+  right_join(dplyr::select(demog, id, one_of(base_vars)), ., by = "id")
 
 npts_total <- length(unique(demog$id))
 npts_apacheiii <- length(apacheiii_pts)
@@ -571,22 +597,21 @@ pctpts_logmods_total <- (npts_logmods / npts_total) * 100
 pctpts_logmods_apacheiii <- (npts_logmods / npts_apacheiii) * 100
 ndays_logmods <- nrow(df_logmods)
 
-# ## Common sense check for % patients included in these models
-# ck_icudays <- compliance %>%
-#   group_by(id) %>%
-#   summarise(n_icu_days = sum(icu_day, na.rm = TRUE)) %>%
-#   ungroup()
-
 ```
 
 ```{r logmod_prep, results = "hide"}
 ## -- Create regex for replacing linear continuous variables with rcs() --------
 rcs_vars <- c(
-  "icu_los_edit", "rcvd_benzo_icu_prop", "rcvd_opioid_icu_prop",
-  "rcvd_propofol_icu_prop", "rcvd_dex_icu_prop", "rcvd_antipsyc_icu_prop",
-  "comfort_care_icu_prop", "on_mv_icu_prop", "coma_icu_prop", "bmi",
-  "comp_prop", "perf_prop", "comp_elem_prop", "perf_elem_prop", "comp_yn_prop",
-  "perf_yn_prop", "apacheiii_score"
+  "icu_los_edit",
+  ## Not enough variability to use splines here
+  # "rcvd_benzo_icu_prop", "rcvd_opioid_icu_prop", "rcvd_propofol_icu_prop",
+  # "rcvd_dex_icu_prop", "rcvd_antipsyc_icu_prop",
+  # "comfort_care_icu_prop",
+  # "on_mv_icu_prop", "coma_icu_prop",
+  "bmi", "apacheiii_score",
+  # "comp_prop", "perf_prop",
+  # "comp_yn_prop", "perf_yn_prop",
+  "comp_elem_prop", "perf_elem_prop"
 )
 
 rcs_regex <- paste0(
@@ -1124,13 +1149,9 @@ del_probplot <- inicu_prob_results(
 ```
 
 After adjusting for available confounders including delirium and APACHE III,
-full performance of the ABCDEF Bundle on a given day is associated with a lower
-likelihood of being delirious the following day among the patients we were able
-to include in our model. After restricting our population and adjusting for
-APACHE III, we no longer see a strong dose-response relationship between Bundle
-performance and odds of delirium the following day; this could be due to
-adjustment for SOI, and/or to low delirium prevalence and sample size in this
-sensitivity analysis.
+more/full performance of the ABCDEF Bundle on a given day is associated with a
+lower likelihood of being delirious the following day among the patients we were
+able to include in our model.
 
 ```{r print_delors}
 del_orplot
@@ -1195,6 +1216,835 @@ res_orplot
 
 ```{r print_resprobs}
 res_probplot
+
+```
+
+## Significant Pain
+
+```{r painmods, results = "hide"}
+## -- Create dataset with only complete records --------------------------------
+pain_vars <-
+  c("sigpain_icu_tmw", logmods_covars_base, logmods_covars_daily)
+df_logmod_pain <- df_logmods
+df_logmod_pain$include <- rowSums(is.na(df_logmod_pain[,pain_vars])) == 0
+
+## Get info statement for exclusions due to missingness
+miss_info_pain <- in_icu_exclusion(df_logmod_pain)
+
+## Remove records with incomplete data
+df_logmod_pain <- subset(df_logmod_pain, include)
+
+## -- Fit models and get results -----------------------------------------------
+pain_results <-
+  outcome_results_lrm(outcome = "sigpain_icu_tmw", df = df_logmod_pain)
+
+## String describing outcome, patients, days
+pain_info <-
+  inicu_outcome_info(outcome = "sigpain_icu_tmw", df = df_logmod_pain)
+
+## Plot of odds ratios/CIs
+pain_orplot <- inicu_or_results(
+  outcome_results = pain_results,
+  outcome_info = pain_info,
+  outcome_name = "pain"
+)
+## Plot of predicted probabilities
+pain_probplot <- inicu_prob_results(
+  outcome_results = pain_results,
+  outcome_name = "pain",
+  outcome_info = pain_info,
+  add_raw = TRUE,
+  outcome = "sigpain_icu_tmw",
+  df = df_logmod_pain
+)
+
+```
+
+After adjusting for available confounders including APACHE III, full and more
+performance of the ABCDEF Bundle on a given day are both associated with higher
+odds of significant pain the following day among the patients we were able to
+include in our model. This could be due to more proactive assessments being done
+in these patients.
+
+```{r print_painors}
+pain_orplot
+
+```
+
+```{r print_painprobs}
+pain_probplot
+
+```
+
+```{r functions_tte}
+## -- Function to create counting process datasets for time-to-event models ----
+create_tte_data <- function(
+  time_var, status_var, exposure, daily_df = compliance,
+  time_df = demog
+){
+  use_demog <- time_df %>%
+    filter(id %in% apacheiii_pts) %>%
+    dplyr::select(id, hosp_f, icu_type_comb,
+                  one_of(logmods_covars_base),
+                  one_of(c(time_var, status_var)))
+  use_demog <- use_demog[use_demog[, time_var] > 0, ]
+  use_demog <- use_demog[complete.cases(use_demog), ]
+  
+  use_comp <- daily_df %>%
+    filter(icu_day & study_day <= 7 & id %in% use_demog$id) %>%
+    dplyr::select(id, study_day, logmods_covars_daily, one_of(exposure))
+  use_comp <- use_comp[complete.cases(use_comp), ]
+  
+  df_tv <- create_countprocess_data(
+    org.data = use_comp,
+    id.var = "id",
+    record.var = "study_day",
+    time.var = time_var,
+    event.var = status_var,
+    event.string = "Yes",
+    data.set = use_demog,
+    out.strings = c("No", "Yes")
+  ) %>%
+    rename(had_event = "died") %>%
+    left_join(dplyr::select(use_demog, id, hosp_f, one_of(logmods_covars_base)),
+              by = "id")
+  
+  return(df_tv)
+}
+
+## -- Function to fit time-varying Cox proportional hazards model --------------
+## Assumes all event indicators are named "had_event" and have levels Yes/No
+fit_daily_cph <- function(
+  exposure = c("comp_yn_f", "comp_prop", "perf_yn_f", "perf_prop"),
+  covars = c(logmods_covars_base, logmods_covars_daily),
+  df
+){
+  
+  ## -- Set model formula ------------------------------------------------------
+  ## Add exposure to RHS
+  covars <- c(covars, exposure)
+  
+  ## Make BMI, proportion of compliance/performance nonlinear terms
+  covars <- str_replace(
+    covars, "(^bmi|comp\\_prop|perf\\_prop$)", "rcs\\(\\1, 3\\)"
+  )
+  
+  ## Put RHS together
+  rhs <- paste(covars, collapse = " + ")
+  
+  ## Create Surv object
+  survobj <- with(df, {
+    Surv(time = start.day,
+         time2 = stop.day,
+         event = as.numeric(had_event == "Yes"))
+  })
+
+  ## Assemble entire formula
+  modform <- as.formula(paste("survobj", rhs, sep = " ~ "))
+  
+  ## -- Fit model using cph, then adjust SEs using robcov() --------------------
+  ## j/k, see note for lrm()
+  mod <- cph(modform, data = df, x = TRUE, y = TRUE) # %>%
+    # robcov(cluster = df$hosp_f)
+  
+  return(mod)
+}
+
+## -- Wrapper function for a specified outcome: --------------------------------
+## 1. Fit CPH model (returned as "modobj"), given an exposure and TTE dataset
+## 2. Get df of hazard ratios + p-value (returned as "ors")
+## <predicted probabilities don't really apply to Cox models>
+fit_results_cph <- function(exposure = c("comp_yn_f", "comp_prop",
+                                         "perf_yn_f", "perf_prop"),
+                            df_tv,
+                            ## Model covariates
+                            covars = c(logmods_covars_base,
+                                       logmods_covars_daily)
+){
+  
+  mod <- fit_daily_cph(
+    exposure = exposure, covars = covars, df = df_tv
+  )
+  
+  ## daily_outexp_ors works for hazard ratios too
+  hrs <- daily_outexp_ors(modobj = mod, exposure = exposure, df = df_tv)
+  
+  return(list("mod" = mod, "hrs" = hrs, "tte_df" = df_tv))
+}
+
+## -- Wrapper to do all exposures for a given outcome --------------------------
+outcome_results_cph <- function(
+  dflist_tv, ## list of dfs created by create_tte_data()
+  covars = c(logmods_covars_base, logmods_covars_daily)
+){
+  
+  ## Get list with results of fit_results_cph() for each exposure
+  modlist <- map2(.x = logmods_exposures,
+                  .y = dflist_tv,
+                  ~ fit_results_cph(exposure = .x,
+                                    df_tv = .y,
+                                    covars = covars))
+  
+  ## Pull out list of model fits only
+  mods <- map(modlist, "mod")
+  
+  ## Put like results together (ORs, predicted probs)
+  hr_df <- map_df(modlist, "hrs")
+
+  return(list("hrs" = hr_df, "mods" = mods))
+}
+
+## -- Function to calculate 1) # unique patients, 2) # events in a TTE df ------
+tte_outcome_info <- function(df, event_string){
+  ## Number of unique patients and days
+  ## Number of days with and without outcome
+  npts <- length(unique(df[,"id"]))
+  nevents <- sum(df$had_event == "Yes", na.rm = TRUE)
+
+  outcome_info <- sprintf(
+    "%s patients included, with a total of %s %s",
+    format(npts, big.mark = ","),
+    format(nevents, big.mark = ","),
+    event_string
+  )
+  
+  return(outcome_info)
+}
+
+## -- Function to plot hazard ratios for compliance & performance --------------
+tte_hr_results <- function(
+  outcome_results, ## result of outcome_results_cph()
+  outcome_info,    ## result of tte_outcome_info()
+  ## name of outcome (eg "death")
+  outcome_name = c("ICU discharge", "hospital discharge", "death")
+){
+  
+  ## Is HR > 1 favorable or unfavorable? Death is our only bad outcome
+  if(str_detect(outcome_name, "death")){
+    above_below <- "below"
+    higher_lower <- "lower"
+  } else{
+    above_below <- "above"
+    higher_lower <- "higher"
+  }
+
+  hrs <- outcome_results$hrs %>%
+    ## We don't want to plot reference levels
+    filter(!is.ref) %>%
+    mutate(
+      ## Prep for separating into indicators for comp vs perf, y/n vs dose
+      variable = gsub("\\_f$", "", variable),
+      ## We'll order the Y axis labels by this variable later:
+      yval = ifelse(comp.c %in% c("Performed", "Compliant"), 0,
+                    floor((comp + 0.01) * 100)),
+      ## Create text for Y axis labels: comparison + P-value
+      ylabel = ifelse(comp.c %in% c("Performed", "Compliant"),
+                      "Yes vs No",
+                      sprintf("%s%% vs %s%%",
+                              trimws(rndformat(comp * 100, 0)),
+                              trimws(rndformat(ref * 100, 0)))),
+      ## Order so that 100% is on top
+      ylabel = fct_reorder(ylabel, yval),
+      ## Create OR/CI text to place inside figure
+      hr_text = sprintf(
+        "%s (%s, %s)", rndformat(effect), rndformat(lcl), rndformat(ucl)
+      )
+    ) %>%
+    ## Get indicators for comp vs perf, y/n vs dose
+    separate(variable, into = c("cp", "yn_prop"), sep = "_") %>%
+    ## Move y/n to top; add p-values to Compliance/Performance labels
+    mutate(
+      yn_prop = factor(ifelse(yn_prop == "yn", 1, 2),
+                       levels = 1:2, labels = c("Overall", "Dose")),
+      cp = factor(
+        ifelse(cp == "comp", 1, 2),
+        levels = 1:2,
+        labels = c(
+          sprintf(
+            "Compliance\n\nP, overall: %s; P, dose: %s",
+            formatp(
+              subset(outcome_results$hrs, variable == "comp_yn_f")$pval[1]
+            ),
+            formatp(
+              subset(outcome_results$hrs, variable == "comp_prop")$pval[1]
+            )
+          ),
+          sprintf(
+            "Performance\n\nP, overall: %s; P, dose: %s",
+            formatp(
+              subset(outcome_results$hrs, variable == "perf_yn_f")$pval[1]
+            ),
+            formatp(
+              subset(outcome_results$hrs, variable == "perf_prop")$pval[1]
+            )
+          )
+        )
+      )
+    )
+  
+  hrplot <- ggplot(data = hrs, aes(x = effect, y = ylabel)) +
+    facet_grid(yn_prop ~ cp, scales = "free_y", space = "free_y") +
+    geom_vline(xintercept = 1, colour = "grey70",
+               linetype = "solid", size = 1) +
+    geom_segment(aes(x = lcl, xend = ucl, yend = ylabel, colour = cp)) +
+    geom_point(aes(colour = cp)) +
+    geom_text(aes(label = hr_text),
+              x = -0.80, size = 3, hjust = 0, colour = "grey15") +
+    scale_x_continuous(name = "Adjusted Hazard Ratio (95% Confidence Interval)",
+                       ## X limits: -0.5 to ceiling (up to 0.2) of highest UCL
+                       limits = c(-0.75, ceiling(max(hrs$ucl) / 0.2) * 0.2),
+                       breaks = seq(0, 10, 0.2)) +
+    scale_y_discrete(name = "") +
+    scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
+    labs(
+      caption = sprintf(
+        "\nHazard ratios %s 1 are favorable, indicating a %s likelihood of %s the following day.\n\n%s",
+        above_below, higher_lower, outcome_name, outcome_info
+      )
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(colour = "grey80", fill = "grey90"),
+          axis.title.x = element_text(vjust = 0),
+          axis.text.y = element_text(face = "bold"),
+          panel.background = element_rect(colour = "grey80", fill = NA),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          plot.subtitle = element_text(size = 8, face = "italic"),
+          plot.caption = element_text(size = 8, face = "italic"))
+  
+  return(hrplot)
+}
+
+```
+
+```{r tte_dataprep}
+## -- Add needed variables to demog for all time-to-event models: --------------
+## 1. Time to event
+## 2. Whether event occurred
+demog <- demog %>%
+  mutate(
+    ## A substantial number of patients have more ICU days entered in the
+    ## database than their recorded ICU and/or hospital LOS. I'll assume that we
+    ## should trust the effort it takes to enter ICU data more than the single
+    ## data entry point of ICU or hospital LOS, and therefore create new LOS
+    ## variables incorporating that decision.
+    icu_los_edit = ifelse((is.na(last_icu_day) | icu_los >= last_icu_day),
+                          icu_los,
+                          last_icu_day),
+    hosp_los_edit = ifelse((is.na(last_icu_day) | hosp_los >= last_icu_day),
+                           hosp_los,
+                           last_icu_day),
+    ## Max of ICU, hospital LOS
+    last_los = ifelse(is.na(icu_los_edit) & is.na(hosp_los_edit), NA,
+               ifelse(!is.na(icu_los_edit) &
+                        (is.na(hosp_los_edit) | icu_los_edit > hosp_los_edit),
+                      icu_los_edit, hosp_los_edit)),
+    ## Add times, event indicators **within 7 days ** for
+    ## - ICU LOS
+    ## - hospital LOS
+    ## - ICU death
+    icu_los_7 = ifelse(icu_los_edit > 7, 8, icu_los_edit),
+    icu_dc_7 = factor(
+      as.numeric(
+        ifelse(is.na(dc_status_f) | is.na(icu_los), NA,
+               dc_status_f !=
+                 "Died in an ICU during the ICU collaborative admission stay" &
+                 icu_los <= 7)
+      ),
+      levels = 0:1, labels = c("No", "Yes")
+    ),
+    ## Final LOS = max of hospital, ICU LOS
+    last_los_7 = ifelse(is.na(last_los), NA,
+                 ifelse(last_los > 7, 8, last_los)),
+    ## Indicator for hospital discharge
+    hosp_dc_7 = factor(
+      as.numeric(
+        ifelse(is.na(dc_status_f) | is.na(hosp_los), NA,
+               dc_status_f == "Discharged from the hospital alive" &
+                 last_los <= 7)
+      ),
+      levels = 0:1, labels = c("No", "Yes")
+    ),
+    ## Indicator for hospital death
+    hosp_death_7 = factor(
+      as.numeric(
+        ifelse(is.na(dc_status_f) | is.na(last_los_7), NA,
+               dc_status_f != "Discharged from the hospital alive" &
+                 last_los <= 7)
+      ),
+      levels = 0:1, labels = c("No", "Yes")
+    )
+  )
+
+## Does patient have complete data on covariates & outcomes for each TTE model?
+demog$elig_iculos <- rowSums(
+  is.na(demog[, c("id", logmods_covars_base, "icu_los_7", "icu_dc_7")])
+) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
+demog$elig_hosplos <- rowSums(
+  is.na(demog[, c("id", logmods_covars_base, "last_los_7", "hosp_dc_7")])
+) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
+demog$elig_death <- rowSums(
+  is.na(demog[, c("id", logmods_covars_base, "last_los_7", "hosp_death_7")])
+) == 0 & (!is.na(demog$icu_days) & demog$icu_days > 0)
+
+compliance$elig_tte <- rowSums(
+  is.na(compliance[, c("id", logmods_exposures, logmods_covars_daily)])
+) == 0
+
+## -- Create all time-to-event datasets and save separately --------------------
+## These take forever to run.
+# iculos_dflist <- pmap(
+#   .l = list("time_var" = rep("icu_los_7", 4),
+#             "status_var" = rep("icu_dc_7", 4),
+#             exposure = logmods_exposures),
+#   .f = create_tte_data
+# )
+# 
+# hosplos_dflist <- pmap(
+#   .l = list("time_var" = rep("last_los_7", 4),
+#             "status_var" = rep("hosp_dc_7", 4),
+#             exposure = logmods_exposures),
+#   .f = create_tte_data
+# )
+# 
+# death_dflist <- pmap(
+#   .l = list("time_var" = rep("last_los_7", 4),
+#             "status_var" = rep("hosp_death_7", 4),
+#             exposure = logmods_exposures),
+#   .f = create_tte_data
+# )
+# 
+# save(iculos_dflist, hosplos_dflist, death_dflist,
+#      file = "AnalysisData/tte_datasets_apache.Rdata")
+
+load("AnalysisData/tte_datasets_apache.Rdata")
+
+```
+
+## ICU Length of Stay
+
+```{r iculos_mods, results = "hide"}
+iculos_results <- outcome_results_cph(dflist_tv = iculos_dflist)
+iculos_hrplot <- tte_hr_results(
+  iculos_results,
+  outcome_info = tte_outcome_info(
+    df = iculos_dflist[[1]], event_string = "ICU discharges within 7 days"
+  ),
+  outcome_name = "ICU discharge"
+)
+
+```
+
+After restricting our patient population and adjusting for potential confounders
+including APACHE III, more compliance and performance of the ABCDEF Bundle on a
+given day are associated with a higher likelihood of ICU discharge; there is a dose-response relationship, such that more compliance and more performance are associated with higher likelihood of ICU discharge.
+
+It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect ICU discharges within the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with ICU discharge when long ICU stays are able to
+be included.
+
+```{r iculos_plot}
+iculos_hrplot
+
+```
+
+```{r functions_summary}
+## -- Functions for summary outcomes (ICU readmission, discharge location) -----
+## -- Function to describe exclusion due to missingness ------------------------
+summary_exclusion <- function(outcome_df){
+  ## It is assumed that outcome_df has a logical variable called `include` that
+  ## tells us whether the record will be included in the final model. This is
+  ## not ideal practice. If this weren't an hourly project I'd do it better.
+  ## SORRY UNIVERSE
+  
+  ## String describing number of patients excluded
+  miss_pts_n <- length(unique(outcome_df$id)) -
+    length(unique(subset(outcome_df, include)$id))
+  miss_pts_pct <- round((miss_pts_n / length(unique(outcome_df$id)) * 100))
+  
+  sprintf("Out of %s eligible patients, %s (%s%%) were excluded due to missing data, detailed below.",
+        format(nrow(outcome_df), big.mark = ","),
+        format(miss_pts_n, big.mark = ","),
+        format(miss_pts_pct, big.mark = ","))
+}
+
+## -- Function to get info about patients, outcome -----------------------------
+summary_outcome_info <- function(outcome, had_outcome_string, df){
+  ## Number of unique patients and days
+  ## Number of days with and without outcome
+  npts <- length(unique(df[,"id"]))
+  n_outcome <- sum(df[,outcome] == levels(df[,outcome])[2], na.rm = TRUE)
+  n_nooutcome <- sum(df[,outcome] == levels(df[,outcome])[1], na.rm = TRUE)
+  
+  outcome_info <- sprintf(
+    "%s patients included; %s were %s, while %s were not.",
+    format(npts, big.mark = ","),
+    format(n_outcome, big.mark = ","),
+    had_outcome_string,
+    format(n_nooutcome, big.mark = ",")
+  )
+  
+  return(outcome_info)
+}
+
+## -- Function to plot odds ratios for compliance & performance ----------------
+summary_or_results <- function(outcome_results, ## result of outcome_results_lrm()
+                               outcome_info,  ## result of summary_outcome_info()
+                               outcome_name){   ## name of outcome (eg "MV")
+                               
+  ors <- outcome_results$ors %>%
+    ## We don't want to plot reference levels
+    filter(!is.ref) %>%
+    mutate(
+      ## Prep for separating into indicators for comp vs perf, y/n vs dose
+      variable = gsub("\\_f$", "", variable),
+      ## We'll order the Y axis labels by this variable later:
+      yval = ifelse(comp.c %in% c("Performed", "Compliant"), 0,
+                    floor((comp + 0.01) * 100)),
+      ## Create text for Y axis labels: comparison + P-value
+      ylabel = ifelse(comp.c %in% c("Performed", "Compliant"),
+                      "Yes vs No",
+                      sprintf("%s%% vs %s%%",
+                              trimws(rndformat(comp * 100, 0)),
+                              trimws(rndformat(ref * 100, 0)))),
+      ## Order so that 100% is on top
+      ylabel = fct_reorder(ylabel, yval),
+      ## Create OR/CI text to place inside figure
+      or_text = sprintf(
+        "%s (%s, %s)", rndformat(effect), rndformat(lcl), rndformat(ucl)
+      )
+    ) %>%
+    ## Get indicators for comp vs perf, y/n vs dose
+    separate(variable, into = c("cp", "yn_elem", "ignore"), sep = "_") %>%
+    ## Move y/n to top; add p-values to Compliance/Performance labels
+    mutate(
+      yn_elem = factor(ifelse(yn_elem == "yn", 1, 2),
+                       levels = 1:2, labels = c("Overall", "Dose")),
+      cp = factor(
+        ifelse(cp == "comp", 1, 2),
+        levels = 1:2,
+        labels = c(
+          sprintf(
+            "Compliance\n\nP, overall: %s; P, dose: %s",
+            formatp(
+              subset(outcome_results$ors, variable == "comp_yn_prop")$pval[1]
+            ),
+            formatp(
+              subset(outcome_results$ors, variable == "comp_elem_prop")$pval[1]
+            )
+          ),
+          sprintf(
+            "Performance\n\nP, overall: %s; P, dose: %s",
+            formatp(
+              subset(outcome_results$ors, variable == "perf_yn_prop")$pval[1]
+            ),
+            formatp(
+              subset(outcome_results$ors, variable == "perf_elem_prop")$pval[1]
+            )
+          )
+        )
+      )
+    )
+  
+  orplot <- ggplot(data = ors, aes(x = effect, y = ylabel)) +
+    facet_grid(yn_elem ~ cp, scales = "free_y", space = "free_y") +
+    geom_vline(xintercept = 1, colour = "grey70",
+               linetype = "solid", size = 1) +
+    geom_segment(aes(x = lcl, xend = ucl, yend = ylabel, colour = cp)) +
+    geom_point(aes(colour = cp)) +
+    geom_text(aes(label = or_text),
+              x = -0.80, size = 3, hjust = 0, colour = "grey15") +
+    scale_x_continuous(name = "Adjusted Odds Ratio (95% Confidence Interval)",
+                       ## X limits: -0.5 to ceiling (up to 0.2) of highest UCL
+                       limits = c(-0.75, ceiling(max(ors$ucl) / 0.2) * 0.2),
+                       breaks = seq(0, 10, 0.2)) +
+    scale_y_discrete(name = "") +
+    scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
+    labs(caption = sprintf("\nOdds ratios below 1 are favorable, indicating a lower likelihood of %s.\n\n%s", outcome_name, outcome_info)) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(colour = "grey80", fill = "grey90"),
+          axis.title.x = element_text(vjust = 0),
+          axis.text.y = element_text(face = "bold"),
+          panel.background = element_rect(colour = "grey80", fill = NA),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor = element_blank(),
+          plot.subtitle = element_text(size = 8, face = "italic"),
+          plot.caption = element_text(size = 8, face = "italic"))
+  
+  return(orplot)
+}
+
+## -- Function to plot predicted probs for comp/perf doses ---------------------
+summary_prob_results <- function(outcome_results,
+                                 ## result of outcome_results_lrm()
+                                 outcome_info,
+                                 ## result of summary_outcome_info()
+                                 outcome_name,
+                                 ## name of outcome (eg "MV")
+                                 ## Add raw data? If so, supply variable name, df
+                                 add_raw = TRUE,
+                                 outcome, df){
+  
+  ## Y axis limits are 0-100% if raw data not included, -0.1 - 1.1 if it is
+  if(add_raw){
+    ylims <- c(-0.1, 1.1)
+  } else{
+    ylims <- 0:1
+  }
+                                 
+  ## Add faceting variable to predicted probabilities
+  probs <- outcome_results$probs %>%
+    separate(exposure, into = c("cp", "yn_elem", "ignore")) %>%
+    mutate(cp = factor(ifelse(cp == "comp", 1, 2),
+                       levels = 1:2, labels = c("Compliance", "Performance")),
+           yn_elem = factor(ifelse(yn_elem == "yn", 1, 2),
+                            levels = 1:2,
+                            labels = c("% of Days (Overall)",
+                                       "% of Elements (Dose)")))
+
+  probsplot <- ggplot(data = probs, aes(x = prop_done, y = yhat)) +
+    facet_grid(yn_elem ~ cp) +
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = cp), alpha = 0.3) +
+    geom_line(aes(colour = cp)) +
+    scale_x_continuous(
+      name = "Percent of ABCDEF Bundle During Collaborative ICU Stay",
+      limits = 0:1,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ) +
+    scale_y_continuous(
+      name = sprintf("Adjusted Probability of %s",
+                     outcome_name),
+      limits = ylims,
+      breaks = seq(0, 1, 0.2),
+      labels = paste0(seq(0, 1, 0.2) * 100, "%")
+    ) +
+    scale_fill_manual(values = as.character(magglass_colors[c("f", "c")])) +
+    scale_colour_manual(values = as.character(magglass_colors[c("f", "c")])) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          strip.text = element_text(face = "bold"),
+          strip.background = element_rect(colour = "grey80", fill = "grey90"),
+          panel.background = element_rect(colour = "grey80", fill = NA),
+          plot.subtitle = element_text(size = 8, face = "italic"),
+          plot.caption = element_text(size = 8, face = "italic"))
+  
+  ## Create dataset for and add raw points if requested
+  if(add_raw){
+    tmp <- df %>%
+      dplyr::select(comp_yn_prop, comp_elem_prop, perf_yn_prop, perf_elem_prop,
+                    matches(outcome)) %>%
+      gather(key = exposure, value = prop_done,
+             comp_yn_prop, comp_elem_prop, perf_yn_prop, perf_elem_prop) %>%
+      ## Faceting variables to match predicted probabilities
+      separate(exposure, into = c("cp", "yn_elem", "ignore")) %>%
+      mutate(cp = factor(ifelse(cp == "comp", 1, 2),
+                         levels = 1:2, labels = c("Compliance", "Performance")),
+             yn_elem = factor(ifelse(yn_elem == "yn", 1, 2),
+                              levels = 1:2,
+                              labels = c("% of Days (Overall)",
+                                         "% of Elements (Dose)")))
+    
+    ## yhat = -0.05 if patient had ref level, 1.05 = if patient had outcome
+    ## This used to be in mutate(); guessing this is where tidyeval would help
+    tmp$yhat <- as.numeric(tmp[, outcome] == levels(tmp[, outcome])[2])
+    tmp$yhat <- ifelse(tmp$yhat == 0, -0.05, 1.05)
+
+    probsplot <- probsplot +
+      geom_point(aes(x = prop_done, y = yhat, colour = cp),
+                 position = position_jitter(height = 0.05, width = 0.05),
+                 alpha = 0.01,
+                 data = tmp) +
+    labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s.\n\nPoints above are unadjusted, raw data, where patients %s\nare at 100%% and patients without the outcome are at 0%%.\n\n%s", outcome_name, outcome_name, outcome_info))
+  } else{
+    probsplot <- probsplot +
+      labs(caption = sprintf("\nLower probabilities are favorable, indicating a lower likelihood of %s.\n\n%s", outcome_name, outcome_info))
+  }
+
+  return(probsplot)
+}
+
+```
+
+## ICU Readmission
+
+```{r icureadm_prep}
+covars_summary <-
+  c("icu_los_edit", "rcvd_benzo_icu_prop", "rcvd_opioid_icu_prop",
+    "rcvd_propofol_icu_prop", "rcvd_dex_icu_prop", "rcvd_antipsyc_icu_prop",
+    "comfort_care_icu_prop", "on_mv_icu_prop", "coma_icu_prop")
+
+summary_exposures <-
+  c("comp_yn_prop", "perf_yn_prop", "comp_elem_prop", "perf_elem_prop")
+
+## Starting dataset: all patients who had >=1 ICU day recorded and survived the
+## Collaborative ICU stay
+df_icureadm <- demog %>%
+  filter(
+    icu_days > 0 &
+      !is.na(dc_status_f) &
+      !(dc_status_f ==
+          "Died in an ICU during the ICU collaborative admission stay")
+  ) %>%
+  dplyr::select(
+    id, hosp_f, one_of(logmods_covars_base), one_of(covars_summary),
+    one_of(summary_exposures), ever_readmit_icu
+  )
+
+df_icureadm$include <- rep(FALSE, nrow(df_icureadm))
+df_icureadm$include[complete.cases(df_icureadm)] <- TRUE
+
+## Summarize missingness
+miss_icureadm <- summary_exclusion(df_icureadm)
+
+```
+
+There were too few ICU readmissions in our restricted population to allow reliable adjustment for our entire covariate list (only `r sum(df_icureadm$ever_readmit_icu == ">=1 readmission", na.rm = TRUE)`). Since we
+would not be able to determine what potential difference was due to adjustment
+for APACHE III and what was due to lack of adjustment for other covariates, we
+did not include this outcome in our sensitivity analyses.
+
+```{r icureadm_mod, results = "hide"}
+# dd_icureadm <- datadist(df_icureadm)
+# options(datadist = "dd_icureadm")
+# 
+# icureadm_results <- outcome_results_lrm(
+#   outcome = "ever_readmit_icu",
+#   exposures = summary_exposures,
+#   covars = c(logmods_covars_base, covars_summary),
+#   df = df_icureadm %>% filter(include)
+# )
+# 
+# icureadm_outcome_info <- summary_outcome_info(
+#   outcome = "ever_readmit_icu",
+#   had_outcome_string = "readmitted to the ICU",
+#   df = df_icureadm %>% filter(include)
+# )
+# 
+# icureadm_orplot <- summary_or_results(
+#   outcome_results = icureadm_results,
+#   outcome_info = icureadm_outcome_info,
+#   outcome_name = "readmission"
+# )
+# 
+# icureadm_probplot <- summary_prob_results(
+#   outcome_results = icureadm_results,
+#   outcome_info = icureadm_outcome_info,
+#   outcome_name = "readmission",
+#   add_raw = TRUE,
+#   outcome = "ever_readmit_icu",
+#   df = df_icureadm %>% filter(include)
+# )
+
+```
+
+## Hospital Length of Stay
+
+```{r hosplos_mods, results = "hide"}
+hosplos_results <- outcome_results_cph(dflist_tv = hosplos_dflist)
+hosplos_hrplot <- tte_hr_results(
+  hosplos_results,
+  outcome_info = tte_outcome_info(
+    df = hosplos_dflist[[1]], event_string = "hospital discharges within 7 days"
+  ),
+  outcome_name = "hospital discharge"
+)
+
+```
+
+After restricting our patient population and adjusting for potential confounders
+including APACHE III, more compliance and performance of the ABCDEF Bundle on a
+given day are not strongly associated with a higher likelihood of hospital discharge, though directionally performance does seem to be potentially beneficial. This lack of significance could be due to lack of power (our
+restricted sample size may not be sufficient to adjust for all covariates) or a
+true confounding effect from severity of illness.
+
+It is important to note that because most Collaborative sites were only able to collect one week of data, these results only reflect hospital discharges within
+the first 7 days after ICU admission. ABCDEF Bundle compliance and performance may have different associations with hospital discharge when longer
+hospitalizations are able to be included.
+
+```{r hosplos_plot}
+hosplos_hrplot
+
+```
+
+## Mortality
+
+We did not observe enough deaths in this subset within 7 days of ICU admission
+(only `r sum(demog$dc_alive == "Died in hospital", na.rm = TRUE)`) to
+sufficiently adjust for all covariates included in the original analyses, much
+less adjust for APACHE III. Therefore, we did not include this outcome in the
+sensitivity analysis.
+
+## Discharge Location
+
+```{r dcloc_prep}
+## Starting dataset: all patients who had >=1 ICU day recorded + survived
+## hospitalization
+df_dcloc <- demog %>%
+  filter(icu_days > 0 &
+           !is.na(dc_status_f) &
+           dc_status_f == "Discharged from the hospital alive") %>%
+  dplyr::select(
+    id, hosp_f, one_of(logmods_covars_base), one_of(covars_summary),
+    one_of(summary_exposures), home_posticu
+  )
+
+df_dcloc$include <- rep(FALSE, nrow(df_dcloc))
+df_dcloc$include[complete.cases(df_dcloc)] <- TRUE
+
+## Summarize missingness
+miss_dcloc <- summary_exclusion(df_dcloc)
+
+```
+
+```{r dcloc_mod, results = "hide"}
+dd_dcloc <- datadist(df_dcloc)
+options(datadist = "dd_dcloc")
+
+dcloc_results <- outcome_results_lrm(
+  outcome = "home_posticu",
+  exposures = summary_exposures,
+  covars = c(logmods_covars_base, covars_summary),
+  df = df_dcloc %>% filter(include)
+)
+
+dcloc_outcome_info <- summary_outcome_info(
+  outcome = "home_posticu",
+  had_outcome_string = "discharged to a facility",
+  df = df_dcloc %>% filter(include)
+)
+
+dcloc_orplot <- summary_or_results(
+  outcome_results = dcloc_results,
+  outcome_info = dcloc_outcome_info,
+  outcome_name = "discharge to facility"
+)
+
+dcloc_probplot <- summary_prob_results(
+  outcome_results = dcloc_results,
+  outcome_info = dcloc_outcome_info,
+  outcome_name = "discharge to facility",
+  add_raw = TRUE,
+  outcome = "home_posticu",
+  df = df_dcloc %>% filter(include)
+)
+
+```
+
+After restricting our population and adjusting for APACHE III, we see no
+significant relationship between ABCDEF Bundle performance and discharge to a
+location other than home among patients who survived hospitalization.
+
+```{r print_dclocors}
+dcloc_orplot
+
+```
+
+```{r print_dclocprobs}
+dcloc_probplot
 
 ```
 
