@@ -1,0 +1,228 @@
+---
+title: "ICU Liberation: Baseline vs Implementation Patient Characteristics"
+author: "Jennifer Thompson, MPH for Society of Critical Care Medicine"
+output:
+  html_document:
+    code_folding: hide
+    theme: journal
+---
+
+```{r setup, results = "hide"}
+suppressPackageStartupMessages(library(tidyverse, quietly = TRUE))
+suppressPackageStartupMessages(library(forcats, quietly = TRUE))
+suppressPackageStartupMessages(library(stringr, quietly = TRUE))
+suppressPackageStartupMessages(library(rms, quietly = TRUE))
+suppressPackageStartupMessages(library(pander, quietly = TRUE))
+suppressPackageStartupMessages(library(knitr, quietly = TRUE))
+suppressPackageStartupMessages(library(kableExtra, quietly = TRUE))
+## dpi for PNG figures
+png_dpi <- 600
+load("AnalysisData/iculib.Rdata")
+## -- Exclude patients <18 years of age ----------------------------------------
+young_pts <- subset(demog, age == 0)$id
+age_levels <- levels(demog$age_f)
+demog <- subset(demog, !(id %in% young_pts))
+demog$age_f <- factor(demog$age, labels = age_levels[-1])
+compliance <- subset(compliance, !(id %in% young_pts))
+## Combine months 1-6 (baseline); keep implementation months separate
+demog$month_cat <- with(demog, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("Baseline", paste("Imp", 1:14)))
+})
+demog$month_cat_short <- with(demog, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("BL", paste0("I", 1:14)))
+})
+## Grouping variable for baseline (months 1-6) vs implementation (7-)
+demog$base_imp <- with(demog, {
+  factor(
+    ifelse(month_cat == "Baseline", 1, 2),
+    levels = 1:2,
+    labels = c("Baseline", "Implementation")
+  )
+})
+compliance$month_cat <- with(compliance, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("Baseline", paste("Imp", 1:14)))
+})
+compliance$month_cat_short <- with(compliance, {
+  factor(ifelse(month_f %in% paste("Month", 1:6), 1,
+                as.numeric(gsub("^Month ", "", month_f)) - 5),
+         levels = 1:15,
+         labels = c("BL", paste0("I", 1:14)))
+})
+## Add numeric "study day" variable to compliance data set
+compliance$study_day <-
+  as.numeric(str_extract(compliance$redcap_event_name, "(?<=\\_)[0-9]+(?=\\_)"))
+## Get last Collaborative ICU day entered for each patient
+last_days <- compliance %>%
+  filter(icu_day) %>%
+  group_by(id) %>%
+  summarise(last_icu_day = max(study_day, na.rm = TRUE))
+demog <- left_join(demog, last_days, by = "id")
+## Vector of hex colors from magnifying glass in slide templates
+## (via colorcodepicker.com)
+magglass_colors <- c("a" = "#E16725",
+                     "b" = "#FBA724",
+                     "c" = "#698C36",
+                     "d" = "#07A7B4",
+                     "e" = "#138CBD",
+                     "f" = "#293F90",
+                     "overall" = "black")
+```
+
+```{r setup_desc}
+## Add labels to variables we want to describe - labels don't play well with
+## tidyverse so copy a separate data.frame
+demog_desc <- demog %>%
+  filter(icu_days > 0) %>%
+  mutate(
+    comfort_care_icu_days_exp = ifelse(comfort_care_icu_days == 0, NA,
+                                       comfort_care_icu_days)
+  )
+demog_desc$hosp_f <- as.factor(demog_desc$hosp_f)
+label(demog_desc$hosp_f) <- "Study site"
+label(demog_desc$hosp_type) <- "Hospital type"
+label(demog_desc$month_cat) <- "Time period"
+label(demog_desc$age_f) <- "Age category"
+label(demog_desc$sex_f) <- "Sex"
+label(demog_desc$race_cat) <- "Race"
+label(demog_desc$hisp_cat) <- "Hispanic"
+label(demog_desc$bmi) <- "BMI"
+label(demog_desc$home_preadmit) <- "Residence pre-admission"
+label(demog_desc$mob_preadmit) <- "Mobility pre-admission"
+label(demog_desc$primary_admit) <- "Primary admission diagnosis"
+label(demog_desc$icu_type_comb) <- "ICU type"
+label(demog_desc$any_soi) <- "Any severity of illness score available"
+label(demog_desc$apacheii_avail) <- "APACHE II available"
+label(demog_desc$apacheii_score) <- "APACHE II score"
+label(demog_desc$apacheiii_avail) <- "APACHE III available"
+label(demog_desc$apacheiii_score) <- "APACHE III score"
+label(demog_desc$apacheiv_avail) <- "APACHE IV available"
+label(demog_desc$apacheiv_score) <- "APACHE IV score"
+label(demog_desc$sofa_avail) <- "SOFA available"
+label(demog_desc$sofa_score) <- "SOFA score"
+label(demog_desc$othersoi_avail) <- "Other SOI available"
+label(demog_desc$ever_invas_mv) <- "Ever on invasive MV"
+label(demog_desc$hrs_invas_mv) <- "Hours on invasive MV"
+label(demog_desc$ever_noninvas_mv) <- "Ever on noninvasive MV"
+label(demog_desc$hrs_noninvas_mv) <- "Hours on noninvasive MV"
+label(demog_desc$icu_los) <- "ICU length of stay"
+label(demog_desc$icu_days) <- "Days all 24h in ICU"
+label(demog_desc$ever_readmit_icu) <- "Ever readmitted to ICU"
+label(demog_desc$had_painasmt_icu_days) <-
+  "Days in ICU with >=1 pain assessment with validated tool"
+label(demog_desc$sigpain_icu_days) <- "Days in ICU with significant pain"
+label(demog_desc$on_sedation_icu_days) <-
+  "Days in ICU on continuous/intermittent sedation"
+label(demog_desc$had_satscreen_icu_days) <- "Days in ICU with SAT safety screen"
+label(demog_desc$had_sat_icu_days) <- "Days in ICU with SAT performed"
+label(demog_desc$on_mv_icu_days) <- "Days in ICU on MV"
+label(demog_desc$had_sbtscreen_icu_days) <- "Days in ICU with SBT safety screen"
+label(demog_desc$had_sbt_icu_days) <- "Days in ICU with SBT performed"
+label(demog_desc$sat_sbt_icu_days) <- "Days in ICU with SAT prior to SBT"
+label(demog_desc$rcvd_benzo_icu_days) <- "Days received benzodiazepines in ICU"
+label(demog_desc$rcvd_opioid_icu_days) <- "Days received opioids in ICU"
+label(demog_desc$rcvd_propofol_icu_days) <- "Days received propofol in ICU"
+label(demog_desc$rcvd_dex_icu_days) <- "Days received dex in ICU"
+label(demog_desc$rcvd_antipsyc_icu_days) <- "Days received antipsychotics in ICU"
+label(demog_desc$had_sedasmt_icu_days) <-
+  "Days in ICU with >=1 sedation assessment"
+label(demog_desc$had_delasmt_icu_days) <-
+  "Days in ICU with >=1 delirium assessment"
+label(demog_desc$delirium_icu_days) <- "Days in ICU with delirium"
+label(demog_desc$had_mobscreen_icu_days) <-
+  "Days in ICU with mobility safety screen"
+label(demog_desc$had_mobility_icu_days) <-
+  "Days in ICU with mobility performed (> active ROM)"
+label(demog_desc$family_present_icu_days) <- "Days in ICU with family present"
+label(demog_desc$family_invited_icu_days) <-
+  "Days in ICU family invited to participate in rounds/conference"
+label(demog_desc$family_rounds_icu_days) <-
+  "Days in ICU family participated in rounds"
+label(demog_desc$family_care_icu_days) <-
+  "Days in ICU family participated in plan of care/ABCDEF care"
+label(demog_desc$family_edu_icu_days) <-
+  "Days in ICU family educated on ABCDEF bundle/related topics"
+label(demog_desc$hosp_los) <- "Hospital length of stay"
+label(demog_desc$home_posticu) <- "Residence post-ICU"
+label(demog_desc$mob_posticu) <- "Mobility post-ICU"
+label(demog_desc$dc_status_f) <- "Discharge status"
+label(demog_desc$dc_loc_f) <- "Discharge location"
+label(demog_desc$comp_a_days) <- "ICU days Element A compliant"
+label(demog_desc$comp_a_prop) <- "Proportion of ICU days Element A compliant"
+label(demog_desc$perf_a_days) <- "ICU days Element A performed"
+label(demog_desc$perf_a_prop) <- "Proportion of ICU days Element A performed"
+label(demog_desc$comp_b_sat_days) <- "ICU days Element B - SAT compliant"
+label(demog_desc$comp_b_sat_prop) <-
+  "Proportion of sedation ICU days Element B - SAT compliant"
+label(demog_desc$perf_b_sat_days) <- "ICU days Element B - SAT performed"
+label(demog_desc$perf_b_sat_prop) <-
+  "Proportion of sedation ICU days Element B - SAT performed"
+label(demog_desc$comp_b_sbt_days) <- "ICU days Element B - SBT compliant"
+label(demog_desc$comp_b_sbt_prop) <-
+  "Proportion of MV ICU days Element B - SBT compliant"
+label(demog_desc$perf_b_sbt_days) <- "ICU days Element B - SBT performed"
+label(demog_desc$perf_b_sbt_prop) <-
+  "Proportion of MV ICU days Element B - SBT performed"
+label(demog_desc$comp_c_days) <- "ICU days Element C compliant"
+label(demog_desc$comp_c_prop) <- "Proportion of ICU days Element C compliant"
+label(demog_desc$perf_c_days) <- "ICU days Element C performed"
+label(demog_desc$perf_c_prop) <- "Proportion of ICU days Element C performed"
+label(demog_desc$comp_d_days) <- "ICU days Element D compliant"
+label(demog_desc$comp_d_prop) <- "Proportion of ICU days Element D compliant"
+label(demog_desc$perf_d_days) <- "ICU days Element D performed"
+label(demog_desc$perf_d_prop) <- "Proportion of ICU days Element D performed"
+label(demog_desc$comp_e_days) <- "ICU days Element E compliant"
+label(demog_desc$comp_e_prop) <- "Proportion of ICU days Element E compliant"
+label(demog_desc$perf_e_days) <- "ICU days Element E performed"
+label(demog_desc$perf_e_prop) <- "Proportion of ICU days Element E performed"
+label(demog_desc$comp_f_days) <- "ICU days Element F compliant"
+label(demog_desc$comp_f_prop) <-
+  "Proportion of family ICU days Element F compliant"
+label(demog_desc$perf_f_days) <- "ICU days Element F performed"
+label(demog_desc$perf_f_prop) <-
+  "Proportion of family ICU days Element F performed"
+label(demog_desc$comp_yn_days) <- "ICU days entire bundle compliant"
+label(demog_desc$comp_yn_prop) <-
+  "Proportion of ICU days entire bundle compliant"
+label(demog_desc$perf_yn_days) <- "ICU days entire bundle performed"
+label(demog_desc$perf_yn_prop) <-
+  "Proportion of ICU days entire bundle performed"
+label(demog_desc$comfort_care_icu_ever) <- "Ever on comfort care in ICU"
+label(demog_desc$comfort_care_icu_days) <- "Days on comfort care in ICU"
+label(demog_desc$comfort_care_icu_days_exp) <-
+  "Days on comfort care in ICU among those who received it"
+
+```
+
+"Baseline" indicates patients enrolled during months 1-6. "Implementation" indicates patients enrolled at any point after. The following patients were excluded from the total enrolled cohort (as in the primary outcomes paper):
+
+1. Patients <18 years of age
+1. Patients with no full days (24h) in the ICU
+
+```{r summary_table}
+html(
+  summaryM(
+    age_f + race_cat + sex_f + primary_admit + hosp_type + icu_type_comb +
+      hisp_cat + home_preadmit + home_posticu + mob_preadmit + mob_posticu +
+      apacheiii_score + ever_invas_mv + hrs_invas_mv + icu_los + hosp_los +
+      comfort_care_icu_ever + dc_status_f ~ base_imp,
+    data = demog_desc,
+    continuous = 5,
+    overall = TRUE
+  ),
+  what = "%",
+  npct = "both",
+  digits = 2,
+  long = TRUE,
+  caption = "Patient Characteristics by Study Period"
+)
+
+```
