@@ -1,13 +1,10 @@
 ---
 title: "ICU Liberation: Baseline vs Implementation Patient Characteristics"
 author: "Jennifer Thompson, MPH for Society of Critical Care Medicine"
-output:
-  html_document:
-    code_folding: hide
-    theme: journal
+output: word_document
 ---
 
-```{r setup, results = "hide"}
+```{r setup, results = "hide", echo = FALSE}
 suppressPackageStartupMessages(library(tidyverse, quietly = TRUE))
 suppressPackageStartupMessages(library(forcats, quietly = TRUE))
 suppressPackageStartupMessages(library(stringr, quietly = TRUE))
@@ -15,9 +12,11 @@ suppressPackageStartupMessages(library(rms, quietly = TRUE))
 suppressPackageStartupMessages(library(pander, quietly = TRUE))
 suppressPackageStartupMessages(library(knitr, quietly = TRUE))
 suppressPackageStartupMessages(library(kableExtra, quietly = TRUE))
+
 ## dpi for PNG figures
 png_dpi <- 600
 load("AnalysisData/iculib.Rdata")
+
 ## -- Exclude patients <18 years of age ----------------------------------------
 young_pts <- subset(demog, age == 0)$id
 age_levels <- levels(demog$age_f)
@@ -77,7 +76,7 @@ magglass_colors <- c("a" = "#E16725",
                      "overall" = "black")
 ```
 
-```{r setup_desc}
+```{r setup_desc, echo = FALSE}
 ## Add labels to variables we want to describe - labels don't play well with
 ## tidyverse so copy a separate data.frame
 demog_desc <- demog %>%
@@ -207,7 +206,7 @@ label(demog_desc$comfort_care_icu_days_exp) <-
 1. Patients <18 years of age
 1. Patients with no full days (24h) in the ICU
 
-```{r summary_table}
+```{r summary_table, echo = FALSE}
 html(
   summaryM(
     age_f + race_cat + sex_f + primary_admit + hosp_type + icu_type_comb +
